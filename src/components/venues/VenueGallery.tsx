@@ -14,10 +14,11 @@ const BUCKET = "venue-images";
 
 interface VenueGalleryProps {
   venueId: string;
+  initialImages?: VenueImageRow[];
 }
 
-export function VenueGallery({ venueId }: VenueGalleryProps) {
-  const [images, setImages] = useState<VenueImageRow[]>([]);
+export function VenueGallery({ venueId, initialImages }: VenueGalleryProps) {
+  const [images, setImages] = useState<VenueImageRow[]>(initialImages ?? []);
   const [uploading, setUploading] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -34,7 +35,7 @@ export function VenueGallery({ venueId }: VenueGalleryProps) {
   }
 
   useEffect(() => {
-    load();
+    if (!initialImages) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueId]);
 
@@ -47,35 +48,24 @@ export function VenueGallery({ venueId }: VenueGalleryProps) {
     if (!files.length) return;
     setUploading(true);
 
-    // Only the very first image in the first-ever upload becomes primary
-    let needPrimary = images.length === 0;
+    const isPrimaryFirst = images.length === 0;
 
-    for (const file of files) {
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const path = `${venueId}/${crypto.randomUUID()}.${ext}`;
+    await Promise.all(
+      files.map(async (file, index) => {
+        const ext = file.name.split(".").pop() ?? "jpg";
+        const path = `${venueId}/${crypto.randomUUID()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file);
+        const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file);
+        if (uploadError) { toast.error("שגיאה בהעלאת תמונה: " + uploadError.message); return; }
 
-      if (uploadError) {
-        toast.error("שגיאה בהעלאת תמונה: " + uploadError.message);
-        continue;
-      }
-
-  
-      const { error: dbError } = await (supabase.from("venue_images") as any).insert({
-        venue_id: venueId,
-        storage_path: path,
-        is_primary: needPrimary,
-      });
-
-      if (dbError) {
-        toast.error("שגיאה בשמירת התמונה: " + dbError.message);
-      } else {
-        needPrimary = false;
-      }
-    }
+        const { error: dbError } = await (supabase.from("venue_images") as any).insert({
+          venue_id: venueId,
+          storage_path: path,
+          is_primary: isPrimaryFirst && index === 0,
+        });
+        if (dbError) toast.error("שגיאה בשמירת התמונה: " + dbError.message);
+      })
+    );
 
     setUploading(false);
     e.target.value = "";

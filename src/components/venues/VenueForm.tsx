@@ -37,9 +37,10 @@ interface VenueFormProps {
   owners: Pick<UserRow, "id" | "full_name" | "email">[];
   onSuccess?: (venueId?: string) => void;
   isAdmin?: boolean;
+  initialImages?: VenueImageRow[];
 }
 
-export function VenueForm({ venue, owners, onSuccess, isAdmin = false }: VenueFormProps) {
+export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialImages }: VenueFormProps) {
   const router = useRouter();
   const isEdit = !!venue;
   const supabase = useMemo(() => createClient(), []);
@@ -73,7 +74,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false }: VenueFo
   });
 
   // Image state
-  const [existingImages, setExistingImages] = useState<VenueImageRow[]>([]);
+  const [existingImages, setExistingImages] = useState<VenueImageRow[]>(initialImages ?? []);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
@@ -81,7 +82,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false }: VenueFo
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isEdit && venue?.id) {
+    if (isEdit && venue?.id && !initialImages) {
       loadImages(venue.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,12 +146,14 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false }: VenueFo
       (i) => i.is_primary && deletedIds.has(i.id)
     );
 
-    // Delete removed images via server action
-    for (const imgId of deletedIds) {
-      const img = existingImages.find((i) => i.id === imgId);
-      if (!img) continue;
-      await deleteVenueImage(img.id, img.storage_path, img.is_primary, venueId);
-    }
+    // Delete removed images in parallel
+    await Promise.all(
+      [...deletedIds].map(async (imgId) => {
+        const img = existingImages.find((i) => i.id === imgId);
+        if (!img) return;
+        await deleteVenueImage(img.id, img.storage_path, img.is_primary, venueId);
+      })
+    );
 
     // Sync primary flag changes (user toggled primary without deleting)
     const primaryChanged = surviving.find((i) => i.is_primary);
@@ -158,21 +161,21 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false }: VenueFo
       await updateVenueImagePrimary(venueId, primaryChanged.id);
     }
 
-    // Upload pending files via server action
+    // Upload pending files in parallel
     const hasPrimary = surviving.some((i) => i.is_primary) && !primaryDeleted;
-    let needPrimary = !hasPrimary;
-    for (const pending of pendingFiles) {
-      const fd = new FormData();
-      fd.append("file", pending.file);
-      fd.append("venueId", venueId);
-      fd.append("isPrimary", String(needPrimary));
-      try {
-        await uploadVenueImage(fd);
-        needPrimary = false;
-      } catch (err: unknown) {
-        toast.error("שגיאה בהעלאת תמונה: " + (err instanceof Error ? err.message : String(err)));
-      }
-    }
+    await Promise.all(
+      pendingFiles.map(async (pending, index) => {
+        const fd = new FormData();
+        fd.append("file", pending.file);
+        fd.append("venueId", venueId);
+        fd.append("isPrimary", String(!hasPrimary && index === 0));
+        try {
+          await uploadVenueImage(fd);
+        } catch (err: unknown) {
+          toast.error("שגיאה בהעלאת תמונה: " + (err instanceof Error ? err.message : String(err)));
+        }
+      })
+    );
   }
 
   function set(field: string, value: string | boolean) {

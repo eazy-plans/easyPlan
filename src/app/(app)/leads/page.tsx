@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/queries";
 import { LeadsManager } from "@/components/leads/LeadsManager";
@@ -7,12 +8,12 @@ export default async function LeadsPage() {
 
   if (!["admin", "secretary"].includes(profile.role)) redirect("/dashboard");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: leads }, { data: venues }] = await Promise.all([
     (supabase.from("leads") as any)
       .select("*, interests:lead_venue_interests(venue:venues(id,name))")
       .order("created_at", { ascending: false }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
     (supabase.from("venues") as any).select("id, name").eq("is_active", true).order("name"),
   ]);
 

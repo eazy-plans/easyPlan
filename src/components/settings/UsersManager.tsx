@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import type { UserRole } from "@/types/database";
 import { useRouter } from "next/navigation";
@@ -56,7 +57,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
     if (!editUser) return;
     setEditLoading(true);
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { error } = await (supabase.from("users") as any)
       .update({ full_name: editForm.full_name, role: editForm.role })
       .eq("id", editUser.id);
@@ -94,7 +95,8 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
           <DialogHeader>
             <DialogTitle>עריכת משתמש</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleEdit} className="space-y-4 mt-2">
+          <DialogBody>
+          <form onSubmit={handleEdit} className="space-y-4">
             <div className="space-y-1">
               <Label>שם מלא *</Label>
               <Input
@@ -133,6 +135,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
               <Button type="button" variant="outline" onClick={() => setEditUser(null)}>ביטול</Button>
             </div>
           </form>
+          </DialogBody>
         </DialogContent>
       </Dialog>
 
@@ -147,7 +150,8 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
             <DialogHeader>
               <DialogTitle>הוספת משתמש חדש</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleInvite} className="space-y-4 mt-2">
+            <DialogBody>
+            <form onSubmit={handleInvite} className="space-y-4">
               <div className="space-y-1">
                 <Label>שם מלא *</Label>
                 <Input
@@ -208,6 +212,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                 <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>ביטול</Button>
               </div>
             </form>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       </div>

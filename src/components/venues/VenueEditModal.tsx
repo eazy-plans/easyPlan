@@ -4,10 +4,10 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogBody,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { VenueForm } from "./VenueForm";
-import { VenueGallery } from "./VenueGallery";
 import type { VenueRow, UserRow } from "@/types/database";
 
 interface VenueEditModalProps {
@@ -20,12 +20,13 @@ interface VenueEditModalProps {
 export function VenueEditModal({ venue, owners, open, onOpenChange }: VenueEditModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>עריכת אולם — {venue.name}</DialogTitle>
         </DialogHeader>
-        <VenueForm venue={venue} owners={owners} onSuccess={() => onOpenChange(false)} />
-        <VenueGallery venueId={venue.id} />
+        <DialogBody>
+          <VenueForm venue={venue} owners={owners} onSuccess={() => onOpenChange(false)} />
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

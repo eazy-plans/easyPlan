@@ -46,7 +46,7 @@ function toCalendarEvent(e: EventRow): CalendarEvent {
   const date = new Date(e.date);
   return {
     id: e.id,
-    title: `${e.client_name}`,
+    title: e.client_name,
     start: date,
     end: date,
     resource: e,

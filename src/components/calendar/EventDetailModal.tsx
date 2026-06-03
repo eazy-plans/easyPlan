@@ -1,23 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { EventRow, EventStatus } from "@/types/database";
 import { formatDate, formatCurrency } from "@/lib/utils";
-
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  morning: "בוקר", evening: "ערב", full_day: "יום מלא", shabbat: "שבת",
-};
-const EVENT_PURPOSE_LABELS: Record<string, string> = {
-  wedding: "חתונה", bar_mitzvah: "בר מצווה", bat_mitzvah: "בת מצווה",
-  birthday: "יום הולדת", conference: "כנס / אירוע עסקי", other: "אחר",
-};
+import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 const STATUS_LABELS: Record<EventStatus, string> = {
   approved: "אושר", cancelled: "בוטל",
 };
@@ -38,7 +32,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin }: EventDetailM
   async function cancelEvent() {
     setLoading(true);
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { error } = await (supabase.from("events") as any)
       .update({ status: "cancelled" })
       .eq("id", event.id);
@@ -52,7 +46,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin }: EventDetailM
   async function deleteEvent() {
     setLoading(true);
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { error } = await (supabase.from("events") as any).delete().eq("id", event.id);
     setLoading(false);
 
@@ -75,7 +69,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin }: EventDetailM
             </Badge>
           </DialogTitle>
         </DialogHeader>
-
+        <DialogBody>
         <div className="space-y-3 text-sm">
           <div className="flex gap-2">
             <span className="text-muted-foreground w-24 shrink-0">סוג אירוע</span>
@@ -166,6 +160,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin }: EventDetailM
             </AlertDialog>
           )}
         </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

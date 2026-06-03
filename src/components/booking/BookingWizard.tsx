@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useCallback } from "react";
@@ -9,6 +10,7 @@ import { Step4VenueDetail } from "./Step4VenueDetail";
 import { Step5BookingForm } from "./Step5BookingForm";
 import { Step6Confirmation } from "./Step6Confirmation";
 import type { EventType, VenueRow, VenueImageRow } from "@/types/database";
+import { PRICE_KEY } from "@/types/booking";
 
 type VenueWithImages = VenueRow & { images: VenueImageRow[] };
 
@@ -23,13 +25,6 @@ interface BookingWizardProps {
   isAdmin: boolean;
   userId: string;
 }
-
-const PRICE_KEY: Record<EventType, keyof VenueRow> = {
-  morning: "price_morning",
-  evening: "price_evening",
-  full_day: "price_full_day",
-  shabbat: "price_shabbat",
-};
 
 export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
   const [step, setStep] = useState(1);
@@ -64,7 +59,7 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
     const supabase = createClient();
     const dateStr = date.toISOString().split("T")[0];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     let venueQuery = (supabase.from("venues") as any)
       .select("*, images:venue_images(*)")
       .eq("is_active", true)
@@ -77,15 +72,15 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
     const nowIso = new Date().toISOString();
 
     // Fetch venues, booked events, and active locks in parallel
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const [{ data: allVenues }, { data: bookedEvents }, { data: locks }] = await Promise.all([
       venueQuery,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
       (supabase.from("events") as any)
         .select("venue_id, event_type")
         .eq("date", dateStr)
         .neq("status", "cancelled"),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
       (supabase.from("booking_locks") as any)
         .select("venue_id, event_type")
         .eq("date", dateStr)

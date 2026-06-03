@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -8,16 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
+import { formatCurrency, formatDate, isValidPhone } from "@/lib/utils";
+import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS, PRICE_KEY } from "@/types/booking";
 import type { EventType, EventPurpose, VenueRow } from "@/types/database";
-
-const PRICE_KEY: Record<EventType, keyof VenueRow> = {
-  morning: "price_morning",
-  evening: "price_evening",
-  full_day: "price_full_day",
-  shabbat: "price_shabbat",
-};
 
 interface Step5Props {
   venue: VenueRow;
@@ -27,11 +21,6 @@ interface Step5Props {
   userId: string;
   onBack: () => void;
   onSuccess: (eventId: string) => void;
-}
-
-function isValidPhone(phone: string): boolean {
-  const digits = phone.replace(/[\s\-]/g, "");
-  return /^0\d{8,9}$/.test(digits);
 }
 
 export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBack, onSuccess }: Step5Props) {
@@ -68,7 +57,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       const nowIso = new Date().toISOString();
 
       // Check if another user holds an active lock on this slot
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { data: existing } = await (supabase.from("booking_locks") as any)
         .select("locked_by_user_id, locked_until")
         .eq("venue_id", venue.id)
@@ -84,7 +73,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       }
 
       // Acquire (or refresh) the lock — ignore errors (RLS / table issues don't block booking)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       await (supabase.from("booking_locks") as any).upsert({
         venue_id: venue.id,
         date: dateStr,
@@ -110,7 +99,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
     // Release lock on unmount
     return () => {
       clearInterval(interval);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       (supabase.from("booking_locks") as any)
         .delete()
         .eq("venue_id", venue.id)
@@ -136,7 +125,6 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
     setLoading(true);
     const supabase = createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from("events") as any).insert({
       venue_id: venue.id,
       date: date.toISOString().split("T")[0],

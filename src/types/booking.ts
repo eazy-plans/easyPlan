@@ -1,5 +1,12 @@
 import type { EventType, EventPurpose, VenueRow, VenueImageRow } from "./database";
 
+export const PRICE_KEY: Record<EventType, keyof VenueRow> = {
+  morning: "price_morning",
+  evening: "price_evening",
+  full_day: "price_full_day",
+  shabbat: "price_shabbat",
+};
+
 export interface BookingState {
   // Step 1
   date: Date | null;

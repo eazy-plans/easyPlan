@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getUserProfile } from "@/lib/supabase/queries";
 import { EventsTable } from "@/components/events/EventsTable";
 
@@ -5,14 +6,14 @@ export default async function EventsPage() {
   const { supabase, user, profile } = await getUserProfile();
   const role = profile.role;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   let query = (supabase.from("events") as any)
     .select("*, venue:venues(id, name, city), creator:users!created_by(full_name)")
     .order("date", { ascending: true });
 
   // Venue owners see only their venues' events
   if (role === "venue_owner") {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
     const { data: myVenues } = await (supabase.from("venues") as any)
       .select("id")
       .eq("owner_user_id", user.id);

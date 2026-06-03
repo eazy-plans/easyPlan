@@ -15,3 +15,8 @@ export function formatDate(date: Date | string): string {
 export function formatCurrency(amount: number): string {
   return `₪${amount.toLocaleString("he-IL")}`;
 }
+
+export function isValidPhone(phone: string): boolean {
+  const digits = phone.replace(/[\s\-]/g, "");
+  return /^0\d{8,9}$/.test(digits);
+}

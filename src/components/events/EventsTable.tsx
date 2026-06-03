@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo } from "react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
   const [events, setEvents] = useState(initialEvents);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all");
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => events.filter((ev) => {
@@ -62,18 +64,23 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
   }), [events, search, statusFilter]);
 
   async function cancelEvent(eventId: string) {
-    const res = await fetch("/api/events/cancel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventId }),
-    });
+    setCancellingId(eventId);
+    try {
+      const res = await fetch("/api/events/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId }),
+      });
 
-    if (!res.ok) { toast.error("שגיאה בביטול האירוע"); return; }
+      if (!res.ok) { toast.error("שגיאה בביטול האירוע"); return; }
 
-    const { notified } = await res.json();
-    setEvents((prev) => prev.map((e) => e.id === eventId ? { ...e, status: "cancelled" } : e));
-    toast.success(notified > 0 ? `האירוע בוטל — ${notified} לידים עודכנו` : "האירוע בוטל");
-    startTransition(() => router.refresh());
+      const { notified } = await res.json();
+      setEvents((prev) => prev.map((e) => e.id === eventId ? { ...e, status: "cancelled" } : e));
+      toast.success(notified > 0 ? `האירוע בוטל — ${notified} לידים עודכנו` : "האירוע בוטל");
+      startTransition(() => router.refresh());
+    } finally {
+      setCancellingId(null);
+    }
   }
 
   const canCancel = role === "admin" || role === "secretary";
@@ -148,8 +155,8 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
                 <td className="px-4 py-3">
                   <div className="flex gap-1 justify-end">
                     {canCancel && ev.status !== "cancelled" && (
-                      <Button size="sm" variant="outline" onClick={() => cancelEvent(ev.id)} disabled={isPending}>
-                        בטל
+                      <Button size="sm" variant="outline" onClick={() => cancelEvent(ev.id)} disabled={cancellingId === ev.id || isPending}>
+                        {cancellingId === ev.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "בטל"}
                       </Button>
                     )}
                   </div>
@@ -194,7 +201,9 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
             </div>
             {canCancel && ev.status !== "cancelled" && (
               <div className="flex gap-2 pt-1">
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => cancelEvent(ev.id)} disabled={isPending}>בטל</Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => cancelEvent(ev.id)} disabled={cancellingId === ev.id || isPending}>
+                  {cancellingId === ev.id ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "בטל"}
+                </Button>
               </div>
             )}
           </div>

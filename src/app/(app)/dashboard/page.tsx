@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/queries";
 import { DashboardStatsClient } from "@/components/dashboard/DashboardStatsClient";
@@ -12,16 +13,16 @@ export default async function DashboardPage() {
   const yearStart = `${currentYear}-01-01`;
   const yearEnd = `${currentYear}-12-31`;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [{ data: events }, { data: leads }, { data: venues }] = await Promise.all([
     (supabase.from("events") as any)
       .select("id, date, event_type, status, price_final, venue_id, venue:venues(name)")
       .gte("date", yearStart)
       .lte("date", yearEnd)
       .neq("status", "cancelled"),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
     (supabase.from("leads") as any).select("id, status"),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
     (supabase.from("venues") as any).select("id, name").eq("is_active", true),
   ]);
 

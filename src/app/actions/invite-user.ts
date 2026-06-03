@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
@@ -9,7 +10,6 @@ export async function inviteUser(email: string, full_name: string, role: UserRol
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Unauthorized" };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile } = await (supabase.from("users") as any)
     .select("role")
     .eq("id", user.id)

@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -15,7 +17,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { VenueRow, UserRow } from "@/types/database";
+import Image from "next/image";
+import { X, Star, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
+import type { VenueRow, UserRow, VenueImageRow } from "@/types/database";
+import {
+  uploadVenueImage,
+  deleteVenueImage,
+  updateVenueImagePrimary,
+} from "@/app/actions/venue-images";
+
+interface PendingFile {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
 
 interface VenueFormProps {
   venue?: VenueRow;
@@ -26,6 +41,7 @@ interface VenueFormProps {
 export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
   const router = useRouter();
   const isEdit = !!venue;
+  const supabase = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -55,6 +71,109 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
     is_active: venue?.is_active ?? true,
   });
 
+  // Image state
+  const [existingImages, setExistingImages] = useState<VenueImageRow[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEdit && venue?.id) {
+      loadImages(venue.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, venue?.id]);
+
+  // Revoke object URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      pendingFiles.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadImages(venueId: string) {
+    const { data } = await (supabase.from("venue_images") as any)
+      .select("*")
+      .eq("venue_id", venueId)
+      .order("created_at");
+    setExistingImages(data ?? []);
+  }
+
+  function getUrl(path: string) {
+    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/venue-images/${path}`;
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setPendingFiles((prev) => [
+      ...prev,
+      ...files.map((file) => ({
+        id: crypto.randomUUID(),
+        file,
+        previewUrl: URL.createObjectURL(file),
+      })),
+    ]);
+    e.target.value = "";
+  }
+
+  function removePending(id: string) {
+    setPendingFiles((prev) => {
+      const item = prev.find((p) => p.id === id);
+      if (item) URL.revokeObjectURL(item.previewUrl);
+      return prev.filter((p) => p.id !== id);
+    });
+  }
+
+  function markDeleted(imgId: string) {
+    setDeletedIds((prev) => new Set([...prev, imgId]));
+  }
+
+  function setPrimaryExisting(imgId: string) {
+    setExistingImages((prev) =>
+      prev.map((img) => ({ ...img, is_primary: img.id === imgId }))
+    );
+  }
+
+  async function processImages(venueId: string) {
+    const surviving = existingImages.filter((i) => !deletedIds.has(i.id));
+    const primaryDeleted = existingImages.some(
+      (i) => i.is_primary && deletedIds.has(i.id)
+    );
+
+    // Delete removed images via server action
+    for (const imgId of deletedIds) {
+      const img = existingImages.find((i) => i.id === imgId);
+      if (!img) continue;
+      await deleteVenueImage(img.id, img.storage_path, img.is_primary, venueId);
+    }
+
+    // Sync primary flag changes (user toggled primary without deleting)
+    const primaryChanged = surviving.find((i) => i.is_primary);
+    if (primaryChanged && !primaryDeleted) {
+      await updateVenueImagePrimary(venueId, primaryChanged.id);
+    }
+
+    // Upload pending files via server action
+    const hasPrimary = surviving.some((i) => i.is_primary) && !primaryDeleted;
+    let needPrimary = !hasPrimary;
+    for (const pending of pendingFiles) {
+      const fd = new FormData();
+      fd.append("file", pending.file);
+      fd.append("venueId", venueId);
+      fd.append("isPrimary", String(needPrimary));
+      try {
+        await uploadVenueImage(fd);
+        needPrimary = false;
+      } catch (err: unknown) {
+        toast.error("שגיאה בהעלאת תמונה: " + (err instanceof Error ? err.message : String(err)));
+      }
+    }
+  }
+
   function set(field: string, value: string | boolean) {
     setForm((f) => ({ ...f, [field]: value }));
     setErrors((e) => { const next = { ...e }; delete next[field]; return next; });
@@ -77,7 +196,7 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
     if (!form.owner_user_id) errs.owner_user_id = "יש לבחור בעל אולם";
 
     for (const key of ["price_morning", "price_evening", "price_full_day", "price_shabbat"]) {
-      const val = (form as unknown as Record<string, string>)[key];
+      const val = form[key as keyof typeof form] as string;
       if (val !== "" && (isNaN(parseFloat(val)) || parseFloat(val) < 0))
         errs[key] = "המחיר חייב להיות מספר אי-שלילי";
     }
@@ -89,8 +208,8 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
       ["hours_shabbat_start", "hours_shabbat_end"],
     ];
     for (const [startKey, endKey] of hourPairs) {
-      const s = (form as unknown as Record<string, string>)[startKey];
-      const e = (form as unknown as Record<string, string>)[endKey];
+      const s = form[startKey as keyof typeof form] as string;
+      const e = form[endKey as keyof typeof form] as string;
       if (s && !e) errs[endKey] = "יש למלא שעת סיום";
       if (!s && e) errs[startKey] = "יש למלא שעת התחלה";
     }
@@ -130,40 +249,63 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
       is_active: form.is_active,
     };
 
-    const supabase = createClient();
     let error;
-
-    let newVenueId: string | undefined;
+    let venueId: string;
 
     if (isEdit) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ({ error } = await (supabase.from("venues") as any).update(payload).eq("id", venue.id));
+      venueId = venue.id;
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: inserted, error: insertError } = await (supabase.from("venues") as any)
         .insert(payload)
         .select("id")
         .single();
       error = insertError;
-      newVenueId = inserted?.id;
+      venueId = inserted?.id;
     }
 
-    setLoading(false);
-
     if (error) {
+      setLoading(false);
       toast.error("שגיאה בשמירת האולם: " + error.message);
       return;
     }
 
+    await processImages(venueId);
+
+    setLoading(false);
     toast.success(isEdit ? "האולם עודכן בהצלחה" : "האולם נוסף בהצלחה");
+
     if (onSuccess) {
-      onSuccess(newVenueId);
+      onSuccess();
       router.refresh();
     } else {
       router.push("/venues");
       router.refresh();
     }
   }
+
+  const visibleExisting = existingImages.filter((i) => !deletedIds.has(i.id));
+
+  const allLightboxUrls = [
+    ...visibleExisting.map(img => getUrl(img.storage_path)),
+    ...pendingFiles.map(p => p.previewUrl),
+  ];
+
+  function closeLightbox() { setLightboxIdx(null); setZoom(1); }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (lightboxIdx === null) return;
+    const count = allLightboxUrls.length;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setLightboxIdx(null); setZoom(1); }
+      if (e.key === "ArrowLeft")  { setLightboxIdx(i => i !== null ? (i - 1 + count) % count : null); setZoom(1); }
+      if (e.key === "ArrowRight") { setLightboxIdx(i => i !== null ? (i + 1) % count : null); setZoom(1); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightboxIdx, allLightboxUrls.length]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl">
@@ -240,7 +382,7 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
                 min="0"
                 step="100"
                 placeholder="0"
-                value={(form as unknown as Record<string, string>)[key]}
+                value={form[key as keyof typeof form] as string}
                 onChange={(e) => set(key, e.target.value)}
                 className={errors[key] ? "border-destructive" : ""}
               />
@@ -265,7 +407,7 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
               <div className="flex items-center gap-2">
                 <Input
                   type="time"
-                  value={(form as unknown as Record<string, string>)[startKey]}
+                  value={form[startKey as keyof typeof form] as string}
                   onChange={(e) => set(startKey, e.target.value)}
                   className={`w-full${errors[startKey] ? " border-destructive" : ""}`}
                   dir="ltr"
@@ -273,7 +415,7 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
                 <span className="text-muted-foreground">—</span>
                 <Input
                   type="time"
-                  value={(form as unknown as Record<string, string>)[endKey]}
+                  value={form[endKey as keyof typeof form] as string}
                   onChange={(e) => set(endKey, e.target.value)}
                   className={`w-full${errors[endKey] ? " border-destructive" : ""}`}
                   dir="ltr"
@@ -299,6 +441,106 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
         </div>
       </section>
 
+      {/* Images */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold border-b pb-2">תמונות</h2>
+
+        {visibleExisting.length === 0 && pendingFiles.length === 0 ? (
+          <p className="text-sm text-muted-foreground">לא נבחרו תמונות</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            {/* Existing saved images */}
+            {visibleExisting.map((img, idx) => (
+              <div
+                key={img.id}
+                className="relative group rounded-lg overflow-hidden border bg-muted cursor-pointer"
+                onClick={() => { setLightboxIdx(idx); setZoom(1); }}
+              >
+                <div className="aspect-video relative">
+                  <Image
+                    src={getUrl(img.storage_path)}
+                    alt="venue"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                {img.is_primary && (
+                  <span className="absolute top-1 right-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-sm">
+                    ראשי
+                  </span>
+                )}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                  {!img.is_primary && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setPrimaryExisting(img.id); }}
+                      className="w-full flex items-center justify-center gap-1 text-xs bg-white/20 hover:bg-white/30 text-white rounded px-2 py-1"
+                    >
+                      <Star size={12} />
+                      הגדר כראשי
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); markDeleted(img.id); }}
+                    className="w-full flex items-center justify-center gap-1 text-xs bg-red-500/80 hover:bg-red-600 text-white rounded px-2 py-1"
+                  >
+                    <X size={12} />
+                    מחק
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {/* Pending (not yet uploaded) files */}
+            {pendingFiles.map((p, idx) => (
+              <div
+                key={p.id}
+                className="relative group rounded-lg overflow-hidden border-2 border-dashed border-primary/40 bg-muted cursor-pointer"
+                onClick={() => { setLightboxIdx(visibleExisting.length + idx); setZoom(1); }}
+              >
+                <div className="aspect-video relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.previewUrl}
+                    alt="preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <span className="absolute top-1 right-1 bg-muted text-muted-foreground text-xs px-1.5 py-0.5 rounded-sm">
+                  ממתין
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); removePending(p.id); }}
+                  className="absolute top-1 left-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-0.5"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            הוסף תמונות
+          </Button>
+        </div>
+      </section>
+
       <div className="flex gap-3 pt-2">
         <Button type="submit" disabled={loading}>
           {loading ? "שומר..." : isEdit ? "עדכן אולם" : "הוסף אולם"}
@@ -307,6 +549,72 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
           ביטול
         </Button>
       </div>
+
+      {/* Lightbox — nested Radix Dialog avoids parent dialog's onInteractOutside interference */}
+      <DialogPrimitive.Root
+        open={lightboxIdx !== null}
+        onOpenChange={(open) => { if (!open) closeLightbox(); }}
+      >
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[9999] bg-black/90" />
+          <DialogPrimitive.Content
+            className="fixed inset-0 z-[9999] flex items-center justify-center outline-none"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft")  { setLightboxIdx(i => i !== null ? (i - 1 + allLightboxUrls.length) % allLightboxUrls.length : null); setZoom(1); }
+              if (e.key === "ArrowRight") { setLightboxIdx(i => i !== null ? (i + 1) % allLightboxUrls.length : null); setZoom(1); }
+            }}
+          >
+            <DialogPrimitive.Title className="sr-only">תצוגת תמונה</DialogPrimitive.Title>
+            <DialogPrimitive.Close asChild>
+              <button type="button" className="absolute top-4 right-4 text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors z-10">
+                <X size={20} />
+              </button>
+            </DialogPrimitive.Close>
+
+            <div className="absolute top-4 left-4 flex gap-2 z-10">
+              <button type="button" className="text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+                onClick={() => setZoom(z => Math.min(z + 0.5, 4))}>
+                <ZoomIn size={20} />
+              </button>
+              <button type="button" className="text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+                onClick={() => setZoom(z => Math.max(z - 0.5, 0.5))}>
+                <ZoomOut size={20} />
+              </button>
+            </div>
+
+            {allLightboxUrls.length > 1 && (
+              <button type="button" className="absolute left-4 top-1/2 -translate-y-1/2 text-white bg-black/40 hover:bg-black/60 rounded-full p-3 transition-colors z-10"
+                onClick={() => { setLightboxIdx(i => i !== null ? (i - 1 + allLightboxUrls.length) % allLightboxUrls.length : null); setZoom(1); }}>
+                <ChevronLeft size={24} />
+              </button>
+            )}
+
+            {lightboxIdx !== null && (
+              <div
+                style={{ transform: `scale(${zoom})`, transition: "transform 0.2s", cursor: zoom > 1 ? "zoom-out" : "zoom-in" }}
+                onClick={() => setZoom(z => z > 1 ? 1 : 2)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={allLightboxUrls[lightboxIdx]} alt="תמונה מוגדלת" className="max-h-[85vh] max-w-[85vw] object-contain select-none" />
+              </div>
+            )}
+
+            {allLightboxUrls.length > 1 && (
+              <button type="button" className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-black/40 hover:bg-black/60 rounded-full p-3 transition-colors z-10"
+                onClick={() => { setLightboxIdx(i => i !== null ? (i + 1) % allLightboxUrls.length : null); setZoom(1); }}>
+                <ChevronRight size={24} />
+              </button>
+            )}
+
+            {allLightboxUrls.length > 1 && lightboxIdx !== null && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm bg-black/40 px-3 py-1 rounded-full">
+                {lightboxIdx + 1} / {allLightboxUrls.length}
+              </div>
+            )}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </form>
   );
 }

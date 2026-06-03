@@ -1,32 +1,18 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { EventType, EventPurpose } from "@/types/database";
-import { formatDate } from "@/lib/utils";
-
-const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  morning: "בוקר",
-  evening: "ערב",
-  full_day: "יום מלא",
-  shabbat: "שבת",
-};
-
-const EVENT_PURPOSE_LABELS: Record<EventPurpose, string> = {
-  wedding: "חתונה",
-  bar_mitzvah: "בר מצווה",
-  bat_mitzvah: "בת מצווה",
-  birthday: "יום הולדת",
-  conference: "כנס / אירוע עסקי",
-  other: "אחר",
-};
+import { formatDate, isValidPhone } from "@/lib/utils";
+import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 
 interface EventFormModalProps {
   open: boolean;
@@ -35,11 +21,6 @@ interface EventFormModalProps {
   venueId: string;
   userId: string;
   isAdmin: boolean;
-}
-
-function isValidPhone(phone: string): boolean {
-  const digits = phone.replace(/[\s\-]/g, "");
-  return /^0\d{8,9}$/.test(digits);
 }
 
 export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }: EventFormModalProps) {
@@ -78,7 +59,7 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }
     setLoading(true);
     const supabase = createClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { error } = await (supabase.from("events") as any).insert({
       venue_id: venueId,
       date: date.toISOString().split("T")[0],
@@ -116,7 +97,8 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }
         <DialogHeader>
           <DialogTitle>הוספת אירוע — {formatDate(date)}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+        <DialogBody>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>סוג אירוע *</Label>
@@ -181,6 +163,7 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }
             <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
           </div>
         </form>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

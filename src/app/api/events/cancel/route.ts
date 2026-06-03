@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendWaitlistNotifyEmail } from "@/lib/email/sendEventEmails";
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: event, error: fetchErr } = await (supabase.from("events") as any)
     .select("id, venue_id, date, status")
     .eq("id", eventId)
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
   if (event.status === "cancelled") return NextResponse.json({ ok: true });
 
   // Cancel the event
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { error: updateErr } = await (supabase.from("events") as any)
     .update({ status: "cancelled" })
     .eq("id", eventId);
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
 
   // Fetch waitlist entries for this slot and notify leads
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: waitlistEntries } = await (supabase.from("waitlist") as any)
     .select("id, lead_id, leads(client_name, client_email), venues(name)")
     .eq("venue_id", event.venue_id)
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
         venue?.name ?? "",
         event.date,
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    
       await (supabase.from("email_logs") as any).insert({
         event_id: eventId,
         recipient_email: lead.client_email,
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
         status: "sent",
       });
     } catch {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    
       await (supabase.from("email_logs") as any).insert({
         event_id: eventId,
         recipient_email: lead.client_email,

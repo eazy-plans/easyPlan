@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resend } from "@/lib/email/resend";
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().split("T")[0];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: events, error } = await (supabase.from("events") as any)
     .select("*, venue:venues(name, address, city, parking_info, public_transport_info, hours_morning_start, hours_morning_end, hours_evening_start, hours_evening_end, hours_full_start, hours_full_end, hours_shabbat_start, hours_shabbat_end)")
     .eq("date", tomorrowStr)
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
       html,
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
     await (supabase.from("email_logs") as any).insert({
       event_id: ev.id,
       recipient_email: ev.client_email,

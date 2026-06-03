@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Building2 } from "lucide-react";
 import Image from "next/image";
 import type { VenueRow, VenueImageRow, EventType } from "@/types/database";
+import { PRICE_KEY } from "@/types/booking";
 
 type VenueWithImages = VenueRow & { images: VenueImageRow[] };
 
@@ -13,13 +14,6 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 function getImageUrl(path: string) {
   return `${SUPABASE_URL}/storage/v1/object/public/venue-images/${path}`;
 }
-
-const PRICE_KEY: Record<EventType, keyof VenueRow> = {
-  morning: "price_morning",
-  evening: "price_evening",
-  full_day: "price_full_day",
-  shabbat: "price_shabbat",
-};
 
 interface Step3Props {
   venues: VenueWithImages[];

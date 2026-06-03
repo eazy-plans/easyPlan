@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { resend } from "./resend";
 import { ownerRequestHtml } from "./templates/ownerRequest";
 import { clientConfirmHtml } from "./templates/clientConfirm";
@@ -38,7 +39,7 @@ export async function sendWaitlistNotifyEmail(
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export async function sendOwnerRequestEmail(event: any, venue: any, ownerEmail: string) {
   const [startKey, endKey] = HOURS_MAP[event.event_type] ?? [];
   const html = ownerRequestHtml({
@@ -62,7 +63,7 @@ export async function sendOwnerRequestEmail(event: any, venue: any, ownerEmail: 
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export async function sendClientConfirmEmail(event: any, venue: any) {
   if (!event.client_email) return;
   const [startKey, endKey] = HOURS_MAP[event.event_type] ?? [];

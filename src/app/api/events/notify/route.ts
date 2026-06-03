@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendOwnerRequestEmail, sendClientConfirmEmail } from "@/lib/email/sendEventEmails";
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Fetch event + venue + owner
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: event, error } = await (supabase.from("events") as any)
     .select("*, venue:venues(*, owner:users!owner_user_id(email))")
     .eq("id", eventId)
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
       emailFailed = true;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
     await (supabase.from("email_logs") as any).insert({
       event_id: eventId,
       recipient_email: ownerEmail,
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
       emailFailed = true;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
     await (supabase.from("email_logs") as any).insert({
       event_id: eventId,
       recipient_email: event.client_email,

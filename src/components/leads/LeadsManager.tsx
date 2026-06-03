@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -9,8 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { formatDate } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { formatDate, isValidPhone } from "@/lib/utils";
 import type { LeadStatus } from "@/types/database";
 import { useRouter } from "next/navigation";
 
@@ -53,11 +54,6 @@ interface LeadsManagerProps {
 
 const EMPTY_FORM = { client_name: "", client_phone: "", client_email: "", notes: "", status: "new" as LeadStatus };
 
-function isValidPhone(phone: string): boolean {
-  const digits = phone.replace(/[\s\-]/g, "");
-  return /^0\d{8,9}$/.test(digits);
-}
-
 export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps) {
   const router = useRouter();
   const [leads, setLeads] = useState(initialLeads);
@@ -92,7 +88,7 @@ export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps)
     }
     setSaving(true);
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { data, error } = await (supabase.from("leads") as any)
       .insert({
         client_name: form.client_name,
@@ -115,7 +111,7 @@ export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps)
 
   async function updateLeadStatus(leadId: string, newStatus: LeadStatus) {
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { error } = await (supabase.from("leads") as any)
       .update({ status: newStatus })
       .eq("id", leadId);
@@ -127,7 +123,7 @@ export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps)
 
   async function updateNotes(leadId: string, notes: string) {
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { error } = await (supabase.from("leads") as any)
       .update({ notes })
       .eq("id", leadId);
@@ -139,7 +135,7 @@ export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps)
 
   async function addVenueInterest(leadId: string, venueId: string) {
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { error } = await (supabase.from("lead_venue_interests") as any)
       .insert({ lead_id: leadId, venue_id: venueId });
     if (error) { toast.error("שגיאה בהוספת אולם"); return; }
@@ -179,7 +175,8 @@ export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps)
             <DialogHeader>
               <DialogTitle>הוספת ליד חדש</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleAdd} className="space-y-4 mt-2">
+            <DialogBody>
+            <form onSubmit={handleAdd} className="space-y-4">
               <div className="space-y-1">
                 <Label>שם לקוח *</Label>
                 <Input value={form.client_name} onChange={(e) => setF("client_name", e.target.value)} required />
@@ -213,6 +210,7 @@ export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps)
                 <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>ביטול</Button>
               </div>
             </form>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       </div>
@@ -308,7 +306,7 @@ function LeadDetailDialog({
   useEffect(() => {
     if (!showWaitlist) return;
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (supabase.from("waitlist") as any)
       .select("id, venue_id, requested_date, venues(name)")
       .eq("lead_id", lead.id)
@@ -320,7 +318,7 @@ function LeadDetailDialog({
     if (!waitlistVenue || !waitlistDate) return;
     setAddingWaitlist(true);
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { data, error } = await (supabase.from("waitlist") as any)
       .insert({ lead_id: lead.id, venue_id: waitlistVenue, requested_date: waitlistDate })
       .select("id, venue_id, requested_date, venues(name)")
@@ -335,7 +333,7 @@ function LeadDetailDialog({
 
   async function handleRemoveWaitlist(id: string) {
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     await (supabase.from("waitlist") as any).delete().eq("id", id);
     setWaitlist((prev) => prev.filter((w) => w.id !== id));
   }
@@ -348,7 +346,8 @@ function LeadDetailDialog({
       <DialogHeader>
         <DialogTitle>{lead.client_name}</DialogTitle>
       </DialogHeader>
-      <div className="space-y-4 mt-2">
+      <DialogBody>
+      <div className="space-y-4">
         <div className="space-y-1">
           <Label>סטטוס</Label>
           <Select value={lead.status} onValueChange={(v) => onStatusChange(lead.id, v as LeadStatus)}>
@@ -427,6 +426,7 @@ function LeadDetailDialog({
           <Button size="sm" className="mt-1" onClick={() => onNotesChange(lead.id, notes)}>שמור הערות</Button>
         </div>
       </div>
+      </DialogBody>
     </DialogContent>
   );
 }

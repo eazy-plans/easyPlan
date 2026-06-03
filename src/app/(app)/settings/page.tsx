@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/queries";
 import { UsersManager } from "@/components/settings/UsersManager";
@@ -7,7 +8,7 @@ export default async function SettingsPage() {
 
   if (profile.role !== "admin") redirect("/dashboard");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data: users } = await (supabase.from("users") as any)
     .select("id, email, full_name, role, created_at")
     .order("created_at", { ascending: false });

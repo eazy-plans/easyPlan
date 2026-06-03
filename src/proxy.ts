@@ -5,7 +5,7 @@ import type { UserRole } from "@/types/database";
 const ROLE_HOME: Record<UserRole, string> = {
   admin: "/dashboard",
   secretary: "/booking",
-  venue_owner: "/calendar",
+  venue_owner: "/dashboard",
 };
 
 export async function proxy(request: NextRequest) {
@@ -85,11 +85,6 @@ export async function proxy(request: NextRequest) {
   // Settings page — admin only
   if (pathname.startsWith("/settings") && role !== "admin") {
     return NextResponse.redirect(new URL(ROLE_HOME[role], request.url));
-  }
-
-  // Dashboard — admin only (venue owners have their own stats on /calendar)
-  if (pathname.startsWith("/dashboard") && role === "venue_owner") {
-    return NextResponse.redirect(new URL("/calendar", request.url));
   }
 
   return supabaseResponse;

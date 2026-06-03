@@ -1,8 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -12,6 +24,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 import { VenueDetailModal } from "./VenueDetailModal";
 import { VenueEditModal } from "./VenueEditModal";
 import type { VenueRow, UserRow } from "@/types/database";
@@ -20,11 +34,32 @@ interface VenuesTableProps {
   venues: VenueRow[];
   owners: Pick<UserRow, "id" | "full_name" | "email">[];
   isAdmin?: boolean;
+  isVenueOwner?: boolean;
 }
 
-export function VenuesTable({ venues, owners, isAdmin = false }: VenuesTableProps) {
+export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = false }: VenuesTableProps) {
+  const canEdit = isAdmin || isVenueOwner;
   const [detailVenue, setDetailVenue] = useState<VenueRow | null>(null);
   const [editVenue, setEditVenue] = useState<VenueRow | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function deleteVenue(venue: VenueRow) {
+    setDeleting(venue.id);
+    const supabase = createClient();
+    const { error } = await (supabase.from("venues") as any).delete().eq("id", venue.id);
+    setDeleting(null);
+    if (error) {
+      if (error.code === "23503") {
+        toast.error("לא ניתן למחוק אולם שיש לו אירועים");
+      } else {
+        toast.error("שגיאה במחיקת האולם");
+      }
+      return;
+    }
+    toast.success(`האולם "${venue.name}" נמחק`);
+    router.refresh();
+  }
 
   return (
     <>
@@ -37,7 +72,7 @@ export function VenuesTable({ venues, owners, isAdmin = false }: VenuesTableProp
               <TableHead>קיבולת</TableHead>
               <TableHead>מחיר ערב</TableHead>
               <TableHead>סטטוס</TableHead>
-              {isAdmin && <TableHead />}
+              {canEdit && <TableHead />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -58,15 +93,46 @@ export function VenuesTable({ venues, owners, isAdmin = false }: VenuesTableProp
                     {venue.is_active ? "פעיל" : "לא פעיל"}
                   </Badge>
                 </TableCell>
-                {isAdmin && (
+                {canEdit && (
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditVenue(venue)}
-                    >
-                      עריכה
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditVenue(venue)}
+                      >
+                        עריכה
+                      </Button>
+                      {isAdmin && <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
+                            disabled={deleting === venue.id}
+                          >
+                            מחק
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>מחיקת אולם</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              האולם &quot;{venue.name}&quot; יימחק לצמיתות. לא ניתן לבטל פעולה זו.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>ביטול</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteVenue(venue)}
+                              className="bg-destructive text-white hover:bg-destructive/90"
+                            >
+                              מחק
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>}
+                    </div>
                   </TableCell>
                 )}
               </TableRow>
@@ -89,6 +155,7 @@ export function VenuesTable({ venues, owners, isAdmin = false }: VenuesTableProp
           owners={owners}
           open
           onOpenChange={(open) => { if (!open) setEditVenue(null); }}
+          isAdmin={isAdmin}
         />
       )}
     </>

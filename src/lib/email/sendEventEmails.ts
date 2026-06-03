@@ -6,7 +6,8 @@ import { waitlistNotifyHtml } from "./templates/waitlistNotify";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 import { formatCurrency } from "@/lib/utils";
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "noreply@eazyplans.co.il";
+const FROM = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
+const REPLY_TO = process.env.RESEND_REPLY_TO;
 
 function formatDateHe(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("he-IL", {
@@ -33,6 +34,7 @@ export async function sendWaitlistNotifyEmail(
   const html = waitlistNotifyHtml({ clientName, venueName, date });
   return resend.emails.send({
     from: FROM,
+    replyTo: REPLY_TO,
     to: clientEmail,
     subject: `תאריך התפנה — ${venueName} — ${date}`,
     html,
@@ -57,6 +59,7 @@ export async function sendOwnerRequestEmail(event: any, venue: any, ownerEmail: 
 
   return resend.emails.send({
     from: FROM,
+    replyTo: REPLY_TO,
     to: ownerEmail,
     subject: `בקשת הזמנה חדשה — ${venue.name} — ${formatDateHe(event.date)}`,
     html,
@@ -86,6 +89,7 @@ export async function sendClientConfirmEmail(event: any, venue: any) {
 
   return resend.emails.send({
     from: FROM,
+    replyTo: REPLY_TO,
     to: event.client_email,
     subject: `האירוע שלך אושר — ${venue.name}`,
     html,

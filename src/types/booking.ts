@@ -52,6 +52,13 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   shabbat: "שבת",
 };
 
+export const EVENT_TYPE_COLORS: Record<EventType, string> = {
+  morning: "#3b82f6",  // blue-500
+  evening: "#8b5cf6",  // violet-500
+  full_day: "#22c55e", // green-500
+  shabbat:  "#f97316", // orange-500
+};
+
 export const EVENT_PURPOSE_LABELS: Record<EventPurpose, string> = {
   wedding: "חתונה",
   bar_mitzvah: "בר מצווה",

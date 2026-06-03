@@ -15,9 +15,10 @@ interface VenueEditModalProps {
   owners: Pick<UserRow, "id" | "full_name" | "email">[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isAdmin?: boolean;
 }
 
-export function VenueEditModal({ venue, owners, open, onOpenChange }: VenueEditModalProps) {
+export function VenueEditModal({ venue, owners, open, onOpenChange, isAdmin = false }: VenueEditModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -25,7 +26,7 @@ export function VenueEditModal({ venue, owners, open, onOpenChange }: VenueEditM
           <DialogTitle>עריכת אולם — {venue.name}</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <VenueForm venue={venue} owners={owners} onSuccess={() => onOpenChange(false)} />
+          <VenueForm venue={venue} owners={owners} onSuccess={() => onOpenChange(false)} isAdmin={isAdmin} />
         </DialogBody>
       </DialogContent>
     </Dialog>

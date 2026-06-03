@@ -9,6 +9,7 @@ import { EventFormModal } from "./EventFormModal";
 import { EventDetailModal } from "./EventDetailModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { EventRow, VenueRow, UserRole } from "@/types/database";
+import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS } from "@/types/booking";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "./calendar.css";
 
@@ -141,14 +142,9 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        {[
-          { color: "#3b82f6", label: "בוקר" },
-          { color: "#8b5cf6", label: "ערב" },
-          { color: "#22c55e", label: "יום מלא" },
-          { color: "#f97316", label: "שבת" },
-        ].map(({ color, label }) => (
-          <span key={label} className="flex items-center gap-1">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: color }} />
+        {(Object.entries(EVENT_TYPE_LABELS) as [keyof typeof EVENT_TYPE_COLORS, string][]).map(([type, label]) => (
+          <span key={type} className="flex items-center gap-1">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: EVENT_TYPE_COLORS[type] }} />
             {label}
           </span>
         ))}

@@ -36,9 +36,10 @@ interface VenueFormProps {
   venue?: VenueRow;
   owners: Pick<UserRow, "id" | "full_name" | "email">[];
   onSuccess?: (venueId?: string) => void;
+  isAdmin?: boolean;
 }
 
-export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
+export function VenueForm({ venue, owners, onSuccess, isAdmin = false }: VenueFormProps) {
   const router = useRouter();
   const isEdit = !!venue;
   const supabase = useMemo(() => createClient(), []);
@@ -193,7 +194,7 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
     else if (isNaN(parseInt(form.max_capacity)) || parseInt(form.max_capacity) < 1)
       errs.max_capacity = "קיבולת חייבת להיות מספר חיובי";
 
-    if (!form.owner_user_id) errs.owner_user_id = "יש לבחור בעל אולם";
+    if (isAdmin && !form.owner_user_id) errs.owner_user_id = "יש לבחור בעל אולם";
 
     for (const key of ["price_morning", "price_evening", "price_full_day", "price_shabbat"]) {
       const val = form[key as keyof typeof form] as string;
@@ -337,22 +338,24 @@ export function VenueForm({ venue, owners, onSuccess }: VenueFormProps) {
             <Input id="max_capacity" type="number" min="1" value={form.max_capacity} onChange={(e) => set("max_capacity", e.target.value)} className={errors.max_capacity ? "border-destructive" : ""} />
             {errors.max_capacity && <p className="text-xs text-destructive">{errors.max_capacity}</p>}
           </div>
-          <div className="space-y-1">
-            <Label>בעל האולם *</Label>
-            <Select value={form.owner_user_id} onValueChange={(v) => set("owner_user_id", v)}>
-              <SelectTrigger dir="rtl" className={errors.owner_user_id ? "border-destructive" : ""}>
-                <SelectValue placeholder="בחר בעל אולם" />
-              </SelectTrigger>
-              <SelectContent dir="rtl">
-                {owners.map((o) => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.full_name} ({o.email})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.owner_user_id && <p className="text-xs text-destructive">{errors.owner_user_id}</p>}
-          </div>
+          {isAdmin && (
+            <div className="space-y-1">
+              <Label>בעל האולם *</Label>
+              <Select value={form.owner_user_id} onValueChange={(v) => set("owner_user_id", v)}>
+                <SelectTrigger dir="rtl" className={errors.owner_user_id ? "border-destructive" : ""}>
+                  <SelectValue placeholder="בחר בעל אולם" />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  {owners.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.full_name} ({o.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.owner_user_id && <p className="text-xs text-destructive">{errors.owner_user_id}</p>}
+            </div>
+          )}
         </div>
         <div className="space-y-1">
           <Label htmlFor="description_short">תיאור קצר</Label>

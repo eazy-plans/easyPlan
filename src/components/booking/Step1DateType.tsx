@@ -5,14 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { EventType } from "@/types/database";
-import { EVENT_TYPE_LABELS } from "@/types/booking";
-
-const TYPE_COLORS: Record<EventType, string> = {
-  morning: "border-blue-400 data-[selected=true]:bg-blue-500 data-[selected=true]:text-white",
-  evening: "border-purple-400 data-[selected=true]:bg-purple-500 data-[selected=true]:text-white",
-  full_day: "border-green-400 data-[selected=true]:bg-green-500 data-[selected=true]:text-white",
-  shabbat: "border-orange-400 data-[selected=true]:bg-orange-500 data-[selected=true]:text-white",
-};
+import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } from "@/types/booking";
 
 interface Step1Props {
   date: Date | null;
@@ -50,9 +43,13 @@ export function Step1DateType({ date, eventType, onChange, onNext }: Step1Props)
                 <button
                   key={type}
                   type="button"
-                  data-selected={eventType === type}
                   onClick={() => onChange(date, type)}
-                  className={`border-2 rounded-lg py-6 px-3 text-base font-medium transition-all ${TYPE_COLORS[type]} hover:opacity-80`}
+                  className="border-2 rounded-lg py-6 px-3 text-base font-medium transition-all hover:opacity-80"
+                  style={{
+                    borderColor: EVENT_TYPE_COLORS[type],
+                    backgroundColor: eventType === type ? EVENT_TYPE_COLORS[type] : undefined,
+                    color: eventType === type ? "#fff" : undefined,
+                  }}
                 >
                   {label}
                 </button>

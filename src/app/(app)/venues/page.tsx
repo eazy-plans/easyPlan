@@ -44,7 +44,7 @@ export default async function VenuesPage() {
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto min-h-0">
-          <VenuesTable venues={venues} owners={owners ?? []} isAdmin={isAdmin} />
+          <VenuesTable venues={venues} owners={owners ?? []} isAdmin={isAdmin} isVenueOwner={profile.role === "venue_owner"} />
         </div>
       )}
     </div>

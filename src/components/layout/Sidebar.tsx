@@ -27,10 +27,10 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    label: "דשבורד",
+    label: "סקירה כללית",
     href: "/dashboard",
     icon: <LayoutDashboard size={18} />,
-    roles: ["admin"],
+    roles: ["admin", "venue_owner"],
   },
   {
     label: "יומן",

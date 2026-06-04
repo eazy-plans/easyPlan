@@ -53,7 +53,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
     const lockedUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     async function acquireLock() {
-      const dateStr = date.toISOString().split("T")[0];
+      const dateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(date);
       const nowIso = new Date().toISOString();
 
       // Check if another user holds an active lock on this slot
@@ -103,7 +103,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       (supabase.from("booking_locks") as any)
         .delete()
         .eq("venue_id", venue.id)
-        .eq("date", date.toISOString().split("T")[0])
+        .eq("date", new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(date))
         .eq("event_type", eventType)
         .eq("locked_by_user_id", userId);
     };
@@ -127,7 +127,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
 
     const { data, error } = await (supabase.from("events") as any).insert({
       venue_id: venue.id,
-      date: date.toISOString().split("T")[0],
+      date: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(date),
       event_type: eventType,
       event_purpose: form.event_purpose,
       status: "approved",

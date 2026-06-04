@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format } from "date-fns";
+import { he } from "date-fns/locale";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 import type { EventStatus, UserRole } from "@/types/database";
@@ -135,7 +137,10 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
             )}
             {filtered.map((ev) => (
               <tr key={ev.id} className="border-t hover:bg-muted/40 transition-colors">
-                <td className="px-4 py-3 whitespace-nowrap">{formatDate(new Date(ev.date))}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <div>{formatDate(new Date(ev.date))}</div>
+                  <div className="text-xs text-muted-foreground">{format(new Date(ev.date), "EEEE", { locale: he })}</div>
+                </td>
                 <td className="px-4 py-3">
                   <div className="font-medium">{ev.venue?.name ?? "—"}</div>
                   <div className="text-muted-foreground text-xs">{ev.venue?.city}</div>
@@ -184,7 +189,7 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
             <div className="text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">תאריך</span>
-                <span>{formatDate(new Date(ev.date))}</span>
+                <span>{formatDate(new Date(ev.date))} · {format(new Date(ev.date), "EEEE", { locale: he })}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">אולם</span>

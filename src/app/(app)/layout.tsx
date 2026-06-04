@@ -5,7 +5,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { profile } = await getUserProfile();
 
   return (
-    <div className="flex h-screen">
+    <div className="flex flex-col md:flex-row h-screen">
       <Sidebar role={profile.role} fullName={profile.full_name} />
       <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden flex flex-col">{children}</main>
     </div>

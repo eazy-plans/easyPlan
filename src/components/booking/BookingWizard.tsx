@@ -57,8 +57,10 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
     if (!date || !eventType) return;
     setLoadingVenues(true);
     const supabase = createClient();
-    const dateStr = date.toISOString().split("T")[0];
+    const toLocalDateStr = (d: Date) =>
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(d);
 
+    const dateStr = toLocalDateStr(date);
 
     let venueQuery = (supabase.from("venues") as any)
       .select("*, images:venue_images(*)")
@@ -71,21 +73,38 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
 
     const nowIso = new Date().toISOString();
 
-    // Fetch venues, booked events, and active locks in parallel
+    // For shabbat: also check Friday evening of the preceding day
+    const prevDate = new Date(date);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateStr = toLocalDateStr(prevDate);
+    const isShabbat = eventType === "shabbat";
+
+    const eventsQuery = isShabbat
+      ? (supabase.from("events") as any)
+          .select("venue_id, event_type, date")
+          .in("date", [dateStr, prevDateStr])
+          .neq("status", "cancelled")
+      : (supabase.from("events") as any)
+          .select("venue_id, event_type, date")
+          .eq("date", dateStr)
+          .neq("status", "cancelled");
+
+    const locksQuery = isShabbat
+      ? (supabase.from("booking_locks") as any)
+          .select("venue_id, event_type, date")
+          .in("date", [dateStr, prevDateStr])
+          .gt("locked_until", nowIso)
+          .neq("locked_by_user_id", userId)
+      : (supabase.from("booking_locks") as any)
+          .select("venue_id, event_type, date")
+          .eq("date", dateStr)
+          .gt("locked_until", nowIso)
+          .neq("locked_by_user_id", userId);
 
     const [{ data: allVenues }, { data: bookedEvents }, { data: locks }] = await Promise.all([
       venueQuery,
-  
-      (supabase.from("events") as any)
-        .select("venue_id, event_type")
-        .eq("date", dateStr)
-        .neq("status", "cancelled"),
-  
-      (supabase.from("booking_locks") as any)
-        .select("venue_id, event_type")
-        .eq("date", dateStr)
-        .gt("locked_until", nowIso)
-        .neq("locked_by_user_id", userId),
+      eventsQuery,
+      locksQuery,
     ]);
 
     if (!allVenues) { setLoadingVenues(false); return; }
@@ -100,6 +119,13 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
       if (ev.event_type === "morning" || ev.event_type === "evening") {
         bookedSet.add(`${ev.venue_id}:full_day`);
       }
+      // Friday evening blocks shabbat the next day, and shabbat blocks Friday evening
+      if (ev.event_type === "shabbat") {
+        bookedSet.add(`${ev.venue_id}:evening_friday`);
+      }
+      if (ev.event_type === "evening" && ev.date === prevDateStr) {
+        bookedSet.add(`${ev.venue_id}:shabbat`);
+      }
     }
 
     for (const lock of locks ?? []) {
@@ -107,6 +133,12 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
       if (lock.event_type === "full_day") {
         bookedSet.add(`${lock.venue_id}:morning`);
         bookedSet.add(`${lock.venue_id}:evening`);
+      }
+      if (lock.event_type === "shabbat") {
+        bookedSet.add(`${lock.venue_id}:evening_friday`);
+      }
+      if (lock.event_type === "evening" && lock.date === prevDateStr) {
+        bookedSet.add(`${lock.venue_id}:shabbat`);
       }
     }
 

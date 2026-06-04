@@ -17,6 +17,47 @@ interface Step1Props {
 export function Step1DateType({ date, eventType, onChange, onNext }: Step1Props) {
   const canContinue = !!date && !!eventType;
 
+  const isFriday   = (d: Date) => d.getDay() === 5;
+  const isSaturday = (d: Date) => d.getDay() === 6;
+  const selectedIsFriday   = date ? isFriday(date)   : false;
+  const selectedIsSaturday = date ? isSaturday(date) : false;
+
+  const calendarDisabled = (d: Date) => {
+    if (d < new Date(new Date().setHours(0, 0, 0, 0))) return true;
+    if (eventType === "shabbat") return !isSaturday(d);
+    if (eventType === "morning") return false;
+    // evening / full_day cannot be on Friday or Saturday
+    if (eventType === "evening" || eventType === "full_day") return isFriday(d) || isSaturday(d);
+    return false;
+  };
+
+  const handleDateSelect = (d: Date | undefined) => {
+    const selected = d ?? null;
+    if (selected && isSaturday(selected)) {
+      onChange(selected, "shabbat");
+    } else if (selected && isFriday(selected)) {
+      onChange(selected, "morning");
+    } else {
+      // clear event type if it was locked to shabbat/morning by a previous day selection
+      const keep = eventType === "shabbat" || (eventType === "morning" && selectedIsFriday) ? null : eventType;
+      onChange(selected, selected ? keep : null);
+    }
+  };
+
+  const handleEventTypeChange = (type: EventType) => {
+    if (selectedIsSaturday && type !== "shabbat") return;
+    if (selectedIsFriday   && type !== "morning")  return;
+    if (type === "shabbat" && date && !isSaturday(date)) {
+      onChange(null, type);
+    } else {
+      onChange(date, type);
+    }
+  };
+
+  const isTypeDisabled = (type: EventType) =>
+    (selectedIsSaturday && type !== "shabbat") ||
+    (selectedIsFriday   && type !== "morning");
+
   return (
     <div className="flex flex-col min-h-full">
       <div className="flex-1 space-y-4">
@@ -27,10 +68,10 @@ export function Step1DateType({ date, eventType, onChange, onNext }: Step1Props)
             <Calendar
               mode="single"
               selected={date ?? undefined}
-              onSelect={(d) => onChange(d ?? null, eventType)}
+              onSelect={handleDateSelect}
               locale={he}
               weekStartsOn={0}
-              disabled={{ before: new Date() }}
+              disabled={calendarDisabled}
               className="border rounded-lg p-3 w-full mt-2"
             />
           </div>
@@ -43,8 +84,9 @@ export function Step1DateType({ date, eventType, onChange, onNext }: Step1Props)
                 <button
                   key={type}
                   type="button"
-                  onClick={() => onChange(date, type)}
-                  className="border-2 rounded-lg py-6 px-3 text-base font-medium transition-all hover:opacity-80"
+                  onClick={() => handleEventTypeChange(type)}
+                  disabled={isTypeDisabled(type)}
+                  className="border-2 rounded-lg py-6 px-3 text-base font-medium transition-all hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
                   style={{
                     borderColor: EVENT_TYPE_COLORS[type],
                     backgroundColor: eventType === type ? EVENT_TYPE_COLORS[type] : undefined,

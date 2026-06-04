@@ -156,7 +156,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
     fetch("/api/events/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventId: data.id, type: "owner_request" }),
+      body: JSON.stringify({ eventId: data.id, type: "owner_event_created" }),
     }).catch(() => null);
     fetch("/api/events/notify", {
       method: "POST",

@@ -1,4 +1,4 @@
-interface OwnerRequestData {
+interface OwnerEventCreatedData {
   venueName: string;
   date: string;
   eventType: string;
@@ -11,7 +11,7 @@ interface OwnerRequestData {
   notes?: string;
 }
 
-export function ownerRequestHtml(d: OwnerRequestData): string {
+export function ownerEventCreatedHtml(d: OwnerEventCreatedData): string {
   return `
 <!DOCTYPE html>
 <html dir="rtl" lang="he">
@@ -19,7 +19,7 @@ export function ownerRequestHtml(d: OwnerRequestData): string {
   body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 0; direction: rtl; text-align: right; }
   .container { max-width: 560px; margin: 32px auto; background: #fff; border-radius: 8px; padding: 32px; border: 1px solid #e5e7eb; direction: rtl; text-align: right; }
   h1 { font-size: 20px; color: #111; margin-bottom: 8px; }
-  .badge { display: inline-block; background: #fef3c7; color: #92400e; border-radius: 4px; padding: 2px 10px; font-size: 13px; margin-bottom: 24px; }
+  .badge { display: inline-block; background: #d1fae5; color: #065f46; border-radius: 4px; padding: 2px 10px; font-size: 13px; margin-bottom: 24px; }
   table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
   td { padding: 8px 0; font-size: 14px; border-bottom: 1px solid #f3f4f6; }
   td:first-child { color: #6b7280; width: 40%; }
@@ -29,8 +29,8 @@ export function ownerRequestHtml(d: OwnerRequestData): string {
 </style></head>
 <body>
 <div class="container">
-  <h1>בקשת הזמנה חדשה — ${d.venueName}</h1>
-  <span class="badge">ממתין לאישורך</span>
+  <h1>אירוע חדש נרשם — ${d.venueName}</h1>
+  <span class="badge">אושר</span>
   <table>
     <tr><td>תאריך</td><td>${d.date}</td></tr>
     <tr><td>סוג אירוע</td><td>${d.eventType}</td></tr>
@@ -42,7 +42,6 @@ export function ownerRequestHtml(d: OwnerRequestData): string {
     <tr><td>מחיר סופי</td><td>${d.priceFinal}</td></tr>
   </table>
   ${d.notes ? `<div class="note"><strong>הערות:</strong> ${d.notes}</div>` : ""}
-  <p style="margin-top:24px;font-size:14px;color:#374151;">יש להיכנס למערכת Eazyplans כדי לאשר או לדחות את ההזמנה.</p>
   <div class="footer">Eazyplans - מערכת ניהול אולמות</div>
 </div>
 </body></html>`;

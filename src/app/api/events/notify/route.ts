@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { sendOwnerRequestEmail, sendClientConfirmEmail } from "@/lib/email/sendEventEmails";
+import { sendOwnerRequestEmail, sendOwnerEventCreatedEmail, sendClientConfirmEmail } from "@/lib/email/sendEventEmails";
 
 // POST /api/events/notify
 // body: { eventId: string, type: "owner_request" | "client_confirm" }
@@ -46,6 +46,28 @@ export async function POST(request: Request) {
       event_id: eventId,
       recipient_email: ownerEmail,
       email_type: "owner_request",
+      status: emailFailed ? "failed" : "sent",
+    });
+
+    if (emailFailed) return NextResponse.json({ error: "Email send failed" }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (type === "owner_event_created") {
+    const ownerEmail = venue?.owner?.email;
+    if (!ownerEmail) return NextResponse.json({ skipped: "no owner email" });
+
+    let emailFailed = false;
+    try {
+      await sendOwnerEventCreatedEmail(event, venue, ownerEmail);
+    } catch {
+      emailFailed = true;
+    }
+
+    await (supabase.from("email_logs") as any).insert({
+      event_id: eventId,
+      recipient_email: ownerEmail,
+      email_type: "owner_event_created",
       status: emailFailed ? "failed" : "sent",
     });
 

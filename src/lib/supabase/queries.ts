@@ -1,10 +1,10 @@
-import { cache } from "react";
+﻿import { cache } from "react";
 import { createClient } from "./server";
 import { redirect } from "next/navigation";
 import type { UserRole } from "@/types/database";
 
 // React cache() deduplicates these calls within a single request render tree.
-// Both AppLayout and any page can call getUserProfile() — only one DB round trip happens.
+// Both AppLayout and any page can call getUserProfile() - only one DB round trip happens.
 
 export const getUserProfile = cache(async () => {
   const supabase = await createClient();

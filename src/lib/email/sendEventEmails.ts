@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { resend } from "./resend";
-import { ownerRequestHtml } from "./templates/ownerRequest";
 import { ownerEventCreatedHtml } from "./templates/ownerEventCreated";
 import { clientConfirmHtml } from "./templates/clientConfirm";
 import { waitlistNotifyHtml } from "./templates/waitlistNotify";
@@ -37,35 +36,11 @@ export async function sendWaitlistNotifyEmail(
     from: FROM,
     replyTo: REPLY_TO,
     to: clientEmail,
-    subject: `תאריך התפנה — ${venueName} — ${date}`,
+    subject: `תאריך התפנה - ${venueName} - ${date}`,
     html,
   });
 }
 
-
-export async function sendOwnerRequestEmail(event: any, venue: any, ownerEmail: string) {
-  const [startKey, endKey] = HOURS_MAP[event.event_type] ?? [];
-  const html = ownerRequestHtml({
-    venueName: venue.name,
-    date: formatDateHe(event.date),
-    eventType: EVENT_TYPE_LABELS[event.event_type as keyof typeof EVENT_TYPE_LABELS] ?? event.event_type,
-    eventPurpose: EVENT_PURPOSE_LABELS[event.event_purpose as keyof typeof EVENT_PURPOSE_LABELS] ?? event.event_purpose,
-    clientName: event.client_name,
-    clientPhone: event.client_phone,
-    clientEmail: event.client_email,
-    priceListed: formatCurrency(event.price_listed),
-    priceFinal: formatCurrency(event.price_final),
-    notes: event.notes,
-  });
-
-  return resend.emails.send({
-    from: FROM,
-    replyTo: REPLY_TO,
-    to: ownerEmail,
-    subject: `בקשת הזמנה חדשה — ${venue.name} — ${formatDateHe(event.date)}`,
-    html,
-  });
-}
 
 
 export async function sendOwnerEventCreatedEmail(event: any, venue: any, ownerEmail: string) {
@@ -86,7 +61,7 @@ export async function sendOwnerEventCreatedEmail(event: any, venue: any, ownerEm
     from: FROM,
     replyTo: REPLY_TO,
     to: ownerEmail,
-    subject: `אירוע חדש נרשם — ${venue.name} — ${formatDateHe(event.date)}`,
+    subject: `אירוע חדש נרשם - ${venue.name} - ${formatDateHe(event.date)}`,
     html,
   });
 }
@@ -116,7 +91,7 @@ export async function sendClientConfirmEmail(event: any, venue: any) {
     from: FROM,
     replyTo: REPLY_TO,
     to: event.client_email,
-    subject: `האירוע שלך אושר — ${venue.name}`,
+    subject: `האירוע שלך אושר - ${venue.name}`,
     html,
   });
 }

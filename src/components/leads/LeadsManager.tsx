@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -241,7 +241,7 @@ export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps)
             {lead.interests.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-3">
                 {lead.interests.map((int, i) => (
-                  <Badge key={i} variant="outline" className="text-xs">{int.venue?.name ?? "—"}</Badge>
+                  <Badge key={i} variant="outline" className="text-xs">{int.venue?.name ?? "-"}</Badge>
                 ))}
               </div>
             )}
@@ -365,7 +365,7 @@ function LeadDetailDialog({
           <div className="flex flex-wrap gap-1 min-h-6">
             {lead.interests.length === 0 && <span className="text-xs text-muted-foreground">אין</span>}
             {lead.interests.map((int, i) => (
-              <Badge key={i} variant="outline" className="text-xs">{int.venue?.name ?? "—"}</Badge>
+              <Badge key={i} variant="outline" className="text-xs">{int.venue?.name ?? "-"}</Badge>
             ))}
           </div>
           {availableVenues.length > 0 && (
@@ -393,7 +393,7 @@ function LeadDetailDialog({
             )}
             {waitlist.map((w) => (
               <div key={w.id} className="flex items-center justify-between text-xs bg-muted rounded px-3 py-1.5">
-                <span>{w.venues?.name ?? "—"} — {new Date(w.requested_date).toLocaleDateString("he-IL")}</span>
+                <span>{w.venues?.name ?? "-"} - {new Date(w.requested_date).toLocaleDateString("he-IL")}</span>
                 <button onClick={() => handleRemoveWaitlist(w.id)} className="text-muted-foreground hover:text-destructive transition-colors ml-2">✕</button>
               </div>
             ))}

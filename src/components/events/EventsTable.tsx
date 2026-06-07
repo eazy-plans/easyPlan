@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition, useMemo } from "react";
 import { toast } from "sonner";
@@ -78,7 +78,7 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
 
       const { notified } = await res.json();
       setEvents((prev) => prev.map((e) => e.id === eventId ? { ...e, status: "cancelled" } : e));
-      toast.success(notified > 0 ? `האירוע בוטל — ${notified} לידים עודכנו` : "האירוע בוטל");
+      toast.success(notified > 0 ? `האירוע בוטל - ${notified} לידים עודכנו` : "האירוע בוטל");
       startTransition(() => router.refresh());
     } finally {
       setCancellingId(null);
@@ -142,7 +142,7 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
                   <div className="text-xs text-muted-foreground">{format(new Date(ev.date), "EEEE", { locale: he })}</div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="font-medium">{ev.venue?.name ?? "—"}</div>
+                  <div className="font-medium">{ev.venue?.name ?? "-"}</div>
                   <div className="text-muted-foreground text-xs">{ev.venue?.city}</div>
                 </td>
                 <td className="px-4 py-3">
@@ -193,7 +193,7 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">אולם</span>
-                <span>{ev.venue?.name ?? "—"}</span>
+                <span>{ev.venue?.name ?? "-"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">סוג</span>

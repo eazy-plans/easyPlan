@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resend } from "@/lib/email/resend";
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
     const { error: emailError } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL ?? "noreply@eazyplans.co.il",
       to: ev.client_email,
-      subject: `תזכורת לאירוע מחר — ${venue?.name ?? ""}`,
+      subject: `תזכורת לאירוע מחר - ${venue?.name ?? ""}`,
       html,
     });
 

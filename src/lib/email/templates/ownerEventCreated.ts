@@ -1,4 +1,4 @@
-interface OwnerEventCreatedData {
+﻿interface OwnerEventCreatedData {
   venueName: string;
   date: string;
   eventType: string;
@@ -29,7 +29,7 @@ export function ownerEventCreatedHtml(d: OwnerEventCreatedData): string {
 </style></head>
 <body>
 <div class="container">
-  <h1>אירוע חדש נרשם — ${d.venueName}</h1>
+  <h1>אירוע חדש נרשם - ${d.venueName}</h1>
   <span class="badge">אושר</span>
   <table>
     <tr><td>תאריך</td><td>${d.date}</td></tr>

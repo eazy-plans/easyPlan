@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useCallback } from "react";
@@ -199,7 +199,7 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
 
   return (
     <div className="max-w-2xl mx-auto w-full flex flex-col flex-1 min-h-0">
-      {/* Step indicator — fixed top */}
+      {/* Step indicator - fixed top */}
       {step < 6 && (
         <div className="mb-4 shrink-0">
           <div className="flex items-center justify-between mb-2">

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -145,7 +145,7 @@ function ImageCarousel({ venueId }: { venueId: string }) {
         )}
       </div>
 
-      {/* Lightbox — nested Radix Dialog avoids parent dialog's onInteractOutside interference */}
+      {/* Lightbox - nested Radix Dialog avoids parent dialog's onInteractOutside interference */}
       <DialogPrimitive.Root
         open={lightboxOpen}
         onOpenChange={(open) => { setLightboxOpen(open); if (!open) setZoom(1); }}
@@ -277,7 +277,7 @@ function HoursRow({
         dir="ltr"
         className="font-mono text-xs bg-muted px-2.5 py-1 rounded-md"
       >
-        {start ?? "—"} – {end ?? "—"}
+        {start ?? "-"} – {end ?? "-"}
       </span>
     </div>
   );

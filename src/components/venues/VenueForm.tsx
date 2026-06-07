@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -418,7 +418,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
                   className={`w-full${errors[startKey] ? " border-destructive" : ""}`}
                   dir="ltr"
                 />
-                <span className="text-muted-foreground">—</span>
+                <span className="text-muted-foreground">-</span>
                 <Input
                   type="time"
                   value={form[endKey as keyof typeof form] as string}
@@ -556,7 +556,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
         </Button>
       </div>
 
-      {/* Lightbox — nested Radix Dialog avoids parent dialog's onInteractOutside interference */}
+      {/* Lightbox - nested Radix Dialog avoids parent dialog's onInteractOutside interference */}
       <DialogPrimitive.Root
         open={lightboxIdx !== null}
         onOpenChange={(open) => { if (!open) closeLightbox(); }}

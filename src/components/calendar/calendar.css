@@ -1,4 +1,4 @@
-/* react-big-calendar base styles */
+﻿/* react-big-calendar base styles */
 .rbc-calendar {
   font-family: var(--font-hebrew), Arial, sans-serif;
   direction: rtl;
@@ -17,7 +17,7 @@
   font-weight: 600;
 }
 
-/* Button group — full override of react-big-calendar defaults */
+/* Button group - full override of react-big-calendar defaults */
 .rbc-calendar .rbc-btn-group {
   display: inline-flex !important;
   gap: 0 !important;
@@ -42,7 +42,7 @@
   transition: background 0.15s !important;
 }
 
-/* In RTL flex, last DOM child is leftmost — it's the outer edge, no divider needed */
+/* In RTL flex, last DOM child is leftmost - it's the outer edge, no divider needed */
 .rbc-calendar .rbc-btn-group button:last-child {
   border-left: none !important;
 }

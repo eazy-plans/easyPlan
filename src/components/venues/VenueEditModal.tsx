@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Dialog,
@@ -23,7 +23,7 @@ export function VenueEditModal({ venue, owners, open, onOpenChange, isAdmin = fa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>עריכת אולם — {venue.name}</DialogTitle>
+          <DialogTitle>עריכת אולם - {venue.name}</DialogTitle>
         </DialogHeader>
         <DialogBody>
           <VenueForm venue={venue} owners={owners} onSuccess={() => onOpenChange(false)} isAdmin={isAdmin} />

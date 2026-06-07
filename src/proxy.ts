@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { UserRole } from "@/types/database";
 
@@ -45,7 +45,7 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Public routes — always accessible
+  // Public routes - always accessible
   if (pathname.startsWith("/login") || pathname.startsWith("/api/cron")) {
     // If user is already logged in and hits /login, redirect to their home
     if (user && pathname === "/login") {
@@ -63,7 +63,7 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Protected routes — redirect to login if not authenticated
+  // Protected routes - redirect to login if not authenticated
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
@@ -77,12 +77,12 @@ export async function proxy(request: NextRequest) {
 
   const role = (profile?.role as UserRole) ?? "secretary";
 
-  // Leads page — admin and secretary only
+  // Leads page - admin and secretary only
   if (pathname.startsWith("/leads") && !["admin", "secretary"].includes(role)) {
     return NextResponse.redirect(new URL(ROLE_HOME[role], request.url));
   }
 
-  // Settings page — admin only
+  // Settings page - admin only
   if (pathname.startsWith("/settings") && role !== "admin") {
     return NextResponse.redirect(new URL(ROLE_HOME[role], request.url));
   }

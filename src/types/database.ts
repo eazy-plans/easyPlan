@@ -20,7 +20,7 @@ export type LeadStatus =
   | "booked"
   | "cancelled";
 
-export type EmailType = "owner_request" | "client_confirm" | "reminder";
+export type EmailType = "owner_event_created" | "client_confirm" | "reminder";
 
 export type EmailStatus = "sent" | "failed";
 

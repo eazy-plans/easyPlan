@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -126,7 +126,7 @@ export function Step4VenueDetail({ venue, eventType, onBook, onBack }: Step4Prop
             return (
               <div key={start} className="flex justify-between text-sm">
                 <span className="text-muted-foreground">{label}</span>
-                <span dir="ltr">{String(s).slice(0, 5)} — {String(e).slice(0, 5)}</span>
+                <span dir="ltr">{String(s).slice(0, 5)} - {String(e).slice(0, 5)}</span>
               </div>
             );
           })}

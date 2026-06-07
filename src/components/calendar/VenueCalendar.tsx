@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Calendar, dateFnsLocalizer, type View } from "react-big-calendar";
@@ -89,7 +89,7 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
     if (selectedVenueId) loadEvents(selectedVenueId);
   }, [selectedVenueId, loadEvents]);
 
-  // Supabase Realtime — reflect changes from other users instantly
+  // Supabase Realtime - reflect changes from other users instantly
   useEffect(() => {
     if (!selectedVenueId) return;
 
@@ -123,7 +123,7 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
-      {/* Venue selector — shown if user has multiple venues */}
+      {/* Venue selector - shown if user has multiple venues */}
       {venues.length > 1 && (
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">אולם:</span>

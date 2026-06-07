@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -194,7 +194,7 @@ export function VenueGallery({ venueId, initialImages }: VenueGalleryProps) {
         </Button>
       </div>
 
-      {/* Lightbox — nested Radix Dialog avoids onInteractOutside interference */}
+      {/* Lightbox - nested Radix Dialog avoids onInteractOutside interference */}
       <DialogPrimitive.Root
         open={lightboxIdx !== null}
         onOpenChange={(open) => { if (!open) closeLightbox(); }}

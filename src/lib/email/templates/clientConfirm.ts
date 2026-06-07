@@ -1,4 +1,4 @@
-interface ClientConfirmData {
+﻿interface ClientConfirmData {
   clientName: string;
   venueName: string;
   venueAddress: string;
@@ -39,7 +39,7 @@ export function clientConfirmHtml(d: ClientConfirmData): string {
     <tr><td>כתובת</td><td>${d.venueAddress}, ${d.venueCity}</td></tr>
     <tr><td>תאריך</td><td>${d.date}</td></tr>
     <tr><td>סוג אירוע</td><td>${d.eventType}</td></tr>
-    ${d.hoursStart && d.hoursEnd ? `<tr><td>שעות</td><td dir="ltr">${d.hoursStart} — ${d.hoursEnd}</td></tr>` : ""}
+    ${d.hoursStart && d.hoursEnd ? `<tr><td>שעות</td><td dir="ltr">${d.hoursStart} - ${d.hoursEnd}</td></tr>` : ""}
     <tr><td>מחיר סופי</td><td>${d.priceFinal}</td></tr>
   </table>
   ${d.parkingInfo ? `<div class="section"><h3>חנייה</h3><p>${d.parkingInfo}</p></div>` : ""}

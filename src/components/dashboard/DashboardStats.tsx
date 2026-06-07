@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo } from "react";
 import {
@@ -13,7 +13,7 @@ import { CalendarDays, TrendingUp, Users, Building2 } from "lucide-react";
 const MONTH_NAMES = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 
 
-// Lead statuses — match actual DB values from LeadStatus type
+// Lead statuses - match actual DB values from LeadStatus type
 const LEAD_STATUS_ORDER = ["new", "considering", "waiting_for_date", "date_taken", "booked", "cancelled"];
 const LEAD_STATUS_LABELS: Record<string, string> = {
   new: "פנייה חדשה",
@@ -24,12 +24,12 @@ const LEAD_STATUS_LABELS: Record<string, string> = {
   cancelled: "בוטל",
 };
 const LEAD_STATUS_COLORS: Record<string, string> = {
-  new: "#0ea5e9",       // sky  — fresh/new
-  considering: "#f59e0b", // amber — undecided
-  waiting_for_date: "#f97316", // orange — pending
-  date_taken: "#64748b",  // slate — blocked
-  booked: "#10b981",    // emerald — success
-  cancelled: "#ef4444", // red   — lost
+  new: "#0ea5e9",       // sky  - fresh/new
+  considering: "#f59e0b", // amber - undecided
+  waiting_for_date: "#f97316", // orange - pending
+  date_taken: "#64748b",  // slate - blocked
+  booked: "#10b981",    // emerald - success
+  cancelled: "#ef4444", // red   - lost
 };
 
 const RANK_STYLES = [
@@ -170,7 +170,7 @@ export function DashboardStats({ events, leads, venues, hideLeads = false }: Das
   const topVenues = useMemo(() => {
     const map: Record<string, { name: string; count: number; revenue: number }> = {};
     events.forEach((e) => {
-      if (!map[e.venue_id]) map[e.venue_id] = { name: e.venue?.name ?? "—", count: 0, revenue: 0 };
+      if (!map[e.venue_id]) map[e.venue_id] = { name: e.venue?.name ?? "-", count: 0, revenue: 0 };
       map[e.venue_id].count++;
       if (e.status === "approved") map[e.venue_id].revenue += e.price_final ?? 0;
     });
@@ -265,7 +265,7 @@ export function DashboardStats({ events, leads, venues, hideLeads = false }: Das
       </Card>
 
       <div className={hideLeads ? "" : "grid md:grid-cols-2 gap-5"}>
-        {/* By event type — donut with center label */}
+        {/* By event type - donut with center label */}
         <Card className="shadow-md rounded-2xl border-0 ring-1 ring-black/5">
           <CardHeader className="pb-2 pt-5 px-5">
             <CardTitle className="text-base font-semibold text-foreground">
@@ -312,7 +312,7 @@ export function DashboardStats({ events, leads, venues, hideLeads = false }: Das
           </CardContent>
         </Card>
 
-        {/* Lead funnel — admin only */}
+        {/* Lead funnel - admin only */}
         {!hideLeads && (
           <Card className="shadow-md rounded-2xl border-0 ring-1 ring-black/5">
             <CardHeader className="pb-2 pt-5 px-5">

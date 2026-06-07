@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -86,7 +86,7 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
                 <TableCell>{venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}</TableCell>
                 <TableCell>{venue.max_capacity} אורחים</TableCell>
                 <TableCell>
-                  {venue.price_evening ? formatCurrency(Number(venue.price_evening)) : "—"}
+                  {venue.price_evening ? formatCurrency(Number(venue.price_evening)) : "-"}
                 </TableCell>
                 <TableCell>
                   <Badge variant={venue.is_active ? "default" : "secondary"}>

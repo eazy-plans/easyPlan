@@ -1,4 +1,4 @@
-interface ReminderData {
+﻿interface ReminderData {
   clientName: string;
   venueName: string;
   venueAddress: string;
@@ -30,7 +30,7 @@ export function reminderHtml(d: ReminderData): string {
 </style></head>
 <body>
 <div class="container">
-  <h1>תזכורת — האירוע שלך מחר</h1>
+  <h1>תזכורת - האירוע שלך מחר</h1>
   <span class="badge">מחר!</span>
   <p style="font-size:14px;margin-bottom:20px;">שלום ${d.clientName}, תזכורת לאירוע שלך מחר ב${d.venueName}.</p>
   <table>
@@ -38,7 +38,7 @@ export function reminderHtml(d: ReminderData): string {
     <tr><td>כתובת</td><td>${d.venueAddress}, ${d.venueCity}</td></tr>
     <tr><td>תאריך</td><td>${d.date}</td></tr>
     <tr><td>סוג אירוע</td><td>${d.eventType}</td></tr>
-    ${d.hoursStart && d.hoursEnd ? `<tr><td>שעות</td><td dir="ltr">${d.hoursStart} — ${d.hoursEnd}</td></tr>` : ""}
+    ${d.hoursStart && d.hoursEnd ? `<tr><td>שעות</td><td dir="ltr">${d.hoursStart} - ${d.hoursEnd}</td></tr>` : ""}
   </table>
   ${d.parkingInfo ? `<div class="section"><h3>חנייה</h3><p>${d.parkingInfo}</p></div>` : ""}
   ${d.publicTransportInfo ? `<div class="section"><h3>תחבורה ציבורית</h3><p>${d.publicTransportInfo}</p></div>` : ""}

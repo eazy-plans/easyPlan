@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -72,7 +72,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
         return;
       }
 
-      // Acquire (or refresh) the lock — ignore errors (RLS / table issues don't block booking)
+      // Acquire (or refresh) the lock - ignore errors (RLS / table issues don't block booking)
 
       await (supabase.from("booking_locks") as any).upsert({
         venue_id: venue.id,
@@ -108,7 +108,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
         .eq("locked_by_user_id", userId);
     };
   // Empty deps: lock must be acquired once for the slot chosen in earlier steps and
-  // released on unmount. Props are frozen by the wizard — they never change while this
+  // released on unmount. Props are frozen by the wizard - they never change while this
   // step is mounted, so stale-closure is intentional.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

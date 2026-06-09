@@ -26,7 +26,7 @@ export async function DashboardContent({
   }
 
   let eventsQuery = (supabase.from("events") as any)
-    .select("id, date, event_type, status, price_final, venue_id, venue:venues(name)")
+    .select("id, date, event_type, status, price_final, venue_id, venue:venues(name,city)")
     .gte("date", yearStart)
     .lte("date", yearEnd)
     .neq("status", "cancelled");

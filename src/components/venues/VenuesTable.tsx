@@ -26,7 +26,6 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { VenueDetailModal } from "./VenueDetailModal";
 import { VenueEditModal } from "./VenueEditModal";
 import type { VenueRow, UserRow } from "@/types/database";
 
@@ -39,7 +38,6 @@ interface VenuesTableProps {
 
 export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = false }: VenuesTableProps) {
   const canEdit = isAdmin || isVenueOwner;
-  const [detailVenue, setDetailVenue] = useState<VenueRow | null>(null);
   const [editVenue, setEditVenue] = useState<VenueRow | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const router = useRouter();
@@ -80,7 +78,7 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
               <TableRow
                 key={venue.id}
                 className="cursor-pointer hover:bg-muted/50"
-                onClick={() => setDetailVenue(venue)}
+                onClick={() => router.push(`/venues/${venue.id}`)}
               >
                 <TableCell className="font-medium">{venue.name}</TableCell>
                 <TableCell>{venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}</TableCell>
@@ -140,14 +138,6 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
           </TableBody>
         </Table>
       </div>
-
-      {detailVenue && (
-        <VenueDetailModal
-          venue={detailVenue}
-          open
-          onOpenChange={(open) => { if (!open) setDetailVenue(null); }}
-        />
-      )}
 
       {editVenue && (
         <VenueEditModal

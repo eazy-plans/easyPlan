@@ -1,7 +1,7 @@
 ﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatCurrency, formatDate, isValidPhone } from "@/lib/utils";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS, PRICE_KEY } from "@/types/booking";
 import type { EventType, EventPurpose, VenueRow } from "@/types/database";
+
+type ClientSuggestion = { client_name: string; client_phone: string; client_email: string };
+
+function SuggestionDropdown({ suggestions, onSelect }: { suggestions: ClientSuggestion[]; onSelect: (s: ClientSuggestion) => void }) {
+  return (
+    <div className="absolute z-50 top-full mt-1 w-full bg-background border rounded-lg shadow-md max-h-40 overflow-y-auto">
+      {suggestions.map((s, i) => (
+        <button
+          key={i}
+          type="button"
+          className="w-full text-right px-3 py-2 text-sm hover:bg-muted transition-colors block"
+          onMouseDown={(e) => { e.preventDefault(); onSelect(s); }}
+        >
+          <span className="font-medium">{s.client_name}</span>
+          <span className="text-muted-foreground mr-2 text-xs" dir="ltr">{s.client_phone}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 interface Step5Props {
   venue: VenueRow;
@@ -36,12 +56,40 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
   });
   const [loading, setLoading] = useState(false);
   const [lockError, setLockError] = useState("");
-  // Countdown for lock (10 min)
   const [secondsLeft, setSecondsLeft] = useState(600);
+
+  const [suggestions, setSuggestions] = useState<{ client_name: string; client_phone: string; client_email: string }[]>([]);
+  const [activeField, setActiveField] = useState<string | null>(null);
+  const clientRef = useRef<HTMLDivElement>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function triggerSearch(field: string, value: string) {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (value.length < 2) { setSuggestions([]); setActiveField(null); return; }
+    searchTimer.current = setTimeout(async () => {
+      const supabase = createClient();
+      const { data } = await (supabase.from("leads") as any)
+        .select("client_name, client_phone, client_email")
+        .ilike(field, `%${value}%`)
+        .limit(5);
+      if (data && data.length > 0) { setSuggestions(data); setActiveField(field); }
+      else { setSuggestions([]); setActiveField(null); }
+    }, 300);
+  }
+
+  function applySuggestion(s: { client_name: string; client_phone: string; client_email: string }) {
+    setForm((f) => ({ ...f, client_name: s.client_name, client_phone: s.client_phone, client_email: s.client_email ?? f.client_email }));
+    setSuggestions([]);
+    setActiveField(null);
+    setPhoneError("");
+  }
 
   function set(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
     if (field === "client_phone") setPhoneError("");
+    if (field === "client_name" || field === "client_phone" || field === "client_email") {
+      triggerSearch(field, value);
+    }
   }
 
   const discount = parseFloat(form.discount_amount) || 0;
@@ -113,6 +161,17 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (clientRef.current && !clientRef.current.contains(e.target as Node)) {
+        setSuggestions([]);
+        setActiveField(null);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.event_purpose) { toast.error("יש לבחור מהות האירוע"); return; }
@@ -164,6 +223,29 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       body: JSON.stringify({ eventId: data.id, type: "client_confirm" }),
     }).catch(() => null);
 
+    // Upsert lead by phone - fire-and-forget
+    (async () => {
+      const { data: existing } = await (supabase.from("leads") as any)
+        .select("id")
+        .eq("client_phone", form.client_phone)
+        .maybeSingle();
+
+      let leadId: string;
+      if (existing) {
+        await (supabase.from("leads") as any).update({ status: "booked" }).eq("id", existing.id);
+        leadId = existing.id;
+      } else {
+        const { data: newLead } = await (supabase.from("leads") as any)
+          .insert({ client_name: form.client_name, client_phone: form.client_phone, client_email: form.client_email || null, status: "booked" })
+          .select("id").single();
+        if (!newLead) return;
+        leadId = newLead.id;
+      }
+      await (supabase.from("lead_venue_interests") as any)
+        .insert({ lead_id: leadId, venue_id: venue.id })
+        .then(() => null).catch(() => null);
+    })().catch(() => null);
+
     onSuccess(data.id);
   }
 
@@ -207,19 +289,51 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
           </Select>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1 col-span-2">
+        <div className="grid grid-cols-2 gap-4" ref={clientRef}>
+          {/* Name */}
+          <div className="space-y-1 col-span-2 relative">
             <Label>שם הלקוח *</Label>
-            <Input value={form.client_name} onChange={(e) => set("client_name", e.target.value)} required />
+            <Input
+              value={form.client_name}
+              onChange={(e) => set("client_name", e.target.value)}
+              onFocus={() => activeField !== "client_name" && suggestions.length > 0 && setActiveField("client_name")}
+              required
+            />
+            {activeField === "client_name" && suggestions.length > 0 && (
+              <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
+            )}
           </div>
-          <div className="space-y-1">
+          {/* Phone */}
+          <div className="space-y-1 relative">
             <Label>טלפון *</Label>
-            <Input type="tel" dir="ltr" value={form.client_phone} onChange={(e) => set("client_phone", e.target.value)} className={phoneError ? "border-destructive" : ""} placeholder="052-1234567" />
+            <Input
+              type="tel"
+              dir="ltr"
+              value={form.client_phone}
+              onChange={(e) => set("client_phone", e.target.value)}
+              onFocus={() => activeField !== "client_phone" && suggestions.length > 0 && setActiveField("client_phone")}
+              className={phoneError ? "border-destructive" : ""}
+              placeholder="052-1234567"
+            />
             {phoneError && <p className="text-xs text-destructive">{phoneError}</p>}
+            {activeField === "client_phone" && suggestions.length > 0 && (
+              <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
+            )}
           </div>
-          <div className="space-y-1">
+          {/* Email */}
+          <div className="space-y-1 relative">
             <Label>מייל *</Label>
-            <Input type="email" dir="ltr" value={form.client_email} onChange={(e) => set("client_email", e.target.value)} required />
+            <Input
+              type="email"
+              dir="ltr"
+              value={form.client_email}
+              onChange={(e) => set("client_email", e.target.value)}
+              onFocus={() => activeField !== "client_email" && suggestions.length > 0 && setActiveField("client_email")}
+              required
+            />
+            {activeField === "client_email" && suggestions.length > 0 && (
+              <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
+            )}
           </div>
         </div>
 

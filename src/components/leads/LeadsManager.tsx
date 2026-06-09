@@ -22,6 +22,8 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
   date_taken: "תאריך תפוס",
   booked: "הוזמן",
   cancelled: "בוטל",
+  too_expensive: "יקר מדי",
+  not_relevant: "לא רלוונטי",
 };
 
 const STATUS_VARIANT: Record<LeadStatus, "default" | "secondary" | "outline" | "destructive"> = {
@@ -31,6 +33,8 @@ const STATUS_VARIANT: Record<LeadStatus, "default" | "secondary" | "outline" | "
   date_taken: "outline",
   booked: "default",
   cancelled: "destructive",
+  too_expensive: "outline",
+  not_relevant: "outline",
 };
 
 type VenueRef = { id: string; name: string };
@@ -50,14 +54,15 @@ type LeadRow = {
 interface LeadsManagerProps {
   leads: LeadRow[];
   venues: VenueRef[];
+  initialSearch?: string;
 }
 
 const EMPTY_FORM = { client_name: "", client_phone: "", client_email: "", notes: "", status: "new" as LeadStatus };
 
-export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps) {
+export function LeadsManager({ leads: initialLeads, venues, initialSearch = "" }: LeadsManagerProps) {
   const router = useRouter();
   const [leads, setLeads] = useState(initialLeads);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -169,7 +174,7 @@ export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps)
         </Select>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
-            <Button className="shrink-0">+ ליד חדש</Button>
+            <Button className="shrink-0 gap-1 text-base font-semibold px-5">+ ליד חדש</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -218,7 +223,7 @@ export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps)
       <p className="text-sm text-muted-foreground">{filtered.length} לידים</p>
 
       {/* Lead cards */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0 pb-16 sm:pb-0">
       <div className="space-y-3">
         {filtered.length === 0 && (
           <p className="text-center py-10 text-muted-foreground">אין לידים תואמים</p>
@@ -279,6 +284,16 @@ export function LeadsManager({ leads: initialLeads, venues }: LeadsManagerProps)
         ))}
       </div>
       </div>{/* end scrollable area */}
+
+      {/* Mobile floating action button */}
+      <button
+        type="button"
+        onClick={() => setAddOpen(true)}
+        className="sm:hidden fixed bottom-6 left-6 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center text-2xl hover:bg-primary/90 active:scale-95 transition-all"
+        aria-label="ליד חדש"
+      >
+        +
+      </button>
     </div>
   );
 }
@@ -294,6 +309,7 @@ function LeadDetailDialog({
   onNotesChange: (id: string, n: string) => void;
   onAddVenue: (id: string, venueId: string) => void;
 }) {
+  const router = useRouter();
   const [notes, setNotes] = useState(lead.notes ?? "");
   const [addingVenue, setAddingVenue] = useState("");
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
@@ -365,7 +381,14 @@ function LeadDetailDialog({
           <div className="flex flex-wrap gap-1 min-h-6">
             {lead.interests.length === 0 && <span className="text-xs text-muted-foreground">אין</span>}
             {lead.interests.map((int, i) => (
-              <Badge key={i} variant="outline" className="text-xs">{int.venue?.name ?? "-"}</Badge>
+              <Badge
+                key={i}
+                variant="outline"
+                className="text-xs cursor-pointer hover:bg-accent transition-colors"
+                onClick={() => router.push(`/venues/${int.venue?.id}`)}
+              >
+                {int.venue?.name ?? "-"}
+              </Badge>
             ))}
           </div>
           {availableVenues.length > 0 && (

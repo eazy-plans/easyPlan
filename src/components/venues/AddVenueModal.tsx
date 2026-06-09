@@ -33,7 +33,7 @@ export function AddVenueModal({ owners }: AddVenueModalProps) {
             <DialogTitle>הוספת אולם חדש</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <VenueForm owners={owners} onSuccess={() => setOpen(false)} />
+            <VenueForm owners={owners} isAdmin onSuccess={() => setOpen(false)} />
           </DialogBody>
         </DialogContent>
       </Dialog>

@@ -1,17 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { EventFormModal } from "./EventFormModal";
 import type { EventRow, EventStatus } from "@/types/database";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
+
 const STATUS_LABELS: Record<EventStatus, string> = {
   approved: "אושר", cancelled: "בוטל",
 };
@@ -19,16 +22,29 @@ const STATUS_VARIANTS: Record<EventStatus, "default" | "secondary" | "destructiv
   approved: "default", cancelled: "secondary",
 };
 
+
+type LeadCard = { id: string };
+
 interface EventDetailModalProps {
   event: EventRow;
   open: boolean;
   onClose: () => void;
   isAdmin: boolean;
   canCancel?: boolean;
+  userId?: string;
 }
 
-export function EventDetailModal({ event, open, onClose, isAdmin, canCancel }: EventDetailModalProps) {
+export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, userId = "" }: EventDetailModalProps) {
   const [loading, setLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [leadState, setLeadState] = useState<"loading" | "found" | "not_found">("loading");
+  const [lead, setLead] = useState<LeadCard | null>(null);
+  const [creatingLead, setCreatingLead] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (open) fetchLead();
+  }, [open]);
 
   async function cancelEvent() {
     setLoading(true);
@@ -59,8 +75,53 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel }: E
     onClose();
   }
 
+  async function fetchLead() {
+    setLeadState("loading");
+    const supabase = createClient();
+    const { data } = await (supabase.from("leads") as any)
+      .select("id")
+      .eq("client_phone", event.client_phone)
+      .maybeSingle();
+
+    if (data) {
+      setLead(data);
+      setLeadState("found");
+    } else {
+      setLeadState("not_found");
+    }
+  }
+
+  async function createLeadFromEvent() {
+    setCreatingLead(true);
+    const supabase = createClient();
+    const { data, error } = await (supabase.from("leads") as any)
+      .insert({
+        client_name: event.client_name,
+        client_phone: event.client_phone,
+        client_email: event.client_email,
+        status: "booked",
+      })
+      .select("id")
+      .single();
+    if (error) { toast.error("שגיאה ביצירת ליד"); setCreatingLead(false); return; }
+    // Add venue interest
+    await (supabase.from("lead_venue_interests") as any)
+      .insert({ lead_id: data.id, venue_id: event.venue_id })
+      .then(() => null).catch(() => null);
+    setCreatingLead(false);
+    // Re-fetch to get venue name in interests
+    fetchLead();
+    toast.success("הליד נוצר");
+  }
+
+  function handleClose() {
+    setLeadState("loading");
+    setLead(null);
+    onClose();
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -95,6 +156,23 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel }: E
             <span className="text-muted-foreground w-24 shrink-0">מייל</span>
             <span dir="ltr">{event.client_email}</span>
           </div>
+          <div className="flex gap-2 items-center">
+            <span className="w-24 shrink-0" />
+            {leadState === "loading" && (
+              <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/40 border-t-transparent animate-spin" />
+            )}
+            {leadState === "found" && lead && (
+              <Button size="sm" variant="link" className="h-auto p-0 text-xs"
+                onClick={() => { handleClose(); router.push(`/leads?q=${encodeURIComponent(event.client_phone)}`); }}>
+                פתח ברשימת לידים ←
+              </Button>
+            )}
+            {leadState === "not_found" && (
+              <Button size="sm" variant="link" className="h-auto p-0 text-xs" disabled={creatingLead} onClick={createLeadFromEvent}>
+                {creatingLead ? "יוצר..." : "+ צור ליד"}
+              </Button>
+            )}
+          </div>
 
           <Separator />
 
@@ -122,10 +200,19 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel }: E
               </div>
             </>
           )}
+
         </div>
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 pt-2">
+          {isAdmin && event.status !== "cancelled" && (
+            <Button
+              size="sm"
+              onClick={() => setEditOpen(true)}
+            >
+              ערוך
+            </Button>
+          )}
           {(isAdmin || canCancel) && event.status !== "cancelled" && (
             <Button
               size="sm"
@@ -163,6 +250,16 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel }: E
         </div>
         </DialogBody>
       </DialogContent>
+
+      <EventFormModal
+        open={editOpen}
+        onClose={() => { setEditOpen(false); onClose(); }}
+        date={new Date(event.date)}
+        venueId={event.venue_id}
+        userId={userId}
+        isAdmin={isAdmin}
+        event={event}
+      />
     </Dialog>
   );
 }

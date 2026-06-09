@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { EventType, EventPurpose } from "@/types/database";
+import type { EventType, EventPurpose, EventRow } from "@/types/database";
 import { formatDate, isValidPhone } from "@/lib/utils";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 
@@ -21,9 +21,12 @@ interface EventFormModalProps {
   venueId: string;
   userId: string;
   isAdmin: boolean;
+  event?: EventRow;
+  onSaved?: () => void;
 }
 
-export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }: EventFormModalProps) {
+export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, event, onSaved }: EventFormModalProps) {
+  const isEdit = !!event;
   const [loading, setLoading] = useState(false);
   const [phoneError, setPhoneError] = useState("");
   const eventTypeRef = useRef<HTMLButtonElement>(null);
@@ -46,8 +49,21 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }
     if (!open) {
       setForm({ event_type: "", event_purpose: "", client_name: "", client_phone: "", client_email: "", price_listed: "", discount_amount: "0", notes: "" });
       setPhoneError("");
+      return;
     }
-  }, [open]);
+    if (event) {
+      setForm({
+        event_type: event.event_type,
+        event_purpose: event.event_purpose,
+        client_name: event.client_name,
+        client_phone: event.client_phone,
+        client_email: event.client_email,
+        price_listed: String(event.price_listed),
+        discount_amount: String(event.discount_amount),
+        notes: event.notes ?? "",
+      });
+    }
+  }, [open, event]);
 
   function set(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -88,13 +104,9 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }
     setLoading(true);
     const supabase = createClient();
 
-
-    const { error } = await (supabase.from("events") as any).insert({
-      venue_id: venueId,
-      date: date.toISOString().split("T")[0],
+    const payload = {
       event_type: form.event_type,
       event_purpose: form.event_purpose,
-      status: "approved",
       client_name: form.client_name,
       client_phone: form.client_phone,
       client_email: form.client_email,
@@ -102,8 +114,21 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }
       discount_amount: isAdmin ? discount : 0,
       price_final: listed - (isAdmin ? discount : 0),
       notes: form.notes || null,
-      created_by: userId,
-    });
+    };
+
+    let error: { message: string } | null = null;
+
+    if (isEdit && event) {
+      ({ error } = await (supabase.from("events") as any).update(payload).eq("id", event.id));
+    } else {
+      ({ error } = await (supabase.from("events") as any).insert({
+        ...payload,
+        venue_id: venueId,
+        date: date.toISOString().split("T")[0],
+        status: "approved",
+        created_by: userId,
+      }));
+    }
 
     setLoading(false);
 
@@ -116,7 +141,8 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }
       return;
     }
 
-    toast.success("האירוע נוסף בהצלחה");
+    toast.success(isEdit ? "האירוע עודכן בהצלחה" : "האירוע נוסף בהצלחה");
+    onSaved?.();
     onClose();
   }
 
@@ -124,7 +150,7 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>הוספת אירוע - {formatDate(date)}</DialogTitle>
+          <DialogTitle>{isEdit ? `עריכת אירוע - ${formatDate(new Date(event!.date))}` : `הוספת אירוע - ${formatDate(date)}`}</DialogTitle>
         </DialogHeader>
         <DialogBody>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -188,7 +214,7 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin }
           </div>
 
           <div className="flex gap-3 pt-1">
-            <Button type="submit" disabled={loading}>{loading ? "שומר..." : "שמור אירוע"}</Button>
+            <Button type="submit" disabled={loading}>{loading ? "שומר..." : isEdit ? "עדכן אירוע" : "שמור אירוע"}</Button>
             <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
           </div>
         </form>

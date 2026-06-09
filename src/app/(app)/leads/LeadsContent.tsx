@@ -2,7 +2,7 @@
 import { getUserProfile } from "@/lib/supabase/queries";
 import { LeadsManager } from "@/components/leads/LeadsManager";
 
-export async function LeadsContent() {
+export async function LeadsContent({ initialSearch }: { initialSearch?: string }) {
   const { supabase } = await getUserProfile();
 
   const [{ data: leads }, { data: venues }] = await Promise.all([
@@ -12,5 +12,5 @@ export async function LeadsContent() {
     (supabase.from("venues") as any).select("id, name").eq("is_active", true).order("name"),
   ]);
 
-  return <LeadsManager leads={leads ?? []} venues={venues ?? []} />;
+  return <LeadsManager leads={leads ?? []} venues={venues ?? []} initialSearch={initialSearch} />;
 }

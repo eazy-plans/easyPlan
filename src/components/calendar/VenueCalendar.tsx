@@ -188,6 +188,7 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
           event={detailModal.event}
           isAdmin={isAdmin}
           canCancel={canCancel}
+          userId={userId}
         />
       )}
     </div>

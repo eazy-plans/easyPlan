@@ -15,6 +15,11 @@ function formatDateHe(dateStr: string) {
   });
 }
 
+function formatDayOfWeekHe(dateStr: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("he-IL", { weekday: "long" });
+}
+
 const HOURS_MAP: Record<string, [string, string]> = {
   morning: ["hours_morning_start", "hours_morning_end"],
   evening: ["hours_evening_start", "hours_evening_end"],
@@ -72,26 +77,25 @@ export async function sendClientConfirmEmail(event: any, venue: any) {
   const [startKey, endKey] = HOURS_MAP[event.event_type] ?? [];
   const hoursStart = startKey ? String(venue[startKey] ?? "").slice(0, 5) : undefined;
   const hoursEnd = endKey ? String(venue[endKey] ?? "").slice(0, 5) : undefined;
+  const hoursLabel = hoursStart && hoursEnd ? `${hoursStart} - ${hoursEnd}` : undefined;
 
   const html = clientConfirmHtml({
     clientName: event.client_name,
     venueName: venue.name,
-    venueAddress: venue.address,
-    venueCity: venue.city,
     date: formatDateHe(event.date),
+    dayOfWeek: formatDayOfWeekHe(event.date),
+    hoursLabel,
     eventType: EVENT_TYPE_LABELS[event.event_type as keyof typeof EVENT_TYPE_LABELS] ?? event.event_type,
-    hoursStart,
-    hoursEnd,
-    priceFinal: formatCurrency(event.price_final),
-    parkingInfo: venue.parking_info,
-    publicTransportInfo: venue.public_transport_info,
+    contactName: venue.owner?.full_name,
+    contactPhone: venue.owner?.phone,
+    notes: event.notes,
   });
 
   return resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to: event.client_email,
-    subject: `האירוע שלך אושר - ${venue.name}`,
+    subject: `אישור הזמנה - אולם ${venue.name}`,
     html,
   });
 }

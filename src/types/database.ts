@@ -18,7 +18,9 @@ export type LeadStatus =
   | "waiting_for_date"
   | "date_taken"
   | "booked"
-  | "cancelled";
+  | "cancelled"
+  | "too_expensive"
+  | "not_relevant";
 
 export type EmailType = "owner_event_created" | "client_confirm" | "reminder";
 

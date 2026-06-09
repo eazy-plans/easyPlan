@@ -23,5 +23,5 @@ export async function EventsContent() {
 
   const { data: events } = await query;
 
-  return <EventsTable events={events ?? []} role={role} />;
+  return <EventsTable events={events ?? []} role={role} userId={user.id} />;
 }

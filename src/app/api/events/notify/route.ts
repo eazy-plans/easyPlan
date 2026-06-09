@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   // Fetch event + venue + owner
 
   const { data: event, error } = await (supabase.from("events") as any)
-    .select("*, venue:venues(*, owner:users!owner_user_id(email))")
+    .select("*, venue:venues(*, owner:users!owner_user_id(email, full_name))")
     .eq("id", eventId)
     .single();
 

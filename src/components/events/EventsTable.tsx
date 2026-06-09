@@ -1,8 +1,9 @@
 ﻿"use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Pencil } from "lucide-react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,8 @@ import { formatDate, formatCurrency } from "@/lib/utils";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 import type { EventStatus, UserRole } from "@/types/database";
 import { useRouter } from "next/navigation";
+import { LeadCardDialog } from "@/components/leads/LeadCardDialog";
+import { EventFormModal } from "@/components/calendar/EventFormModal";
 
 type EventRow = {
   id: string;
@@ -45,15 +48,20 @@ const STATUS_VARIANT: Record<EventStatus, "default" | "secondary" | "destructive
 interface EventsTableProps {
   events: EventRow[];
   role: UserRole;
+  userId: string;
 }
 
-export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
+export function EventsTable({ events: initialEvents, role, userId }: EventsTableProps) {
   const router = useRouter();
   const [events, setEvents] = useState(initialEvents);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [leadDialogEvent, setLeadDialogEvent] = useState<EventRow | null>(null);
+  const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
+
+  useEffect(() => { setEvents(initialEvents); }, [initialEvents]);
 
   const filtered = useMemo(() => events.filter((ev) => {
     const matchStatus = statusFilter === "all" || ev.status === statusFilter;
@@ -86,6 +94,7 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
   }
 
   const canCancel = role === "admin" || role === "secretary";
+  const canEdit = role === "admin" || role === "secretary";
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
@@ -142,11 +151,20 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
                   <div className="text-xs text-muted-foreground">{format(new Date(ev.date), "EEEE", { locale: he })}</div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="font-medium">{ev.venue?.name ?? "-"}</div>
+                  {ev.venue?.id ? (
+                    <Link href={`/venues/${ev.venue.id}`} className="font-medium hover:underline text-primary">
+                      {ev.venue.name}
+                    </Link>
+                  ) : (
+                    <div className="font-medium">-</div>
+                  )}
                   <div className="text-muted-foreground text-xs">{ev.venue?.city}</div>
                 </td>
-                <td className="px-4 py-3">
-                  <div>{ev.client_name}</div>
+                <td
+                  className="px-4 py-3 cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => setLeadDialogEvent(ev)}
+                >
+                  <div className="font-medium">{ev.client_name}</div>
                   <div className="text-muted-foreground text-xs" dir="ltr">{ev.client_phone}</div>
                 </td>
                 <td className="px-4 py-3">
@@ -159,6 +177,11 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1 justify-end">
+                    {canEdit && ev.status !== "cancelled" && (
+                      <Button size="sm" variant="ghost" onClick={() => setEditingEvent(ev)} disabled={isPending}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
                     {canCancel && ev.status !== "cancelled" && (
                       <Button size="sm" variant="outline" onClick={() => cancelEvent(ev.id)} disabled={cancellingId === ev.id || isPending}>
                         {cancellingId === ev.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "בטל"}
@@ -180,10 +203,14 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
         {filtered.map((ev) => (
           <div key={ev.id} className="border rounded-lg p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
-              <div>
+              <button
+                type="button"
+                className="text-right hover:text-primary transition-colors"
+                onClick={() => setLeadDialogEvent(ev)}
+              >
                 <p className="font-semibold">{ev.client_name}</p>
                 <p className="text-sm text-muted-foreground" dir="ltr">{ev.client_phone}</p>
-              </div>
+              </button>
               <Badge variant={STATUS_VARIANT[ev.status]}>{STATUS_LABELS[ev.status]}</Badge>
             </div>
             <div className="text-sm space-y-1">
@@ -193,7 +220,13 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">אולם</span>
-                <span>{ev.venue?.name ?? "-"}</span>
+                {ev.venue?.id ? (
+                  <Link href={`/venues/${ev.venue.id}`} className="hover:underline text-primary font-medium">
+                    {ev.venue.name}
+                  </Link>
+                ) : (
+                  <span>-</span>
+                )}
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">סוג</span>
@@ -204,11 +237,18 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
                 <span className="font-medium">{formatCurrency(ev.price_final)}</span>
               </div>
             </div>
-            {canCancel && ev.status !== "cancelled" && (
+            {(canEdit || canCancel) && ev.status !== "cancelled" && (
               <div className="flex gap-2 pt-1">
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => cancelEvent(ev.id)} disabled={cancellingId === ev.id || isPending}>
-                  {cancellingId === ev.id ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "בטל"}
-                </Button>
+                {canEdit && (
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setEditingEvent(ev)} disabled={isPending}>
+                    <Pencil className="h-4 w-4 ml-1" />ערוך
+                  </Button>
+                )}
+                {canCancel && (
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => cancelEvent(ev.id)} disabled={cancellingId === ev.id || isPending}>
+                    {cancellingId === ev.id ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "בטל"}
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -216,6 +256,31 @@ export function EventsTable({ events: initialEvents, role }: EventsTableProps) {
       </div>
 
       </div>{/* end scrollable area */}
+
+      {leadDialogEvent && (
+        <LeadCardDialog
+          open={!!leadDialogEvent}
+          onClose={() => setLeadDialogEvent(null)}
+          clientPhone={leadDialogEvent.client_phone}
+          clientName={leadDialogEvent.client_name}
+          clientEmail={leadDialogEvent.client_email}
+          venueId={leadDialogEvent.venue?.id ?? ""}
+        />
+      )}
+
+      {editingEvent && (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        <EventFormModal
+          open={!!editingEvent}
+          onClose={() => setEditingEvent(null)}
+          date={new Date(editingEvent.date)}
+          venueId={editingEvent.venue?.id ?? ""}
+          userId={userId}
+          isAdmin={role === "admin"}
+          event={editingEvent as any}
+          onSaved={() => startTransition(() => router.refresh())}
+        />
+      )}
     </div>
   );
 }

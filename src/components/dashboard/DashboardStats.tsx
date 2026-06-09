@@ -3,10 +3,9 @@
 import { useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, CartesianGrid,
+  CartesianGrid,
 } from "recharts";
 import { formatCurrency } from "@/lib/utils";
-import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } from "@/types/booking";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, TrendingUp, Users, Building2 } from "lucide-react";
 
@@ -14,7 +13,7 @@ const MONTH_NAMES = ["ינואר","פברואר","מרץ","אפריל","מאי",
 
 
 // Lead statuses - match actual DB values from LeadStatus type
-const LEAD_STATUS_ORDER = ["new", "considering", "waiting_for_date", "date_taken", "booked", "cancelled"];
+const LEAD_STATUS_ORDER = ["new", "considering", "waiting_for_date", "date_taken", "booked", "cancelled", "too_expensive", "not_relevant"];
 const LEAD_STATUS_LABELS: Record<string, string> = {
   new: "פנייה חדשה",
   considering: "שוקל/ת",
@@ -22,14 +21,18 @@ const LEAD_STATUS_LABELS: Record<string, string> = {
   date_taken: "תאריך תפוס",
   booked: "הוזמן",
   cancelled: "בוטל",
+  too_expensive: "יקר מדי",
+  not_relevant: "לא רלוונטי",
 };
 const LEAD_STATUS_COLORS: Record<string, string> = {
-  new: "#0ea5e9",       // sky  - fresh/new
-  considering: "#f59e0b", // amber - undecided
-  waiting_for_date: "#f97316", // orange - pending
-  date_taken: "#64748b",  // slate - blocked
-  booked: "#10b981",    // emerald - success
-  cancelled: "#ef4444", // red   - lost
+  new: "#0ea5e9",
+  considering: "#f59e0b",
+  waiting_for_date: "#f97316",
+  date_taken: "#64748b",
+  booked: "#10b981",
+  cancelled: "#ef4444",
+  too_expensive: "#94a3b8",
+  not_relevant: "#94a3b8",
 };
 
 const RANK_STYLES = [
@@ -47,7 +50,7 @@ type EventRow = {
   status: string;
   price_final: number;
   venue_id: string;
-  venue: { name: string } | null;
+  venue: { name: string; city?: string } | null;
 };
 
 type LeadRow = { id: string; status: string };
@@ -95,7 +98,7 @@ function KpiCard({
 function MonthTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-background border rounded-xl shadow-xl p-3 text-sm space-y-1.5 min-w-[130px]">
+    <div className="bg-background border rounded-xl shadow-xl p-3 text-sm space-y-1.5 min-w-[110px]">
       <p className="font-bold text-foreground border-b pb-1.5 mb-1">{label}</p>
       {payload.map((p: { name: string; value: number; color: string }, i: number) => (
         <div key={i} className="flex items-center justify-between gap-3">
@@ -103,55 +106,52 @@ function MonthTooltip({ active, payload, label }: any) {
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
             {p.name}
           </span>
-          <span className="text-xs font-semibold">
-            {p.name === "הכנסות" ? formatCurrency(p.value) : p.value}
-          </span>
+          <span className="text-xs font-semibold">{p.value}</span>
         </div>
       ))}
     </div>
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function DonutCenterLabel({ viewBox, total }: any) {
-  const { cx, cy } = viewBox ?? {};
-  return (
-    <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
-      <tspan x={cx} dy="-0.4em" fontSize={22} fontWeight={700} fill="currentColor">{total}</tspan>
-      <tspan x={cx} dy="1.4em" fontSize={11} fill="#6b7280">סה״כ</tspan>
-    </text>
-  );
-}
-
 export function DashboardStats({ events, leads, venues, hideLeads = false }: DashboardStatsProps) {
-  const totalRevenue = useMemo(
-    () => events.filter(e => e.status === "approved").reduce((s, e) => s + (e.price_final ?? 0), 0),
+  const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
+  const nowMs    = Date.now();
+  const nowDate  = new Date(nowMs);
+  const monthStr = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, "0")}`;
+
+  const eventsToday = useMemo(
+    () => events.filter(e => e.date === todayStr).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [events]
+  );
+  const eventsThisMonth = useMemo(
+    () => events.filter(e => e.date.startsWith(monthStr)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [events]
   );
 
   const byMonth = useMemo(() => {
     const counts = Array(12).fill(0);
-    const revenue = Array(12).fill(0);
     events.forEach((e) => {
       const m = new Date(e.date).getMonth();
       counts[m]++;
-      if (e.status === "approved") revenue[m] += e.price_final ?? 0;
     });
     return MONTH_NAMES.map((name, i) => ({
       name: name.slice(0, 3),
       count: counts[i],
-      revenue: revenue[i],
     }));
   }, [events]);
 
-  const byType = useMemo(() => {
+  const byCity = useMemo(() => {
     const map: Record<string, number> = {};
-    events.forEach((e) => { map[e.event_type] = (map[e.event_type] ?? 0) + 1; });
-    return Object.entries(map).map(([type, count]) => ({
-      name: EVENT_TYPE_LABELS[type as keyof typeof EVENT_TYPE_LABELS] ?? type,
-      value: count,
-      color: EVENT_TYPE_COLORS[type as keyof typeof EVENT_TYPE_COLORS] ?? "#94a3b8",
-    }));
+    events.forEach((e) => {
+      const city = e.venue?.city ?? "לא ידוע";
+      map[city] = (map[city] ?? 0) + 1;
+    });
+    return Object.entries(map)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name, count]) => ({ name, count }));
   }, [events]);
 
   const leadsByStatus = useMemo(() => {
@@ -186,14 +186,15 @@ export function DashboardStats({ events, leads, venues, hideLeads = false }: Das
       {/* KPI row */}
       <div className={`grid gap-4 ${hideLeads ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2 md:grid-cols-4"}`}>
         <KpiCard
-          label="אירועים השנה"
-          value={events.length}
+          label="אירועים היום"
+          value={eventsToday}
           icon={CalendarDays}
           gradient="bg-gradient-to-br from-blue-500 to-blue-700"
         />
         <KpiCard
-          label="הכנסות"
-          value={formatCurrency(totalRevenue)}
+          label="אירועים החודש"
+          value={eventsThisMonth}
+          sub={`${events.length} השנה`}
           icon={TrendingUp}
           gradient="bg-gradient-to-br from-emerald-500 to-emerald-700"
         />
@@ -214,99 +215,58 @@ export function DashboardStats({ events, leads, venues, hideLeads = false }: Das
         />
       </div>
 
-      {/* Events + Revenue by month */}
+      {/* Events by month */}
       <Card className="shadow-md rounded-2xl border-0 ring-1 ring-black/5">
         <CardHeader className="pb-2 pt-5 px-5">
           <CardTitle className="text-base font-semibold text-foreground">
-            אירועים והכנסות לפי חודש
+            אירועים לפי חודש
           </CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={byMonth} margin={{ top: 4, right: 4, bottom: 0, left: -16 }} barGap={3}>
+            <BarChart data={byMonth} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
               <defs>
                 <linearGradient id="eventGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
                   <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.85} />
                 </linearGradient>
-                <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#047857" stopOpacity={0.85} />
-                </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                tick={{ fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                width={40}
-                tickFormatter={(v) => v === 0 ? "" : `${(v / 1000).toFixed(0)}k`}
-              />
+              <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
               <Tooltip content={<MonthTooltip />} cursor={{ fill: "hsl(var(--muted))", radius: 4 }} />
-              <Bar yAxisId="left" dataKey="count" name="אירועים" fill="url(#eventGrad)" radius={[5, 5, 0, 0]} maxBarSize={22} />
-              <Bar yAxisId="right" dataKey="revenue" name="הכנסות" fill="url(#revenueGrad)" radius={[5, 5, 0, 0]} maxBarSize={22} />
+              <Bar dataKey="count" name="אירועים" fill="url(#eventGrad)" radius={[5, 5, 0, 0]} maxBarSize={26} />
             </BarChart>
           </ResponsiveContainer>
-          <div className="flex gap-5 mt-3 justify-center">
-            <span className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="w-3 h-3 rounded-sm bg-blue-500 inline-block" />
-              אירועים
-            </span>
-            <span className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block" />
-              הכנסות
-            </span>
-          </div>
         </CardContent>
       </Card>
 
       <div className={hideLeads ? "" : "grid md:grid-cols-2 gap-5"}>
-        {/* By event type - donut with center label */}
+        {/* By city */}
         <Card className="shadow-md rounded-2xl border-0 ring-1 ring-black/5">
           <CardHeader className="pb-2 pt-5 px-5">
             <CardTitle className="text-base font-semibold text-foreground">
-              התפלגות לפי סוג אירוע
+              התפלגות לפי עיר
             </CardTitle>
           </CardHeader>
           <CardContent className="px-5 pb-5">
-            {byType.length === 0 ? (
+            {byCity.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-12">לא נמצאו אירועים לשנה זו</p>
             ) : (
               <ResponsiveContainer width="100%" height={210}>
-                <PieChart>
-                  <Pie
-                    data={byType}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={56}
-                    outerRadius={82}
-                    paddingAngle={3}
-                    labelLine={false}
-                  >
-                    {byType.map((entry, i) => <Cell key={i} fill={entry.color} stroke="transparent" />)}
-                  </Pie>
-                  <Tooltip formatter={(v) => [`${v} אירועים`, ""]} />
-                  <Legend
-                    iconType="circle"
-                    iconSize={7}
-                    wrapperStyle={{ paddingTop: 24 }}
-                    formatter={(v) => <span className="text-xs text-foreground">{v}</span>}
-                  />
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" fontSize={22} fontWeight={700}>
-                    {events.length}
-                  </text>
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  <text x="50%" y="54%" textAnchor="middle" dominantBaseline="middle" fontSize={11} fill="#6b7280">
-                    סה״כ
-                  </text>
-                </PieChart>
+                <BarChart data={byCity} layout="vertical" margin={{ top: 0, right: 20, bottom: 0, left: 0 }}>
+                  <defs>
+                    <linearGradient id="cityGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#6d28d9" stopOpacity={0.85} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={64} />
+                  <Tooltip formatter={(v) => [`${v} אירועים`, "עיר"]} />
+                  <Bar dataKey="count" name="אירועים" fill="url(#cityGrad)" radius={[0, 5, 5, 0]} maxBarSize={18} />
+                </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>

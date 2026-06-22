@@ -121,6 +121,24 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
 
   const calendarEvents = useMemo(() => events.map(toCalendarEvent), [events]);
 
+  const bookedDates = useMemo(() => {
+    const set = new Set<string>();
+    events.forEach((e) => {
+      if (e.status === "approved") {
+        set.add(e.date);
+      }
+    });
+    return set;
+  }, [events]);
+
+  const dayPropGetter = (date: Date) => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    if (bookedDates.has(dateStr)) {
+      return { className: "rbc-day-booked" };
+    }
+    return {};
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Venue selector - shown if user has multiple venues */}
@@ -168,6 +186,7 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
           eventPropGetter={(calEvent) => ({
             className: eventClassName(calEvent.resource),
           })}
+          dayPropGetter={dayPropGetter}
           popup
         />
       </div>

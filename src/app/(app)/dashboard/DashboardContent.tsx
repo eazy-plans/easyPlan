@@ -35,12 +35,17 @@ export async function DashboardContent({
   let venuesQuery = (supabase.from("venues") as any).select("id, name").eq("is_active", true);
   if (isOwner) venuesQuery = venuesQuery.eq("owner_user_id", userId);
 
-  const [{ data: events }, { data: leads }, { data: venues }] = await Promise.all([
+  const [{ data: events }, { data: leads }, { data: venues }, { data: pendingInquiries }] = await Promise.all([
     eventsQuery,
     isOwner
       ? Promise.resolve({ data: [] })
       : (supabase.from("leads") as any).select("id, status"),
     venuesQuery,
+    isOwner
+      ? Promise.resolve({ data: [] })
+      : (supabase.from("lead_inquiries") as any)
+          .select("id, lead_id, venue_id, status, leads(client_name), venues(name)")
+          .in("status", ["considering", "waiting_for_date"]),
   ]);
 
   return (
@@ -48,6 +53,7 @@ export async function DashboardContent({
       events={events ?? []}
       leads={leads ?? []}
       venues={venues ?? []}
+      pendingInquiries={pendingInquiries ?? []}
       hideLeads={isOwner}
     />
   );

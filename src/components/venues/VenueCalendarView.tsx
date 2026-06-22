@@ -55,6 +55,24 @@ export function VenueCalendarView({ events, onEventClick, onSlotClick }: Props) 
     }),
   [events]);
 
+  const bookedDates = useMemo(() => {
+    const set = new Set<string>();
+    events.forEach((e) => {
+      if (e.status === "approved") {
+        set.add(e.date);
+      }
+    });
+    return set;
+  }, [events]);
+
+  const dayPropGetter = (date: Date) => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    if (bookedDates.has(dateStr)) {
+      return { className: "rbc-day-booked" };
+    }
+    return {};
+  };
+
   return (
     <>
       {/* Legend */}
@@ -83,6 +101,7 @@ export function VenueCalendarView({ events, onEventClick, onSlotClick }: Props) 
         eventPropGetter={(ce: CalEvent) => ({
           className: `event-${ce.resource.event_type}`,
         })}
+        dayPropGetter={dayPropGetter}
         popup
       />
     </>

@@ -55,11 +55,13 @@ type EventRow = {
 
 type LeadRow = { id: string; status: string };
 type VenueRow = { id: string; name: string };
+type PendingInquiry = { id: string; status: string };
 
 interface DashboardStatsProps {
   events: EventRow[];
   leads: LeadRow[];
   venues: VenueRow[];
+  pendingInquiries?: PendingInquiry[];
   hideLeads?: boolean;
 }
 
@@ -113,7 +115,7 @@ function MonthTooltip({ active, payload, label }: any) {
   );
 }
 
-export function DashboardStats({ events, leads, venues, hideLeads = false }: DashboardStatsProps) {
+export function DashboardStats({ events, leads, venues, pendingInquiries = [], hideLeads = false }: DashboardStatsProps) {
   const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
   const nowMs    = Date.now();
   const nowDate  = new Date(nowMs);
@@ -199,13 +201,23 @@ export function DashboardStats({ events, leads, venues, hideLeads = false }: Das
           gradient="bg-gradient-to-br from-emerald-500 to-emerald-700"
         />
         {!hideLeads && (
-          <KpiCard
-            label="לידים"
-            value={leads.length}
-            sub={`שיעור המרה ${conversionRate}%`}
-            icon={Users}
-            gradient="bg-gradient-to-br from-orange-400 to-orange-600"
-          />
+          <>
+            <KpiCard
+              label="לידים"
+              value={leads.length}
+              sub={`שיעור המרה ${conversionRate}%`}
+              icon={Users}
+              gradient="bg-gradient-to-br from-orange-400 to-orange-600"
+            />
+            {pendingInquiries.length > 0 && (
+              <KpiCard
+                label="ממתינים לאישור"
+                value={pendingInquiries.length}
+                icon={CalendarDays}
+                gradient="bg-gradient-to-br from-amber-500 to-amber-700"
+              />
+            )}
+          </>
         )}
         <KpiCard
           label="אולמות פעילים"

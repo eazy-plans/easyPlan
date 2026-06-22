@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { EventFormModal } from "./EventFormModal";
 import type { EventRow, EventStatus } from "@/types/database";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 
 const STATUS_LABELS: Record<EventStatus, string> = {
@@ -32,9 +33,11 @@ interface EventDetailModalProps {
   isAdmin: boolean;
   canCancel?: boolean;
   userId?: string;
+  venueAddress?: string;
+  venueCity?: string;
 }
 
-export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, userId = "" }: EventDetailModalProps) {
+export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, userId = "", venueAddress, venueCity }: EventDetailModalProps) {
   const [loading, setLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [leadState, setLeadState] = useState<"loading" | "found" | "not_found">("loading");
@@ -133,6 +136,35 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
         </DialogHeader>
         <DialogBody>
         <div className="space-y-3 text-sm">
+          {event.booking_date && (
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-24 shrink-0">הוזמן ב</span>
+              <span>{formatDate(new Date(event.booking_date))}</span>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <span className="text-muted-foreground w-24 shrink-0">תאריך</span>
+            <div className="flex flex-col">
+              <span>{formatDate(event.date)}</span>
+              <span className="text-xs text-muted-foreground">{toHebrewDateShort(event.date)}</span>
+            </div>
+          </div>
+
+          {(venueAddress || venueCity) && (
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-24 shrink-0">מיקום</span>
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(`${venueAddress || ""} ${venueCity || ""}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline flex items-center gap-1"
+              >
+                📍 פתח במפה
+              </a>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <span className="text-muted-foreground w-24 shrink-0">סוג אירוע</span>
             <span className="font-medium">{EVENT_TYPE_LABELS[event.event_type]}</span>

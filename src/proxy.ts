@@ -68,23 +68,27 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Role-based access control for specific routes
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single() as { data: { role: string } | null };
+  // Role-based access control. Only /leads and /settings are role-gated, so we
+  // only pay for the DB role lookup on those paths - every other route already
+  // passed the auth check above and needs no role.
+  if (pathname.startsWith("/leads") || pathname.startsWith("/settings")) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single() as { data: { role: string } | null };
 
-  const role = (profile?.role as UserRole) ?? "secretary";
+    const role = (profile?.role as UserRole) ?? "secretary";
 
-  // Leads page - admin and secretary only
-  if (pathname.startsWith("/leads") && !["admin", "secretary"].includes(role)) {
-    return NextResponse.redirect(new URL(ROLE_HOME[role], request.url));
-  }
+    // Leads page - admin and secretary only
+    if (pathname.startsWith("/leads") && !["admin", "secretary"].includes(role)) {
+      return NextResponse.redirect(new URL(ROLE_HOME[role], request.url));
+    }
 
-  // Settings page - admin only
-  if (pathname.startsWith("/settings") && role !== "admin") {
-    return NextResponse.redirect(new URL(ROLE_HOME[role], request.url));
+    // Settings page - admin only
+    if (pathname.startsWith("/settings") && role !== "admin") {
+      return NextResponse.redirect(new URL(ROLE_HOME[role], request.url));
+    }
   }
 
   return supabaseResponse;

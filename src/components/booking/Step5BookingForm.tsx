@@ -65,7 +65,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
 
   function triggerSearch(field: string, value: string) {
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (value.length < 2) { setSuggestions([]); setActiveField(null); return; }
+    if (value.length < 1) { setSuggestions([]); setActiveField(null); return; }
     searchTimer.current = setTimeout(async () => {
       const supabase = createClient();
       const { data } = await (supabase.from("leads") as any)
@@ -197,6 +197,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       discount_amount: isAdmin ? discount : 0,
       price_final: finalPrice,
       notes: form.notes || null,
+      booking_date: new Date().toISOString(),
       created_by: userId,
     }).select("id").single();
 
@@ -243,6 +244,10 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       }
       await (supabase.from("lead_venue_interests") as any)
         .insert({ lead_id: leadId, venue_id: venue.id })
+        .then(() => null).catch(() => null);
+
+      await (supabase.from("lead_inquiries") as any)
+        .upsert({ lead_id: leadId, venue_id: venue.id, status: "booked" }, { onConflict: "lead_id,venue_id" })
         .then(() => null).catch(() => null);
     })().catch(() => null);
 

@@ -1,3 +1,5 @@
+import { escapeHtml } from "../escapeHtml";
+
 interface ClientConfirmData {
   clientName: string;
   venueName: string;
@@ -12,7 +14,7 @@ interface ClientConfirmData {
 
 export function clientConfirmHtml(d: ClientConfirmData): string {
   const row = (label: string, value?: string) =>
-    `<li><strong>${label}:</strong> ${value ?? ""}</li>`;
+    `<li><strong>${label}:</strong> ${escapeHtml(value)}</li>`;
 
   return `
 <!DOCTYPE html>
@@ -29,9 +31,9 @@ export function clientConfirmHtml(d: ClientConfirmData): string {
 </style></head>
 <body>
 <div class="container">
-  <h2>אישור הזמנה - אולם ${d.venueName}</h2>
-  <p>שלום ${d.clientName},</p>
-  <p>תודה שבחרתם לקיים את האירוע שלכם באולם ${d.venueName}.</p>
+  <h2>אישור הזמנה - אולם ${escapeHtml(d.venueName)}</h2>
+  <p>שלום ${escapeHtml(d.clientName)},</p>
+  <p>תודה שבחרתם לקיים את האירוע שלכם באולם ${escapeHtml(d.venueName)}.</p>
   <p>הזמנתכם התקבלה בהצלחה ונשמרה במערכת.</p>
   <p><strong>פרטי ההזמנה:</strong></p>
   <ul>

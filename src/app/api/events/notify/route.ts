@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendOwnerEventCreatedEmail, sendClientConfirmEmail } from "@/lib/email/sendEventEmails";
 
 // POST /api/events/notify
@@ -11,11 +12,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing params" }, { status: 400 });
   }
 
-  const supabase = await createClient();
-
-  // Verify caller is authenticated
-  const { data: { user } } = await supabase.auth.getUser();
+  // Verify caller is authenticated (cookie-scoped client, respects RLS).
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Reading the venue owner's email and writing email_logs both require crossing
+  // RLS boundaries a secretary doesn't have, so use the service-role client for
+  // the trusted work after the auth check above.
+  const supabase = createAdminClient();
 
   // Fetch event + venue + owner
 

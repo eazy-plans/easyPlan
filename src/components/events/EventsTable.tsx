@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 import type { EventStatus, UserRole } from "@/types/database";
 import { useRouter } from "next/navigation";
@@ -216,7 +217,10 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
             <div className="text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">תאריך</span>
-                <span>{formatDate(new Date(ev.date))} · {format(new Date(ev.date), "EEEE", { locale: he })}</span>
+                <div className="flex flex-col items-end">
+                  <span>{formatDate(new Date(ev.date))} · {format(new Date(ev.date), "EEEE", { locale: he })}</span>
+                  <span className="text-xs text-muted-foreground">{toHebrewDateShort(ev.date)}</span>
+                </div>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">אולם</span>

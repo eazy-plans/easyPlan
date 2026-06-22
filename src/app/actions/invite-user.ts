@@ -27,7 +27,10 @@ export async function inviteUser(email: string, full_name: string, role: UserRol
     email,
     password,
     email_confirm: true,
-    user_metadata: { full_name, role },
+    user_metadata: { full_name },
+    // role lives in app_metadata so it cannot be forged via client-side signUp;
+    // the handle_new_user() trigger reads it from raw_app_meta_data.
+    app_metadata: { role },
   });
 
   if (error) return { error: error.message };

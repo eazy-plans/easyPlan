@@ -1,4 +1,6 @@
-﻿interface WaitlistNotifyData {
+﻿import { escapeHtml } from "../escapeHtml";
+
+interface WaitlistNotifyData {
   clientName: string;
   venueName: string;
   date: string;
@@ -17,11 +19,11 @@ export function waitlistNotifyHtml(d: WaitlistNotifyData): string {
 </style></head>
 <body>
 <div class="container">
-  <h1>תאריך התפנה - ${d.venueName}</h1>
-  <p style="font-size:14px;">שלום ${d.clientName},</p>
+  <h1>תאריך התפנה - ${escapeHtml(d.venueName)}</h1>
+  <p style="font-size:14px;">שלום ${escapeHtml(d.clientName)},</p>
   <p style="font-size:14px;">בשורות טובות! תאריך שהמתנת לו התפנה:</p>
   <div class="highlight">
-    <strong>${d.venueName}</strong> - ${d.date}
+    <strong>${escapeHtml(d.venueName)}</strong> - ${escapeHtml(d.date)}
   </div>
   <p style="font-size:14px;">צור/י קשר בהקדם כדי לשריין את התאריך לפני שיתפס.</p>
   <div class="footer">Eazyplans - מערכת ניהול אולמות</div>

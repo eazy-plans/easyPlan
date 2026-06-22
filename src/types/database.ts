@@ -22,9 +22,21 @@ export type LeadStatus =
   | "too_expensive"
   | "not_relevant";
 
-export type EmailType = "owner_event_created" | "client_confirm" | "reminder";
+export type EmailType =
+  | "owner_event_created"
+  | "client_confirm"
+  | "reminder"
+  | "waitlist_notify";
 
 export type EmailStatus = "sent" | "failed";
+
+export type LeadInquiryStatus =
+  | "considering"
+  | "too_expensive"
+  | "not_relevant"
+  | "not_interested"
+  | "booked"
+  | "cancelled";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Row types (what you get back from SELECT queries)
@@ -61,6 +73,10 @@ export interface VenueRow {
   hours_full_end: string | null;
   hours_shabbat_start: string | null;
   hours_shabbat_end: string | null;
+  has_elevator: boolean;
+  has_parking: boolean;
+  is_accessible: boolean;
+  has_public_transport: boolean;
   owner_user_id: string;
   is_active: boolean;
   created_at: string;
@@ -88,6 +104,7 @@ export interface EventRow {
   discount_amount: number;
   price_final: number;
   notes: string | null;
+  booking_date: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -138,6 +155,16 @@ export interface WaitlistRow {
   created_at: string;
 }
 
+export interface LeadInquiryRow {
+  id: string;
+  lead_id: string;
+  venue_id: string;
+  status: LeadInquiryStatus;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Database generic type (will be replaced by `supabase gen types` output)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -151,6 +178,7 @@ export type Database = {
       events: { Row: EventRow; Insert: Omit<EventRow, "id" | "created_at" | "updated_at">; Update: Partial<Omit<EventRow, "id" | "created_at">> };
       leads: { Row: LeadRow; Insert: Omit<LeadRow, "id" | "created_at" | "updated_at">; Update: Partial<Omit<LeadRow, "id" | "created_at">> };
       lead_venue_interests: { Row: LeadVenueInterestRow; Insert: Omit<LeadVenueInterestRow, "id" | "created_at">; Update: never };
+      lead_inquiries: { Row: LeadInquiryRow; Insert: Omit<LeadInquiryRow, "id" | "created_at" | "updated_at">; Update: Partial<Omit<LeadInquiryRow, "id" | "created_at">> };
       booking_locks: { Row: BookingLockRow; Insert: Omit<BookingLockRow, "id" | "created_at">; Update: never };
       email_logs: { Row: EmailLogRow; Insert: Omit<EmailLogRow, "id">; Update: never };
       waitlist: { Row: WaitlistRow; Insert: Omit<WaitlistRow, "id" | "created_at">; Update: never };

@@ -81,6 +81,15 @@
   background: hsl(var(--muted) / 0.4);
 }
 
+.rbc-day-booked .rbc-day-bg {
+  background-color: #f1f5f9;
+}
+
+.rbc-day-booked .rbc-date-cell {
+  font-weight: 600;
+  color: #475569;
+}
+
 .rbc-date-cell {
   text-align: center;
   font-size: 0.8rem;

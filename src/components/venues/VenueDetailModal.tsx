@@ -336,6 +336,19 @@ export function VenueDetailModal({
               </div>
             </section>
 
+            {/* Amenities */}
+            {(venue.has_elevator || venue.has_parking || venue.is_accessible || venue.has_public_transport) && (
+              <section>
+                <h3 className="text-sm font-semibold mb-3">מתקנים</h3>
+                <div className="flex flex-wrap gap-2">
+                  {venue.has_elevator && <Badge variant="outline">🛗 מעלית</Badge>}
+                  {venue.has_parking && <Badge variant="outline">🅿️ חניה</Badge>}
+                  {venue.is_accessible && <Badge variant="outline">♿ נגיש לנכים</Badge>}
+                  {venue.has_public_transport && <Badge variant="outline">🚌 תחבורה ציבורית</Badge>}
+                </div>
+              </section>
+            )}
+
             {/* Description */}
             {(venue.description_short || venue.description_long) && (
               <section>

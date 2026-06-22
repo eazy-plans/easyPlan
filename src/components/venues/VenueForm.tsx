@@ -58,6 +58,10 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
     description_long: venue?.description_long ?? "",
     parking_info: venue?.parking_info ?? "",
     public_transport_info: venue?.public_transport_info ?? "",
+    has_elevator: venue?.has_elevator ?? false,
+    has_parking: venue?.has_parking ?? false,
+    is_accessible: venue?.is_accessible ?? false,
+    has_public_transport: venue?.has_public_transport ?? false,
     price_morning: venue?.price_morning?.toString() ?? "",
     price_evening: venue?.price_evening?.toString() ?? "",
     price_full_day: venue?.price_full_day?.toString() ?? "",
@@ -238,6 +242,10 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
       description_long: form.description_long || null,
       parking_info: form.parking_info || null,
       public_transport_info: form.public_transport_info || null,
+      has_elevator: form.has_elevator,
+      has_parking: form.has_parking,
+      is_accessible: form.is_accessible,
+      has_public_transport: form.has_public_transport,
       price_morning: form.price_morning ? parseFloat(form.price_morning) : null,
       price_evening: form.price_evening ? parseFloat(form.price_evening) : null,
       price_full_day: form.price_full_day ? parseFloat(form.price_full_day) : null,
@@ -444,6 +452,29 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
         <div className="space-y-1">
           <Label htmlFor="public_transport_info">תחבורה ציבורית</Label>
           <Textarea id="public_transport_info" rows={2} value={form.public_transport_info} onChange={(e) => set("public_transport_info", e.target.value)} />
+        </div>
+      </section>
+
+      {/* Amenities */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold border-b pb-2">מתקנים</h2>
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { key: "has_elevator", label: "מעלית" },
+            { key: "has_parking", label: "חניה" },
+            { key: "is_accessible", label: "נגיש לנכים" },
+            { key: "has_public_transport", label: "תחבורה ציבורית" },
+          ].map(({ key, label }) => (
+            <label key={key} className="flex items-center gap-2 cursor-pointer p-3 rounded border hover:bg-muted transition-colors">
+              <input
+                type="checkbox"
+                checked={form[key as keyof typeof form] as boolean}
+                onChange={(e) => set(key, e.target.checked ? "true" : "false")}
+                className="w-4 h-4"
+              />
+              <span>{label}</span>
+            </label>
+          ))}
         </div>
       </section>
 

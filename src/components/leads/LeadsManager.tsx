@@ -39,6 +39,7 @@ const STATUS_VARIANT: Record<LeadStatus, "default" | "secondary" | "outline" | "
 
 type VenueRef = { id: string; name: string };
 type Interest = { venue: VenueRef | null };
+type LeadInquiry = { id: string; status: string; venue_id: string };
 type LeadRow = {
   id: string;
   client_name: string;
@@ -49,6 +50,7 @@ type LeadRow = {
   created_at: string;
   updated_at: string;
   interests: Interest[];
+  inquiries: LeadInquiry[];
 };
 
 interface LeadsManagerProps {
@@ -62,7 +64,9 @@ const EMPTY_FORM = { client_name: "", client_phone: "", client_email: "", notes:
 export function LeadsManager({ leads: initialLeads, venues, initialSearch = "" }: LeadsManagerProps) {
   const router = useRouter();
   const [leads, setLeads] = useState(initialLeads);
-  const [search, setSearch] = useState(initialSearch);
+  const [nameFilter, setNameFilter] = useState(initialSearch);
+  const [phoneFilter, setPhoneFilter] = useState("");
+  const [emailFilter, setEmailFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -72,13 +76,11 @@ export function LeadsManager({ leads: initialLeads, venues, initialSearch = "" }
 
   const filtered = useMemo(() => leads.filter((l) => {
     const matchStatus = statusFilter === "all" || l.status === statusFilter;
-    const q = search.toLowerCase();
-    const matchSearch = !q ||
-      l.client_name.toLowerCase().includes(q) ||
-      l.client_phone.includes(q) ||
-      (l.client_email ?? "").toLowerCase().includes(q);
-    return matchStatus && matchSearch;
-  }), [leads, search, statusFilter]);
+    const matchName = !nameFilter || l.client_name.toLowerCase().includes(nameFilter.toLowerCase());
+    const matchPhone = !phoneFilter || l.client_phone.includes(phoneFilter);
+    const matchEmail = !emailFilter || (l.client_email ?? "").toLowerCase().includes(emailFilter.toLowerCase());
+    return matchStatus && matchName && matchPhone && matchEmail;
+  }), [leads, nameFilter, phoneFilter, emailFilter, statusFilter]);
 
   function setF(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -102,7 +104,7 @@ export function LeadsManager({ leads: initialLeads, venues, initialSearch = "" }
         notes: form.notes || null,
         status: form.status,
       })
-      .select("*, interests:lead_venue_interests(venue:venues(id,name))")
+      .select("*, interests:lead_venue_interests(venue:venues(id,name)), inquiries:lead_inquiries(id,status,venue_id)")
       .single();
 
     setSaving(false);
@@ -154,13 +156,26 @@ export function LeadsManager({ leads: initialLeads, venues, initialSearch = "" }
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Input
-          placeholder="חיפוש"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1"
-        />
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Input
+            placeholder="חיפוש לפי שם"
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+          />
+          <Input
+            placeholder="חיפוש לפי טלפון"
+            value={phoneFilter}
+            onChange={(e) => setPhoneFilter(e.target.value)}
+            dir="ltr"
+          />
+          <Input
+            placeholder="חיפוש לפי מייל"
+            value={emailFilter}
+            onChange={(e) => setEmailFilter(e.target.value)}
+            dir="ltr"
+          />
+        </div>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as LeadStatus | "all")}>
           <SelectTrigger dir="rtl" className="w-full sm:w-44">
             <SelectValue placeholder="כל הסטטוסים" />
@@ -232,12 +247,22 @@ export function LeadsManager({ leads: initialLeads, venues, initialSearch = "" }
           <div key={lead.id} className="border rounded-lg p-4">
             <div className="flex items-start justify-between gap-2 mb-3">
               <div>
-                <p className="font-semibold">{lead.client_name}</p>
+                <button
+                  onClick={() => router.push(`/leads/${lead.id}`)}
+                  className="font-semibold text-primary hover:underline text-left"
+                >
+                  {lead.client_name}
+                </button>
                 <p className="text-sm text-muted-foreground" dir="ltr">{lead.client_phone}</p>
                 {lead.client_email && <p className="text-xs text-muted-foreground" dir="ltr">{lead.client_email}</p>}
               </div>
               <div className="flex flex-col items-end gap-2">
-                <Badge variant={STATUS_VARIANT[lead.status]}>{STATUS_LABELS[lead.status]}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={STATUS_VARIANT[lead.status]}>{STATUS_LABELS[lead.status]}</Badge>
+                  {lead.inquiries && lead.inquiries.length > 0 && (
+                    <Badge variant="outline" className="text-xs">מספר בירורים: {lead.inquiries.length}</Badge>
+                  )}
+                </div>
                 <span className="text-xs text-muted-foreground">{formatDate(new Date(lead.created_at))}</span>
               </div>
             </div>

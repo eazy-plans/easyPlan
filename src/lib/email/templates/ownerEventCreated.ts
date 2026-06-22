@@ -1,4 +1,6 @@
-﻿interface OwnerEventCreatedData {
+﻿import { escapeHtml } from "../escapeHtml";
+
+interface OwnerEventCreatedData {
   venueName: string;
   date: string;
   eventType: string;
@@ -29,19 +31,19 @@ export function ownerEventCreatedHtml(d: OwnerEventCreatedData): string {
 </style></head>
 <body>
 <div class="container">
-  <h1>אירוע חדש נרשם - ${d.venueName}</h1>
+  <h1>אירוע חדש נרשם - ${escapeHtml(d.venueName)}</h1>
   <span class="badge">אושר</span>
   <table>
-    <tr><td>תאריך</td><td>${d.date}</td></tr>
-    <tr><td>סוג אירוע</td><td>${d.eventType}</td></tr>
-    <tr><td>מהות האירוע</td><td>${d.eventPurpose}</td></tr>
-    <tr><td>שם הלקוח</td><td>${d.clientName}</td></tr>
-    <tr><td>טלפון</td><td dir="ltr">${d.clientPhone}</td></tr>
-    <tr><td>מייל</td><td dir="ltr">${d.clientEmail}</td></tr>
-    <tr><td>מחיר מחירון</td><td>${d.priceListed}</td></tr>
-    <tr><td>מחיר סופי</td><td>${d.priceFinal}</td></tr>
+    <tr><td>תאריך</td><td>${escapeHtml(d.date)}</td></tr>
+    <tr><td>סוג אירוע</td><td>${escapeHtml(d.eventType)}</td></tr>
+    <tr><td>מהות האירוע</td><td>${escapeHtml(d.eventPurpose)}</td></tr>
+    <tr><td>שם הלקוח</td><td>${escapeHtml(d.clientName)}</td></tr>
+    <tr><td>טלפון</td><td dir="ltr">${escapeHtml(d.clientPhone)}</td></tr>
+    <tr><td>מייל</td><td dir="ltr">${escapeHtml(d.clientEmail)}</td></tr>
+    <tr><td>מחיר מחירון</td><td>${escapeHtml(d.priceListed)}</td></tr>
+    <tr><td>מחיר סופי</td><td>${escapeHtml(d.priceFinal)}</td></tr>
   </table>
-  ${d.notes ? `<div class="note"><strong>הערות:</strong> ${d.notes}</div>` : ""}
+  ${d.notes ? `<div class="note"><strong>הערות:</strong> ${escapeHtml(d.notes)}</div>` : ""}
   <div class="footer">Eazyplans - מערכת ניהול אולמות</div>
 </div>
 </body></html>`;

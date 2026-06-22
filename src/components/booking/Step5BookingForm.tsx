@@ -153,7 +153,9 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
         .eq("venue_id", venue.id)
         .eq("date", new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(date))
         .eq("event_type", eventType)
-        .eq("locked_by_user_id", userId);
+        .eq("locked_by_user_id", userId)
+        .then(() => null)
+        .catch(() => null);
     };
   // Empty deps: lock must be acquired once for the slot chosen in earlier steps and
   // released on unmount. Props are frozen by the wizard - they never change while this

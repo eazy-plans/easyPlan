@@ -23,15 +23,15 @@ ALTER TABLE lead_inquiries ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "admin_lead_inquiries" ON lead_inquiries
   FOR ALL TO authenticated
-  USING ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+  USING (current_user_role() = 'admin');
 
 CREATE POLICY "secretary_lead_inquiries" ON lead_inquiries
   FOR ALL TO authenticated
-  USING ((auth.jwt() -> 'app_metadata' ->> 'role') = 'secretary');
+  USING (current_user_role() = 'secretary');
 
 CREATE POLICY "venue_owner_lead_inquiries" ON lead_inquiries
   FOR SELECT TO authenticated
   USING (
-    (auth.jwt() -> 'app_metadata' ->> 'role') = 'venue_owner'
+    current_user_role() = 'venue_owner'
     AND venue_id IN (SELECT id FROM venues WHERE owner_user_id = auth.uid())
   );

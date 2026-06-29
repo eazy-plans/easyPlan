@@ -10,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency, formatDate, isValidPhone } from "@/lib/utils";
+import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS, PRICE_KEY } from "@/types/booking";
 import type { EventType, EventPurpose, VenueRow } from "@/types/database";
+import { getPolicyDescription } from "@/lib/cancellation/refundCalculator";
 
 type ClientSuggestion = { client_name: string; client_phone: string; client_email: string };
 
@@ -245,7 +247,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
         leadId = newLead.id;
       }
       await (supabase.from("lead_venue_interests") as any)
-        .insert({ lead_id: leadId, venue_id: venue.id })
+        .upsert({ lead_id: leadId, venue_id: venue.id }, { onConflict: "lead_id,venue_id" })
         .then(() => null).catch(() => null);
 
       await (supabase.from("lead_inquiries") as any)
@@ -280,7 +282,10 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
         {/* Summary */}
         <div className="bg-muted rounded-lg p-3 text-sm space-y-1">
           <div className="flex gap-2"><span className="text-muted-foreground w-20">אולם:</span><span className="font-medium">{venue.name}</span></div>
-          <div className="flex gap-2"><span className="text-muted-foreground w-20">תאריך:</span><span className="font-medium">{formatDate(date)}</span></div>
+          <div className="flex flex-col gap-0.5 items-end">
+            <div className="flex gap-2 w-full justify-between"><span className="text-muted-foreground">תאריך:</span><span className="font-medium">{formatDate(date)}</span></div>
+            <span className="text-xs text-muted-foreground">{toHebrewDateShort(date)}</span>
+          </div>
           <div className="flex gap-2"><span className="text-muted-foreground w-20">סוג:</span><span className="font-medium">{EVENT_TYPE_LABELS[eventType]}</span></div>
         </div>
 
@@ -296,22 +301,23 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
           </Select>
         </div>
 
-        <div className="grid grid-cols-2 gap-4" ref={clientRef}>
+        <div className="grid grid-cols-2 gap-4" ref={clientRef} dir="rtl">
           {/* Name */}
-          <div className="space-y-1 col-span-2 relative">
+          <div className="space-y-1 col-span-2 relative" dir="rtl">
             <Label>שם הלקוח *</Label>
             <Input
               value={form.client_name}
               onChange={(e) => set("client_name", e.target.value)}
               onFocus={() => activeField !== "client_name" && suggestions.length > 0 && setActiveField("client_name")}
               required
+              dir="rtl"
             />
             {activeField === "client_name" && suggestions.length > 0 && (
               <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
             )}
           </div>
           {/* Phone */}
-          <div className="space-y-1 relative">
+          <div className="space-y-1 relative" dir="rtl">
             <Label>טלפון *</Label>
             <Input
               type="tel"
@@ -345,13 +351,13 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
         </div>
 
         {/* Pricing */}
-        <div className="bg-muted rounded-lg p-3 space-y-2 text-sm">
+        <div className="bg-muted rounded-lg p-3 space-y-2 text-sm" dir="rtl">
           <div className="flex justify-between">
             <span className="text-muted-foreground">מחיר מחירון</span>
             <span>{formatCurrency(listedPrice)}</span>
           </div>
           {isAdmin && (
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4" dir="rtl">
               <span className="text-muted-foreground shrink-0">הנחה (₪)</span>
               <Input
                 type="number" min="0" max={listedPrice}
@@ -368,9 +374,22 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
           </div>
         </div>
 
-        <div className="space-y-1">
+        {/* Cancellation Policy */}
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2" dir="rtl">
+          <div className="flex items-start gap-2">
+            <div className="text-amber-700 font-medium text-sm">📋 מדיניות ביטול</div>
+          </div>
+          <p className="text-xs text-amber-800">
+            {getPolicyDescription(venue.cancellation_policy_type, venue)}
+          </p>
+          <p className="text-xs text-amber-700 font-medium">
+            בעת ביטול ההזמנה, ההחזר יחושב לפי מדיניות זו.
+          </p>
+        </div>
+
+        <div className="space-y-1" dir="rtl">
           <Label>הערות</Label>
-          <Textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
+          <Textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} dir="rtl" />
         </div>
       </div>
 

@@ -7,7 +7,7 @@ export async function EventsContent() {
   const role = profile.role;
 
   let query = (supabase.from("events") as any)
-    .select("*, venue:venues(id, name, city), creator:users!created_by(full_name)")
+    .select("*, venue:venues(id, name, city), creator:users!created_by(full_name), cancelled_by_user:users!cancelled_by(full_name)")
     .order("date", { ascending: true });
 
   if (role === "venue_owner") {

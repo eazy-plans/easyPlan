@@ -26,7 +26,12 @@ export type EmailType =
   | "owner_event_created"
   | "client_confirm"
   | "reminder"
-  | "waitlist_notify";
+  | "waitlist_notify"
+  | "event_cancelled";
+
+export type CancellationPolicyType = "flexible" | "moderate" | "strict" | "custom";
+
+export type VenueApprovalStatus = "pending" | "approved" | "rejected";
 
 export type EmailStatus = "sent" | "failed";
 
@@ -79,6 +84,14 @@ export interface VenueRow {
   has_public_transport: boolean;
   owner_user_id: string;
   is_active: boolean;
+  cancellation_policy_type: CancellationPolicyType;
+  cancellation_deadline_days: number;
+  cancellation_fee_percent: number;
+  refund_details: string | null;
+  approval_status: VenueApprovalStatus;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
   created_at: string;
 }
 
@@ -105,6 +118,12 @@ export interface EventRow {
   price_final: number;
   notes: string | null;
   booking_date: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancellation_reason: string | null;
+  refund_amount: number | null;
+  refund_date: string | null;
+  original_price_final: number | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -113,8 +132,8 @@ export interface EventRow {
 export interface LeadRow {
   id: string;
   client_name: string;
-  client_phone: string;
-  client_email: string;
+  client_phone: string | null;
+  client_email: string | null;
   status: LeadStatus;
   notes: string | null;
   created_at: string;
@@ -166,6 +185,26 @@ export interface LeadInquiryRow {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Cancellation & Refund Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RefundCalculation {
+  refundAmount: number;
+  refundPercent: number;
+  policyApplied: CancellationPolicyType;
+  daysBeforeDeadline: number;
+  message: string;
+}
+
+export interface CancellationDetails {
+  originalPrice: number;
+  refundAmount: number;
+  refundDate: string;
+  reason: string;
+  policyType: CancellationPolicyType;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Database generic type (will be replaced by `supabase gen types` output)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -173,7 +212,7 @@ export type Database = {
   public: {
     Tables: {
       users: { Row: UserRow; Insert: Omit<UserRow, "created_at">; Update: Partial<Omit<UserRow, "id" | "created_at">> };
-      venues: { Row: VenueRow; Insert: Omit<VenueRow, "id" | "created_at">; Update: Partial<Omit<VenueRow, "id" | "created_at">> };
+      venues: { Row: VenueRow; Insert: Omit<VenueRow, "id" | "created_at" | "approved_by" | "approved_at">; Update: Partial<Omit<VenueRow, "id" | "created_at">> };
       venue_images: { Row: VenueImageRow; Insert: Omit<VenueImageRow, "id" | "created_at">; Update: Partial<Omit<VenueImageRow, "id" | "created_at">> };
       events: { Row: EventRow; Insert: Omit<EventRow, "id" | "created_at" | "updated_at">; Update: Partial<Omit<EventRow, "id" | "created_at">> };
       leads: { Row: LeadRow; Insert: Omit<LeadRow, "id" | "created_at" | "updated_at">; Update: Partial<Omit<LeadRow, "id" | "created_at">> };

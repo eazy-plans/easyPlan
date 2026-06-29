@@ -5,6 +5,7 @@ import { Calendar, dateFnsLocalizer, type View } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { he } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
+import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EventFormModal } from "./EventFormModal";
 import { EventDetailModal } from "./EventDetailModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -45,9 +46,10 @@ interface CalendarEvent {
 
 function toCalendarEvent(e: EventRow): CalendarEvent {
   const date = new Date(e.date);
+  const hebrewDate = toHebrewDateShort(e.date);
   return {
     id: e.id,
-    title: e.client_name,
+    title: `${e.client_name} (${hebrewDate})`,
     start: date,
     end: date,
     resource: e,
@@ -77,11 +79,11 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
 
   // Reload events when venue changes
   const loadEvents = useCallback(async (venueId: string) => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("events")
-      .select("*")
+      .select("*, creator:users!created_by(full_name), cancelled_by_user:users!cancelled_by(full_name)")
       .eq("venue_id", venueId)
-      .order("date") as { data: EventRow[] | null };
+      .order("date") as { data: (EventRow & { creator?: { full_name: string } | null; cancelled_by_user?: { full_name: string } | null })[] | null };
     setEvents(data ?? []);
   }, [supabase]);
 
@@ -138,6 +140,69 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
     }
     return {};
   };
+
+  // Add Hebrew dates to calendar cells after render
+  useEffect(() => {
+    const addHebrewDates = () => {
+      // Try multiple selectors to find date cells
+      let dateCells = document.querySelectorAll(".rbc-date-cell");
+
+      // If no cells found, try alternative selectors
+      if (dateCells.length === 0) {
+        dateCells = document.querySelectorAll(".rbc-day-bg");
+      }
+      if (dateCells.length === 0) {
+        dateCells = document.querySelectorAll("[role='gridcell']");
+      }
+
+      if (dateCells.length === 0) return;
+
+      const currentDate = new Date(date);
+
+      dateCells.forEach((cell, index) => {
+        // Skip if Hebrew date already added
+        if (cell.querySelector(".hebrew-date")) return;
+
+        // Get the date number from cell content
+        const cellText = cell.textContent?.trim();
+        if (!cellText) return;
+
+        // Extract just the number part
+        const dateMatch = cellText.match(/^\d+/);
+        if (!dateMatch) return;
+
+        const dayNum = parseInt(dateMatch[0]);
+        if (isNaN(dayNum) || dayNum < 1 || dayNum > 31) return;
+
+        // Calculate the actual date
+        let testDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNum);
+
+        // For cells at start of month showing previous month's dates
+        if (dayNum > 20 && index < 7) {
+          testDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, dayNum);
+        }
+        // For cells at end of month showing next month's dates
+        else if (dayNum < 10 && index > dateCells.length - 7) {
+          testDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, dayNum);
+        }
+
+        const hebrewDate = toHebrewDateShort(testDate);
+        if (index === 0) console.log("Sample Hebrew date conversion:", testDate, "→", hebrewDate);
+        if (!hebrewDate) return;
+        const hebrewSpan = document.createElement("div");
+        hebrewSpan.className = "hebrew-date";
+        hebrewSpan.textContent = hebrewDate;
+        cell.appendChild(hebrewSpan);
+      });
+    };
+
+    // Try multiple times with increasing delays
+    const timeouts = [100, 200, 400].map(delay =>
+      setTimeout(addHebrewDates, delay)
+    );
+
+    return () => timeouts.forEach(t => clearTimeout(t));
+  }, [date, view]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">

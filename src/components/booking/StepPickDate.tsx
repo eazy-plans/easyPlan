@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { he } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
+import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import type { EventType, VenueRow, VenueImageRow } from "@/types/database";
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } from "@/types/booking";
 
@@ -26,6 +28,7 @@ export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProp
   const [date, setDate] = useState<Date | null>(null);
   const [blockedSet, setBlockedSet] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(true);
+  const [useHebrewCalendar, setUseHebrewCalendar] = useState(false);
 
   const fetchAvailability = useCallback(async () => {
     setLoadingAvailability(true);
@@ -104,6 +107,10 @@ export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProp
 
   const handleEventTypeChange = (type: EventType) => {
     if (isTypeDisabled(type)) return;
+    if (eventType === type) {
+      setEventType(null);
+      return;
+    }
     if (type === "shabbat" && date && !isSaturday(date)) {
       setDate(null);
     } else if ((type === "evening" || type === "full_day") && date && (isFriday(date) || isSaturday(date))) {
@@ -141,9 +148,26 @@ export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProp
 
         <div className="flex gap-4 items-start">
           <div className="w-[60%] min-w-0">
-            <Label className="text-base font-semibold">בחר תאריך פנוי</Label>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-base font-semibold">בחר תאריך פנוי</Label>
+              <button
+                type="button"
+                onClick={() => setUseHebrewCalendar(!useHebrewCalendar)}
+                className="text-xs px-2 py-1 border rounded hover:bg-muted transition-colors"
+              >
+                {useHebrewCalendar ? "לוח שנה גרגוריאני" : "לוח שנה עברי"}
+              </button>
+            </div>
             {loadingAvailability ? (
               <p className="text-sm text-muted-foreground mt-4">טוען זמינות...</p>
+            ) : useHebrewCalendar ? (
+              <HebrewCalendar
+                mode="single"
+                selected={date ?? undefined}
+                onSelect={handleDateSelect}
+                disabled={calendarDisabled}
+                className="border rounded-lg p-3 w-full"
+              />
             ) : (
               <Calendar
                 mode="single"
@@ -152,7 +176,7 @@ export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProp
                 locale={he}
                 weekStartsOn={0}
                 disabled={calendarDisabled}
-                className="border rounded-lg p-3 w-full mt-2"
+                className="border rounded-lg p-3 w-full"
               />
             )}
           </div>
@@ -177,6 +201,13 @@ export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProp
                 </button>
               ))}
             </div>
+            {date && (
+              <div className="mt-4 p-2 bg-muted rounded text-sm text-right">
+                <div className="text-muted-foreground">התאריך שנבחר:</div>
+                <div className="font-medium">{date.toLocaleDateString("he-IL")}</div>
+                <div className="text-xs text-muted-foreground">{toHebrewDateShort(date)}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>

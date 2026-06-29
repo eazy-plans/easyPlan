@@ -3,6 +3,7 @@ import { resend } from "./resend";
 import { ownerEventCreatedHtml } from "./templates/ownerEventCreated";
 import { clientConfirmHtml } from "./templates/clientConfirm";
 import { waitlistNotifyHtml } from "./templates/waitlistNotify";
+import { eventCancelledHtml } from "./templates/eventCancelled";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 import { formatCurrency } from "@/lib/utils";
 
@@ -96,6 +97,46 @@ export async function sendClientConfirmEmail(event: any, venue: any) {
     replyTo: REPLY_TO,
     to: event.client_email,
     subject: `אישור הזמנה - אולם ${venue.name}`,
+    html,
+  });
+}
+
+export async function sendCancellationEmail(
+  event: any,
+  venue: any,
+  refundAmount: number,
+  cancellationReason?: string
+) {
+  if (!event.client_email) return;
+
+  const policyDescriptions: Record<string, string> = {
+    flexible: "מדיניות גמישה: החזר מלא אם מבוטל לפני תאריך הקבוע",
+    moderate: "מדיניות מתונה: החזר בדרגות לפי מספר הימים לפני האירוע",
+    strict: `מדיניות קשוחה: עמלה של ${venue.cancellation_fee_percent}%, החזר של היתרה עד לתאריך הקבוע`,
+    custom: venue.refund_details || "מדיניות מותאמת אישית",
+  };
+
+  const html = eventCancelledHtml({
+    clientName: event.client_name,
+    venueName: venue.name,
+    date: formatDateHe(event.date),
+    dayOfWeek: formatDayOfWeekHe(event.date),
+    eventType: EVENT_TYPE_LABELS[event.event_type as keyof typeof EVENT_TYPE_LABELS] ?? event.event_type,
+    originalPrice: formatCurrency(event.original_price_final ?? event.price_final),
+    refundAmount: formatCurrency(refundAmount),
+    refundDeadline: event.refund_date ? formatDateHe(event.refund_date) : undefined,
+    policyType: venue.cancellation_policy_type,
+    policyDescription: policyDescriptions[venue.cancellation_policy_type] || "מדיניות מוגדרת",
+    cancellationReason,
+    contactName: venue.owner?.full_name,
+    contactPhone: venue.owner?.phone,
+  });
+
+  return resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to: event.client_email,
+    subject: `הודעת ביטול הזמנה - אולם ${venue.name}`,
     html,
   });
 }

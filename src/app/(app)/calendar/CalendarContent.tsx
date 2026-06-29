@@ -21,12 +21,12 @@ export async function CalendarContent() {
   }
 
   const venueIds = venues.map((v) => v.id);
-  const { data: events } = await supabase
+  const { data: events } = await (supabase as any)
     .from("events")
-    .select("*")
+    .select("*, creator:users!created_by(full_name), cancelled_by_user:users!cancelled_by(full_name)")
     .in("venue_id", venueIds)
     .neq("status", "cancelled")
-    .order("date") as { data: EventRow[] | null };
+    .order("date") as { data: (EventRow & { creator?: { full_name: string } | null; cancelled_by_user?: { full_name: string } | null })[] | null };
 
   return (
     <VenueCalendarClient

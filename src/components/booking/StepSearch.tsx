@@ -8,12 +8,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Building2, Search, CalendarDays, X, ChevronDown, Clock } from "lucide-react";
+import { Building2, Search, CalendarDays, X, ChevronDown, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus } from "lucide-react";
 import Image from "next/image";
 import { he } from "date-fns/locale";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import type { EventType, VenueRow, VenueImageRow } from "@/types/database";
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, PRICE_KEY } from "@/types/booking";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type VenueWithImages = VenueRow & { images: VenueImageRow[] };
 
@@ -31,10 +40,7 @@ interface StepSearchProps {
 }
 
 export function StepSearch({ userId, onSelect }: StepSearchProps) {
-  const [venueInput, setVenueInput]       = useState("");
   const [selectedVenueId, setSelectedVenueId] = useState("");
-  const [venueOpen, setVenueOpen]         = useState(false);
-  const venueRef                          = useRef<HTMLDivElement>(null);
   const [selectedCity, setSelectedCity]   = useState("");
   const [eventType, setEventType]         = useState<EventType | null>(null);
   const [date, setDate]                   = useState<Date | null>(null);
@@ -46,6 +52,17 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
   const [activeLocks, setActiveLocks]     = useState<{ venue_id: string; date: string; event_type: EventType; locked_until: string }[]>([]);
   const [showHolds, setShowHolds]         = useState(false);
 
+  // Hall parameter filters
+  const [minCapacity, setMinCapacity]     = useState("");
+  const [maxPrice, setMaxPrice]           = useState("");
+  const [showFilters, setShowFilters]     = useState(false);
+  const [amenities, setAmenities]         = useState({
+    hasElevator: false,
+    hasParking: false,
+    isAccessible: false,
+    hasPublicTransport: false,
+  });
+
   useEffect(() => {
     const supabase = createClient();
     (supabase.from("venues") as any)
@@ -53,14 +70,6 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
       .eq("is_active", true)
       .order("name")
       .then(({ data }: any) => { setAllVenues(data ?? []); setLoadingVenues(false); });
-  }, []);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (venueRef.current && !venueRef.current.contains(e.target as Node)) setVenueOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const fetchLocks = useCallback(async () => {
@@ -143,171 +152,361 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
 
   const uniqueCities = [...new Set(allVenues.map((v) => v.city))].sort();
 
-  const venueMatches = allVenues.filter((v) =>
-    venueInput && !selectedVenueId
-      ? v.name.toLowerCase().includes(venueInput.toLowerCase())
-      : false
-  );
-
-  const selectedVenueName = selectedVenueId
-    ? allVenues.find((v) => v.id === selectedVenueId)?.name ?? ""
-    : "";
-
   function selectVenue(v: VenueWithImages) {
     setSelectedVenueId(v.id);
-    setVenueInput(v.name);
-    setVenueOpen(false);
   }
 
   function clearVenue() {
     setSelectedVenueId("");
-    setVenueInput("");
   }
 
   const filtered = allVenues.filter((v) => {
     if (selectedVenueId && v.id !== selectedVenueId) return false;
     if (selectedCity && v.city !== selectedCity) return false;
     if (date && eventType && bookedSet.has(`${v.id}:${eventType}`)) return false;
+
+    // Hall parameter filters
+    if (minCapacity && v.max_capacity < parseInt(minCapacity)) return false;
+
+    if (maxPrice && eventType) {
+      const venuePrice = v[PRICE_KEY[eventType]];
+      if (typeof venuePrice === "number" && venuePrice > parseInt(maxPrice)) return false;
+    }
+
+    if (amenities.hasElevator && !v.has_elevator) return false;
+    if (amenities.hasParking && !v.has_parking) return false;
+    if (amenities.isAccessible && !v.is_accessible) return false;
+    if (amenities.hasPublicTransport && !v.has_public_transport) return false;
+
     return true;
   });
 
   const filteredWithoutDate = allVenues.filter((v) => {
     if (selectedVenueId && v.id !== selectedVenueId) return false;
     if (selectedCity && v.city !== selectedCity) return false;
+
+    // Hall parameter filters
+    if (minCapacity && v.max_capacity < parseInt(minCapacity)) return false;
+
+    if (maxPrice && eventType) {
+      const venuePrice = v[PRICE_KEY[eventType]];
+      if (typeof venuePrice === "number" && venuePrice > parseInt(maxPrice)) return false;
+    }
+
+    if (amenities.hasElevator && !v.has_elevator) return false;
+    if (amenities.hasParking && !v.has_parking) return false;
+    if (amenities.isAccessible && !v.is_accessible) return false;
+    if (amenities.hasPublicTransport && !v.has_public_transport) return false;
+
     return true;
   });
 
   const hasDateFilter = !!date && !!eventType;
-  const anyFilter = !!selectedVenueId || !!selectedCity || !!eventType || !!date;
+  const anyAmenityFilter = amenities.hasElevator || amenities.hasParking || amenities.isAccessible || amenities.hasPublicTransport;
+  const anyFilter = !!selectedVenueId || !!selectedCity || !!eventType || !!date || !!minCapacity || !!maxPrice || anyAmenityFilter;
   const allTakenOnDate = hasDateFilter && filtered.length === 0 && filteredWithoutDate.length > 0;
 
-  return (
-    <div className="flex flex-col min-h-full gap-4">
+  const clearAllFilters = () => {
+    clearVenue();
+    setSelectedCity("");
+    setEventType(null);
+    setDate(null);
+    setBookedSet(new Set());
+    setMinCapacity("");
+    setMaxPrice("");
+    setShowFilters(false);
+    setAmenities({
+      hasElevator: false,
+      hasParking: false,
+      isAccessible: false,
+      hasPublicTransport: false,
+    });
+  };
 
-      {/* Venue name combobox */}
-      <div className="relative" ref={venueRef}>
-        <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none z-10" />
-        <Input
-          placeholder="בחר אולם..."
-          value={venueInput}
-          onChange={(e) => {
-            setVenueInput(e.target.value);
-            setSelectedVenueId("");
-            setVenueOpen(true);
-          }}
-          onFocus={() => { if (!selectedVenueId) setVenueOpen(true); }}
-          className="pr-9 pl-8"
-          readOnly={!!selectedVenueId}
-        />
-        {selectedVenueId ? (
-          <button
-            type="button"
-            onClick={clearVenue}
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            <X size={14} />
-          </button>
-        ) : (
-          <ChevronDown size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        )}
-        {venueOpen && venueMatches.length > 0 && (
-          <div className="absolute z-50 top-full mt-1 w-full bg-background border rounded-lg shadow-md max-h-52 overflow-y-auto">
-            {venueMatches.map((v) => (
+  const hasActiveFilters = !!minCapacity || !!maxPrice || anyAmenityFilter;
+  const activeFilterCount = [
+    minCapacity ? 1 : 0,
+    maxPrice ? 1 : 0,
+    amenities.hasElevator ? 1 : 0,
+    amenities.hasParking ? 1 : 0,
+    amenities.isAccessible ? 1 : 0,
+    amenities.hasPublicTransport ? 1 : 0,
+  ].filter(Boolean).length;
+
+  return (
+    <div className="flex flex-col min-h-full gap-4" dir="rtl">
+
+      {/* Venue and City Selection */}
+      <div className="space-y-3 bg-card rounded-lg p-4 border border-border" dir="rtl">
+
+        <div className="grid grid-cols-2 gap-3" dir="rtl">
+          {/* Venue Dropdown */}
+          <div className="space-y-2">
+            <Label htmlFor="venue-select" className="text-xs font-semibold text-muted-foreground text-right block">
+              שם אולם
+            </Label>
+            <Select dir="rtl" value={selectedVenueId || "all"} onValueChange={(value) => {
+              if (value === "all") {
+                clearVenue();
+              } else {
+                const venue = allVenues.find((v) => v.id === value);
+                if (venue) selectVenue(venue);
+              }
+            }}>
+              <SelectTrigger id="venue-select" className="w-full text-right">
+                <SelectValue placeholder="כל האולמות" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="all">כל האולמות</SelectItem>
+                {!loadingVenues && allVenues.map((venue) => (
+                  <SelectItem key={venue.id} value={venue.id}>
+                    {venue.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* City Dropdown */}
+          <div className="space-y-2">
+            <Label htmlFor="city-select" className="text-xs font-semibold text-muted-foreground text-right block">
+              עיר
+            </Label>
+            <Select dir="rtl" value={selectedCity || "all"} onValueChange={(value) => {
+              setSelectedCity(value === "all" ? "" : value);
+            }}>
+              <SelectTrigger id="city-select" className="w-full text-right">
+                <SelectValue placeholder="כל הערים" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="all">כל הערים</SelectItem>
+                {!loadingVenues && uniqueCities.map((city) => (
+                  <SelectItem key={city} value={city}>
+                    {city}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* Event type selection */}
+      <div className="space-y-3 bg-card rounded-lg p-4 border border-border" dir="rtl">
+        <h2 className="text-sm font-semibold text-right">סוג האירוע</h2>
+        <div className="grid grid-cols-2 gap-2 auto-cols-fr" dir="rtl">
+          {(Object.entries(EVENT_TYPE_LABELS) as [EventType, string][]).map(([type, label]) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => handleEventType(type)}
+              className={`px-4 py-3 rounded-lg font-medium text-sm transition-all border-2 ${
+                eventType === type
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-transparent bg-muted/50 text-foreground hover:bg-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Hall parameters filters - Collapsible panel */}
+      <div className="space-y-3 border-t pt-4">
+        <button
+          type="button"
+          onClick={() => setShowFilters(!showFilters)}
+          className={`w-full flex flex-row-reverse items-center justify-between px-4 py-3 rounded-lg transition-all ${
+            showFilters
+              ? "bg-primary/10 border border-primary/30"
+              : "bg-muted/50 border border-transparent hover:bg-muted"
+          }`}
+        >
+          <ChevronDown
+            size={18}
+            className={`text-muted-foreground transition-transform ${
+              showFilters ? "rotate-180" : ""
+            }`}
+          />
+          <div className="flex flex-row-reverse items-center justify-end gap-2 flex-1" dir="rtl">
+            <span className="font-semibold text-sm">סינון מתקדם</span>
+            {hasActiveFilters && (
+              <Badge variant="default" className="text-xs">
+                {activeFilterCount}
+              </Badge>
+            )}
+            <Sliders size={18} className="text-primary" />
+          </div>
+        </button>
+
+        {showFilters && (
+          <div className="space-y-4 p-4 rounded-lg bg-muted/30 border border-border" dir="rtl">
+            {/* Capacity and Price */}
+            <div className="grid grid-cols-2 gap-3" dir="rtl">
+              <div className="space-y-2" dir="rtl">
+                <Label htmlFor="minCapacity" className="text-xs font-semibold flex flex-row-reverse items-center justify-end gap-2 text-muted-foreground text-right" >
+                  קיבולת
+                  <Users size={14} />
+                </Label>
+                <Input
+                  id="minCapacity"
+                  type="number"
+                  min="0"
+                  placeholder="מינימום"
+                  value={minCapacity}
+                  onChange={(e) => setMinCapacity(e.target.value)}
+                  className="text-sm"
+                  dir="rtl"
+                />
+              </div>
+              <div className="space-y-2" dir="rtl">
+                <Label htmlFor="maxPrice" className="text-xs font-semibold flex flex-row-reverse items-center justify-end gap-2 text-muted-foreground text-right">
+                  תקציב
+                  <DollarSign size={14} />
+                </Label>
+                <Input
+                  id="maxPrice"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  placeholder="מקסימום"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  className="text-sm"
+                  dir="rtl"
+                />
+              </div>
+            </div>
+
+            {/* Amenities */}
+            <div className="space-y-3 border-t pt-3" dir="rtl">
+              <p className="text-xs font-semibold text-muted-foreground text-right">גישה</p>
+              <div className="grid grid-cols-2 gap-2" dir="rtl">
+                <label className="flex flex-row-reverse items-center justify-end gap-3 p-2.5 rounded-md hover:bg-background/50 cursor-pointer transition-colors" dir="rtl">
+                  <span className="flex flex-row-reverse items-center justify-end gap-2 text-sm flex-1">
+                    מעלית
+                    <Zap size={14} className="text-amber-500" />
+                  </span>
+                  <Checkbox
+                    id="hasElevator"
+                    checked={amenities.hasElevator}
+                    onChange={(e) =>
+                      setAmenities((prev) => ({ ...prev, hasElevator: e.target.checked }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-row-reverse items-center justify-end gap-3 p-2.5 rounded-md hover:bg-background/50 cursor-pointer transition-colors" dir="rtl">
+                  <span className="flex flex-row-reverse items-center justify-end gap-2 text-sm flex-1">
+                    חניה
+                    <ParkingCircle size={14} className="text-blue-500" />
+                  </span>
+                  <Checkbox
+                    id="hasParking"
+                    checked={amenities.hasParking}
+                    onChange={(e) =>
+                      setAmenities((prev) => ({ ...prev, hasParking: e.target.checked }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-row-reverse items-center justify-end gap-3 p-2.5 rounded-md hover:bg-background/50 cursor-pointer transition-colors">
+                  <span className="flex flex-row-reverse items-center justify-end gap-2 text-sm flex-1">
+                    נגיש לנכים
+                    <Accessibility size={14} className="text-green-500" />
+                  </span>
+                  <Checkbox
+                    id="isAccessible"
+                    checked={amenities.isAccessible}
+                    onChange={(e) =>
+                      setAmenities((prev) => ({ ...prev, isAccessible: e.target.checked }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-row-reverse items-center justify-end gap-3 p-2.5 rounded-md hover:bg-background/50 cursor-pointer transition-colors">
+                  <span className="flex flex-row-reverse items-center justify-end gap-2 text-sm flex-1">
+                    תחבורה
+                    <Bus size={14} className="text-purple-500" />
+                  </span>
+                  <Checkbox
+                    id="hasPublicTransport"
+                    checked={amenities.hasPublicTransport}
+                    onChange={(e) =>
+                      setAmenities((prev) => ({ ...prev, hasPublicTransport: e.target.checked }))
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Clear filters button */}
+            {hasActiveFilters && (
               <button
-                key={v.id}
                 type="button"
-                className="w-full text-right px-3 py-2 text-sm hover:bg-muted transition-colors block"
-                onMouseDown={(e) => { e.preventDefault(); selectVenue(v); }}
+                onClick={() => {
+                  setMinCapacity("");
+                  setMaxPrice("");
+                  setAmenities({
+                    hasElevator: false,
+                    hasParking: false,
+                    isAccessible: false,
+                    hasPublicTransport: false,
+                  });
+                }}
+                className="w-full text-xs text-muted-foreground hover:text-foreground py-2 transition-colors"
               >
-                <span className="font-medium">{v.name}</span>
-                <span className="text-muted-foreground mr-2 text-xs">{v.city}</span>
+                נקה פילטרים
               </button>
-            ))}
+            )}
           </div>
         )}
       </div>
 
-      {/* City pills */}
-      {!loadingVenues && uniqueCities.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {uniqueCities.map((city) => (
-            <button
-              key={city}
-              type="button"
-              onClick={() => setSelectedCity(selectedCity === city ? "" : city)}
-              className={`px-3 py-1 rounded-full text-sm border transition-all ${
-                selectedCity === city
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background border-border hover:border-primary/50"
-              }`}
-            >
-              {city}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Event type chips */}
-      <div className="flex gap-2 flex-wrap">
-        {(Object.entries(EVENT_TYPE_LABELS) as [EventType, string][]).map(([type, label]) => (
-          <button
-            key={type}
-            type="button"
-            onClick={() => handleEventType(type)}
-            className="border rounded-full px-3 py-1 text-sm font-medium transition-all whitespace-nowrap"
-            style={{
-              borderColor: EVENT_TYPE_COLORS[type],
-              backgroundColor: eventType === type ? EVENT_TYPE_COLORS[type] : "transparent",
-              color: eventType === type ? "#fff" : undefined,
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       {/* Date picker */}
-      <div className="flex items-center gap-2">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <CalendarDays size={14} className="text-muted-foreground" />
-              {date ? formatDate(date) : "בחר תאריך"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={date ?? undefined}
-              onSelect={handleDateSelect}
-              locale={he}
-              weekStartsOn={0}
-              disabled={calDisabled}
-            />
-          </PopoverContent>
-        </Popover>
-        {date && (
-          <button
-            type="button"
-            onClick={() => { setDate(null); setBookedSet(new Set()); }}
-            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-          >
-            <X size={12} /> נקה תאריך
-          </button>
-        )}
-        {anyFilter && (
-          <button
-            type="button"
-            onClick={() => { clearVenue(); setSelectedCity(""); setEventType(null); setDate(null); setBookedSet(new Set()); }}
-            className="text-xs text-muted-foreground hover:text-foreground mr-auto"
-          >
-            נקה הכל
-          </button>
-        )}
+      <div className="space-y-3 bg-card rounded-lg p-4 border border-border" dir="rtl">
+          <CalendarDays size={16} className="text-primary" />
+        <div className="flex flex-row-reverse items-center justify-end gap-3 flex-wrap-reverse">
+          {anyFilter && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-xs px-3 py-1 text-foreground bg-destructive/10 hover:bg-destructive/20 text-destructive rounded transition-colors"
+            >
+              נקה הכל
+            </button>
+          )}
+          {date && (
+            <button
+              type="button"
+              onClick={() => { setDate(null); setBookedSet(new Set()); }}
+              className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors flex flex-row-reverse items-center justify-end gap-1"
+            >
+              נקה
+              <X size={14} />
+            </button>
+          )}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                {date ? formatDate(date) : "בחר תאריך"}
+                <CalendarDays size={16} />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={date ?? undefined}
+                onSelect={handleDateSelect}
+                locale={he}
+                weekStartsOn={0}
+                disabled={calDisabled}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {/* Results */}
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground text-right">
         {loadingVenues  ? "טוען אולמות..." :
          loadingAvail   ? "בודק זמינות..." :
          hasDateFilter  ? `${filtered.length} אולמות פנויים` :
@@ -320,13 +519,13 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
           <button
             type="button"
             onClick={() => setShowHolds((h) => !h)}
-            className="w-full flex items-center justify-between px-3 py-2 text-sm bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors"
+            className="w-full flex flex-row-reverse items-center justify-between px-3 py-2 text-sm bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors"
           >
-            <span className="flex items-center gap-2">
-              <Clock size={14} />
-              {activeLocks.length} {activeLocks.length === 1 ? "אולם" : "אולמות"} בהמתנה כרגע
-            </span>
             <ChevronDown size={14} className={`transition-transform ${showHolds ? "rotate-180" : ""}`} />
+            <span className="flex flex-row-reverse items-center justify-end gap-2">
+              {activeLocks.length} {activeLocks.length === 1 ? "אולם" : "אולמות"} בהמתנה כרגע
+              <Clock size={14} />
+            </span>
           </button>
           {showHolds && (
             <div className="divide-y divide-amber-100">
@@ -334,16 +533,16 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
                 const venueName = allVenues.find((v) => v.id === lock.venue_id)?.name ?? "אולם לא ידוע";
                 const minsLeft = Math.max(0, Math.round((new Date(lock.locked_until).getTime() - Date.now()) / 60000));
                 return (
-                  <div key={i} className="px-3 py-2 text-sm flex items-center justify-between bg-amber-50/50">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-medium truncate">{venueName}</span>
-                      <span className="text-muted-foreground text-xs shrink-0">
-                        {formatDate(new Date(lock.date + "T12:00:00"))} · {EVENT_TYPE_LABELS[lock.event_type]}
-                      </span>
-                    </div>
-                    <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50 shrink-0 mr-2">
+                  <div key={i} className="px-3 py-2 text-sm flex flex-row-reverse items-center justify-between bg-amber-50/50">
+                    <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50 shrink-0">
                       {minsLeft} דק&apos;
                     </Badge>
+                    <div className="flex flex-row-reverse items-center justify-end gap-2 min-w-0 flex-1">
+                      <span className="text-muted-foreground text-xs shrink-0 text-right">
+                        {formatDate(new Date(lock.date + "T12:00:00"))} · {EVENT_TYPE_LABELS[lock.event_type]}
+                      </span>
+                      <span className="font-medium truncate text-right">{venueName}</span>
+                    </div>
                   </div>
                 );
               })}
@@ -354,12 +553,12 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
 
       {!loadingVenues && (
         filtered.length === 0 ? (
-          <div className="flex flex-col items-center py-12 text-muted-foreground gap-2">
+          <div className="flex flex-col items-center py-12 text-muted-foreground gap-2 text-right">
             <Building2 size={40} strokeWidth={1} />
             {allTakenOnDate ? (
               <>
                 <p className="font-medium text-foreground">התאריך תפוס</p>
-                <p className="text-sm text-center">כל האולמות תפוסים בתאריך זה לסוג האירוע שנבחר</p>
+                <p className="text-sm text-right">כל האולמות תפוסים בתאריך זה לסוג האירוע שנבחר</p>
               </>
             ) : (
               <p>לא נמצאו אולמות</p>
@@ -373,7 +572,7 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
               return (
                 <div
                   key={venue.id}
-                  className="border rounded-lg p-4 flex gap-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="border rounded-lg p-4 flex flex-row-reverse gap-4 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => onSelect(venue, date, eventType)}
                 >
                   <div className="w-20 h-20 rounded-md bg-muted shrink-0 overflow-hidden flex items-center justify-center">
@@ -384,15 +583,15 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold truncate">{venue.name}</h3>
+                    <div className="flex flex-row-reverse items-start justify-between gap-2">
                       <Badge variant="outline" className="shrink-0">{venue.max_capacity} אורחים</Badge>
+                      <h3 className="font-semibold truncate text-right">{venue.name}</h3>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-0.5">
+                    <p className="text-sm text-muted-foreground mt-0.5 text-right">
                       {venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}
                     </p>
                     {price !== null && price > 0 && (
-                      <p className="text-sm font-medium mt-1 text-primary">{formatCurrency(price)}</p>
+                      <p className="text-sm font-medium mt-1 text-primary text-right">{formatCurrency(price)}</p>
                     )}
                   </div>
                 </div>

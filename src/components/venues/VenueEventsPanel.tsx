@@ -11,6 +11,7 @@ import { EventFormModal } from "@/components/calendar/EventFormModal";
 import type { EventRow } from "@/types/database";
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { CalendarDays, List } from "lucide-react";
@@ -145,10 +146,13 @@ export function VenueEventsPanel({ venueId, initialEvents, userId, isAdmin }: Pr
                         {STATUS_LABELS[ev.status] ?? ev.status}
                       </Badge>
                     </div>
-                    <div className="flex gap-3 mt-1 text-sm text-muted-foreground flex-wrap">
+                    <div className="flex flex-col gap-1 mt-1 text-sm text-muted-foreground">
                       <span>{formatDate(new Date(ev.date))} · {format(new Date(ev.date), "EEEE", { locale: he })}</span>
-                      <span dir="ltr">{ev.client_phone}</span>
-                      <span>{EVENT_PURPOSE_LABELS[ev.event_purpose]}</span>
+                      <span className="text-xs">{toHebrewDateShort(ev.date)}</span>
+                      <div className="flex gap-3 flex-wrap">
+                        <span dir="ltr">{ev.client_phone}</span>
+                        <span>{EVENT_PURPOSE_LABELS[ev.event_purpose]}</span>
+                      </div>
                     </div>
                   </div>
                   <span className="text-sm font-semibold text-emerald-600 shrink-0">{formatCurrency(Number(ev.price_final))}</span>

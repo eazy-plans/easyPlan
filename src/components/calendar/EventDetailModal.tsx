@@ -16,6 +16,11 @@ import { formatDate, formatCurrency } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 
+interface EventWithCreator extends EventRow {
+  creator?: { full_name: string } | null;
+  cancelled_by_user?: { full_name: string } | null;
+}
+
 const STATUS_LABELS: Record<EventStatus, string> = {
   approved: "אושר", cancelled: "בוטל",
 };
@@ -27,7 +32,7 @@ const STATUS_VARIANTS: Record<EventStatus, "default" | "secondary" | "destructiv
 type LeadCard = { id: string };
 
 interface EventDetailModalProps {
-  event: EventRow;
+  event: EventWithCreator;
   open: boolean;
   onClose: () => void;
   isAdmin: boolean;
@@ -230,6 +235,49 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
                 <span className="text-muted-foreground w-24 shrink-0">הערות</span>
                 <span>{event.notes}</span>
               </div>
+            </>
+          )}
+
+          <Separator />
+
+          <div className="flex gap-2">
+            <span className="text-muted-foreground w-24 shrink-0">נוצר ב</span>
+            <span>{formatDate(new Date(event.created_at))}</span>
+          </div>
+
+          {event.creator?.full_name && (
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-24 shrink-0">יוצר</span>
+              <span>{event.creator.full_name}</span>
+            </div>
+          )}
+
+          {event.updated_at && event.created_at !== event.updated_at && (
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-24 shrink-0">עודכן ב</span>
+              <span>{formatDate(new Date(event.updated_at))}</span>
+            </div>
+          )}
+
+          {event.status === "cancelled" && event.cancelled_at && (
+            <>
+              <Separator />
+              <div className="flex gap-2">
+                <span className="text-muted-foreground w-24 shrink-0">בוטל ב</span>
+                <span>{formatDate(new Date(event.cancelled_at))}</span>
+              </div>
+              {event.cancelled_by_user?.full_name && (
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground w-24 shrink-0">בוטל על ידי</span>
+                  <span>{event.cancelled_by_user.full_name}</span>
+                </div>
+              )}
+              {event.cancellation_reason && (
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground w-24 shrink-0">סיבה</span>
+                  <span>{event.cancellation_reason}</span>
+                </div>
+              )}
             </>
           )}
 

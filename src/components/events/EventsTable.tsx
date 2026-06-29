@@ -13,27 +13,18 @@ import { he } from "date-fns/locale";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
-import type { EventStatus, UserRole } from "@/types/database";
+import type { EventStatus, UserRole, EventRow } from "@/types/database";
 import { useRouter } from "next/navigation";
 import { LeadCardDialog } from "@/components/leads/LeadCardDialog";
 import { EventFormModal } from "@/components/calendar/EventFormModal";
+import { EventDetailModal } from "@/components/calendar/EventDetailModal";
+import { CancellationDialog } from "./CancellationDialog";
+import type { VenueRow } from "@/types/database";
 
-type EventRow = {
-  id: string;
-  date: string;
-  event_type: string;
-  event_purpose: string;
-  status: EventStatus;
-  client_name: string;
-  client_phone: string;
-  client_email: string;
-  price_listed: number;
-  discount_amount: number;
-  price_final: number;
-  notes: string | null;
-  created_at: string;
-  venue: { id: string; name: string; city: string } | null;
-  creator: { full_name: string } | null;
+type EventWithMetadata = EventRow & {
+  venue?: VenueRow | { id: string; name: string; city: string } | null;
+  creator?: { full_name: string } | null;
+  cancelled_by_user?: { full_name: string } | null;
 };
 
 const STATUS_LABELS: Record<EventStatus, string> = {
@@ -47,7 +38,7 @@ const STATUS_VARIANT: Record<EventStatus, "default" | "secondary" | "destructive
 };
 
 interface EventsTableProps {
-  events: EventRow[];
+  events: EventWithMetadata[];
   role: UserRole;
   userId: string;
 }
@@ -56,41 +47,71 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
   const router = useRouter();
   const [events, setEvents] = useState(initialEvents);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all");
+  const [venueFilter, setVenueFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [leadDialogEvent, setLeadDialogEvent] = useState<EventRow | null>(null);
-  const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
+  const [leadDialogEvent, setLeadDialogEvent] = useState<EventWithMetadata | null>(null);
+  const [editingEvent, setEditingEvent] = useState<EventWithMetadata | null>(null);
+  const [detailEvent, setDetailEvent] = useState<EventWithMetadata | null>(null);
+  const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
+  const [eventToCancelWithVenue, setEventToCancelWithVenue] = useState<(EventWithMetadata & { venue: VenueRow }) | null>(null);
+  const [cancellationLoading, setCancellationLoading] = useState(false);
 
   useEffect(() => { setEvents(initialEvents); }, [initialEvents]);
 
+  const venues = useMemo(() =>
+    [...new Set(events.map(e => e.venue?.id).filter(Boolean))].map(id =>
+      events.find(e => e.venue?.id === id)?.venue
+    ).filter(Boolean),
+    [events]
+  );
+
   const filtered = useMemo(() => events.filter((ev) => {
-    const matchStatus = statusFilter === "all" || ev.status === statusFilter;
+    const matchVenue = venueFilter === "all" || ev.venue?.id === venueFilter;
+    const matchDate = !dateFilter || ev.date === dateFilter;
     const q = search.toLowerCase();
     const matchSearch = !q ||
       ev.client_name.toLowerCase().includes(q) ||
       ev.client_phone.includes(q) ||
       (ev.venue?.name ?? "").toLowerCase().includes(q);
-    return matchStatus && matchSearch;
-  }), [events, search, statusFilter]);
+    return matchVenue && matchDate && matchSearch;
+  }), [events, search, venueFilter, dateFilter]);
 
-  async function cancelEvent(eventId: string) {
-    setCancellingId(eventId);
+  async function openCancellationDialog(event: EventWithMetadata) {
+    setEventToCancelWithVenue(event as EventWithMetadata & { venue: VenueRow });
+    setCancellationDialogOpen(true);
+  }
+
+  async function cancelEvent(reason: string) {
+    if (!eventToCancelWithVenue) return;
+
+    setCancellationLoading(true);
     try {
       const res = await fetch("/api/events/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId }),
+        body: JSON.stringify({
+          eventId: eventToCancelWithVenue.id,
+          cancellationReason: reason,
+        }),
       });
 
-      if (!res.ok) { toast.error("שגיאה בביטול האירוע"); return; }
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "שגיאה בביטול האירוע");
+      }
 
       const { notified } = await res.json();
-      setEvents((prev) => prev.map((e) => e.id === eventId ? { ...e, status: "cancelled" } : e));
+      setEvents((prev) => prev.map((e) => e.id === eventToCancelWithVenue.id ? { ...e, status: "cancelled" } : e));
       toast.success(notified > 0 ? `האירוע בוטל - ${notified} לידים עודכנו` : "האירוע בוטל");
+
+      setCancellationDialogOpen(false);
+      setEventToCancelWithVenue(null);
+
       startTransition(() => router.refresh());
     } finally {
-      setCancellingId(null);
+      setCancellationLoading(false);
     }
   }
 
@@ -107,17 +128,26 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1"
         />
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as EventStatus | "all")}>
+        <Select value={venueFilter} onValueChange={setVenueFilter}>
           <SelectTrigger dir="rtl" className="w-full sm:w-44">
-            <SelectValue placeholder="כל הסטטוסים" />
+            <SelectValue placeholder="כל האולמות" />
           </SelectTrigger>
           <SelectContent dir="rtl">
-            <SelectItem value="all">כל הסטטוסים</SelectItem>
-            {(Object.entries(STATUS_LABELS) as [EventStatus, string][]).map(([v, l]) => (
-              <SelectItem key={v} value={v}>{l}</SelectItem>
+            <SelectItem value="all">כל האולמות</SelectItem>
+            {venues.map((venue) => (
+              <SelectItem key={venue?.id} value={venue?.id || ""}>
+                {venue?.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        <Input
+          type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className="w-full sm:w-44"
+          dir="rtl"
+        />
       </div>
 
       <p className="text-sm text-muted-foreground">{filtered.length} אירועים</p>
@@ -136,20 +166,22 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
               <th className="text-right px-4 py-3 font-medium">סוג</th>
               <th className="text-right px-4 py-3 font-medium">מחיר סופי</th>
               <th className="text-right px-4 py-3 font-medium">סטטוס</th>
+              <th className="text-right px-4 py-3 font-medium">הערות</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-10 text-muted-foreground">אין אירועים תואמים</td>
+                <td colSpan={8} className="text-center py-10 text-muted-foreground">אין אירועים תואמים</td>
               </tr>
             )}
             {filtered.map((ev) => (
-              <tr key={ev.id} className="border-t hover:bg-muted/40 transition-colors">
+              <tr key={ev.id} className="border-t hover:bg-muted/40 transition-colors cursor-pointer" onClick={() => setDetailEvent(ev)}>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div>{formatDate(new Date(ev.date))}</div>
                   <div className="text-xs text-muted-foreground">{format(new Date(ev.date), "EEEE", { locale: he })}</div>
+                  <div className="text-xs text-muted-foreground">{toHebrewDateShort(ev.date)}</div>
                 </td>
                 <td className="px-4 py-3">
                   {ev.venue?.id ? (
@@ -176,6 +208,13 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                 <td className="px-4 py-3">
                   <Badge variant={STATUS_VARIANT[ev.status]}>{STATUS_LABELS[ev.status]}</Badge>
                 </td>
+                <td className="px-4 py-3 max-w-xs">
+                  {ev.notes ? (
+                    <span className="text-sm text-muted-foreground truncate block">{ev.notes}</span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground/50">-</span>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1 justify-end">
                     {canEdit && ev.status !== "cancelled" && (
@@ -184,8 +223,8 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                       </Button>
                     )}
                     {canCancel && ev.status !== "cancelled" && (
-                      <Button size="sm" variant="outline" onClick={() => cancelEvent(ev.id)} disabled={cancellingId === ev.id || isPending}>
-                        {cancellingId === ev.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "בטל"}
+                      <Button size="sm" variant="outline" onClick={() => openCancellationDialog(ev)} disabled={cancellationLoading || isPending}>
+                        בטל
                       </Button>
                     )}
                   </div>
@@ -202,7 +241,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
           <p className="text-center py-10 text-muted-foreground">אין אירועים תואמים</p>
         )}
         {filtered.map((ev) => (
-          <div key={ev.id} className="border rounded-lg p-4 space-y-3">
+          <div key={ev.id} className="border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/40 transition-colors" onClick={() => setDetailEvent(ev)}>
             <div className="flex items-start justify-between gap-2">
               <button
                 type="button"
@@ -240,6 +279,24 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                 <span className="text-muted-foreground">מחיר</span>
                 <span className="font-medium">{formatCurrency(ev.price_final)}</span>
               </div>
+              {ev.notes && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-muted-foreground">הערות</span>
+                  <span className="text-sm">{ev.notes}</span>
+                </div>
+              )}
+              {ev.creator?.full_name && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">יוצר</span>
+                  <span>{ev.creator.full_name}</span>
+                </div>
+              )}
+              {ev.status === "cancelled" && ev.cancelled_by_user?.full_name && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">בוטל על ידי</span>
+                  <span>{ev.cancelled_by_user.full_name}</span>
+                </div>
+              )}
             </div>
             {(canEdit || canCancel) && ev.status !== "cancelled" && (
               <div className="flex gap-2 pt-1">
@@ -249,8 +306,8 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                   </Button>
                 )}
                 {canCancel && (
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => cancelEvent(ev.id)} disabled={cancellingId === ev.id || isPending}>
-                    {cancellingId === ev.id ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "בטל"}
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openCancellationDialog(ev)} disabled={cancellationLoading || isPending}>
+                    בטל
                   </Button>
                 )}
               </div>
@@ -283,6 +340,32 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
           isAdmin={role === "admin"}
           event={editingEvent as any}
           onSaved={() => startTransition(() => router.refresh())}
+        />
+      )}
+
+      {eventToCancelWithVenue && (
+        <CancellationDialog
+          event={eventToCancelWithVenue}
+          open={cancellationDialogOpen}
+          onClose={() => {
+            setCancellationDialogOpen(false);
+            setEventToCancelWithVenue(null);
+          }}
+          onConfirm={cancelEvent}
+          isLoading={cancellationLoading}
+        />
+      )}
+
+      {detailEvent && (
+        <EventDetailModal
+          event={detailEvent}
+          open={!!detailEvent}
+          onClose={() => setDetailEvent(null)}
+          isAdmin={role === "admin"}
+          canCancel={canCancel}
+          userId={userId}
+          venueAddress={(detailEvent.venue as VenueRow)?.address}
+          venueCity={(detailEvent.venue as VenueRow)?.city}
         />
       )}
     </div>

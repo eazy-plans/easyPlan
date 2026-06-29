@@ -10,8 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarIcon } from "lucide-react";
 import type { EventType, EventPurpose, EventRow } from "@/types/database";
 import { formatDate, isValidPhone } from "@/lib/utils";
+import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 
 interface EventFormModalProps {
@@ -29,6 +33,8 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
   const isEdit = !!event;
   const [loading, setLoading] = useState(false);
   const [phoneError, setPhoneError] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date>(date);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const eventTypeRef = useRef<HTMLButtonElement>(null);
   const eventPurposeRef = useRef<HTMLButtonElement>(null);
   const clientNameRef = useRef<HTMLInputElement>(null);
@@ -49,9 +55,11 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
     if (!open) {
       setForm({ event_type: "", event_purpose: "", client_name: "", client_phone: "", client_email: "", price_listed: "", discount_amount: "0", notes: "" });
       setPhoneError("");
+      setSelectedDate(date);
       return;
     }
     if (event) {
+      setSelectedDate(new Date(event.date));
       setForm({
         event_type: event.event_type,
         event_purpose: event.event_purpose,
@@ -62,8 +70,10 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
         discount_amount: String(event.discount_amount),
         notes: event.notes ?? "",
       });
+    } else {
+      setSelectedDate(date);
     }
-  }, [open, event]);
+  }, [open, event, date]);
 
   function set(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -119,12 +129,18 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
     let error: { message: string } | null = null;
 
     if (isEdit && event) {
-      ({ error } = await (supabase.from("events") as any).update(payload).eq("id", event.id));
+      const updatePayload = {
+        ...payload,
+        ...(event.date !== selectedDate.toISOString().split("T")[0] && {
+          date: selectedDate.toISOString().split("T")[0],
+        }),
+      };
+      ({ error } = await (supabase.from("events") as any).update(updatePayload).eq("id", event.id));
     } else {
       ({ error } = await (supabase.from("events") as any).insert({
         ...payload,
         venue_id: venueId,
-        date: date.toISOString().split("T")[0],
+        date: selectedDate.toISOString().split("T")[0],
         status: "approved",
         created_by: userId,
       }));
@@ -150,7 +166,16 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEdit ? `עריכת אירוע - ${formatDate(new Date(event!.date))}` : `הוספת אירוע - ${formatDate(date)}`}</DialogTitle>
+          <DialogTitle>
+            <div className="flex flex-col items-end gap-0.5">
+              <span>{isEdit ? `עריכת אירוע` : `הוספת אירוע`}</span>
+              <span className="text-xs text-muted-foreground font-normal">
+                {isEdit ? formatDate(new Date(event!.date)) : formatDate(selectedDate)}
+                {' · '}
+                {isEdit ? toHebrewDateShort(event!.date) : toHebrewDateShort(selectedDate)}
+              </span>
+            </div>
+          </DialogTitle>
         </DialogHeader>
         <DialogBody>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -177,6 +202,38 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1 col-span-2">
+            <Label>תאריך אירוע *</Label>
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-between"
+                  type="button"
+                >
+                  <div className="text-right">
+                    <div>{formatDate(selectedDate)}</div>
+                    <div className="text-xs text-muted-foreground">{toHebrewDateShort(selectedDate)}</div>
+                  </div>
+                  <CalendarIcon className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(d) => {
+                    if (d) {
+                      setSelectedDate(d);
+                      setDatePickerOpen(false);
+                    }
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

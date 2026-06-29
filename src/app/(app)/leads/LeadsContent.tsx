@@ -5,12 +5,9 @@ import { LeadsManager } from "@/components/leads/LeadsManager";
 export async function LeadsContent({ initialSearch }: { initialSearch?: string }) {
   const { supabase } = await getUserProfile();
 
-  const [{ data: leads }, { data: venues }] = await Promise.all([
-    (supabase.from("leads") as any)
-      .select("*, interests:lead_venue_interests(venue:venues(id,name)), inquiries:lead_inquiries(id,status,venue_id)")
-      .order("created_at", { ascending: false }),
-    (supabase.from("venues") as any).select("id, name").eq("is_active", true).order("name"),
-  ]);
+  const { data: leads } = await (supabase.from("leads") as any)
+    .select("id, client_name, client_phone, client_email, status, created_at, updated_at, notes")
+    .order("created_at", { ascending: false });
 
-  return <LeadsManager leads={leads ?? []} venues={venues ?? []} initialSearch={initialSearch} />;
+  return <LeadsManager leads={leads ?? []} initialSearch={initialSearch} />;
 }

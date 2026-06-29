@@ -70,7 +70,7 @@ export function LeadCardDialog({ clientPhone, clientName, clientEmail, venueId, 
       .single();
     if (error) { toast.error("שגיאה ביצירת ליד"); setCreating(false); return; }
     await (supabase.from("lead_venue_interests") as any)
-      .insert({ lead_id: data.id, venue_id: venueId })
+      .upsert({ lead_id: data.id, venue_id: venueId }, { onConflict: "lead_id,venue_id" })
       .then(() => null).catch(() => null);
     setCreating(false);
     setState("loading");

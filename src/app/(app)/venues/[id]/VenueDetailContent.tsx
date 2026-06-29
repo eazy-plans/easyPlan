@@ -14,7 +14,7 @@ export async function VenueDetailContent({ id }: { id: string }) {
       ? supabase.from("users").select("id, full_name, email").eq("role", "venue_owner").order("full_name") as unknown as Promise<{ data: Pick<UserRow, "id" | "full_name" | "email">[] | null }>
       : Promise.resolve({ data: [] as Pick<UserRow, "id" | "full_name" | "email">[] }),
     supabase.from("venue_images").select("*").eq("venue_id", id).order("created_at") as unknown as Promise<{ data: VenueImageRow[] | null }>,
-    (supabase.from("events") as any).select("*").eq("venue_id", id).order("date") as Promise<{ data: EventRow[] | null }>,
+    (supabase.from("events") as any).select("*, creator:users!created_by(full_name), cancelled_by_user:users!cancelled_by(full_name)").eq("venue_id", id).order("date") as Promise<{ data: (EventRow & { creator?: { full_name: string } | null; cancelled_by_user?: { full_name: string } | null })[] | null }>,
   ]);
 
   if (!venue) notFound();

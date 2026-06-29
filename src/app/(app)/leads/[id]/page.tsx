@@ -1,19 +1,20 @@
 import { notFound, redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/queries";
-import { LeadTimeline } from "@/components/leads/LeadTimeline";
+import { LeadDetailTabs } from "@/components/leads/LeadDetailTabs";
 
 export const metadata = { title: "פרטי ליד" };
 
-export default async function LeadDetailPage({ params }: { params: { id: string } }) {
-  const { supabase, user } = await getUserProfile();
+export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { supabase, profile } = await getUserProfile();
 
-  if (!user || !["admin", "secretary"].includes(user.user_metadata.role)) {
+  if (!["admin", "secretary"].includes(profile.role)) {
     redirect("/");
   }
 
   const { data: lead, error } = await (supabase.from("leads") as any)
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (error || !lead) {
@@ -22,22 +23,26 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
   const { data: inquiries } = await (supabase.from("lead_inquiries") as any)
     .select("*, venue:venues(id, name)")
-    .eq("lead_id", params.id)
+    .eq("lead_id", id)
     .order("created_at", { ascending: false });
 
-  const { data: events } = await (supabase.from("events") as any)
-    .select("*, venue:venues(id, name)")
-    .eq("client_email", lead.client_email)
-    .neq("status", "cancelled")
-    .order("date", { ascending: false });
+  let eventsData: any[] = [];
+  if (lead.client_email) {
+    const { data } = await (supabase.from("events") as any)
+      .select("*, venue:venues(id, name)")
+      .eq("client_email", lead.client_email)
+      .neq("status", "cancelled")
+      .order("date", { ascending: false });
+    eventsData = data ?? [];
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <LeadTimeline
+        <LeadDetailTabs
           lead={lead}
           inquiries={inquiries ?? []}
-          events={events ?? []}
+          events={eventsData}
         />
       </div>
     </div>

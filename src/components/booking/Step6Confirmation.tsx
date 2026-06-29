@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS } from "@/types/booking";
 import type { EventType, VenueRow } from "@/types/database";
 
@@ -29,9 +30,10 @@ export function Step6Confirmation({ venue, date, eventType, eventId, onNewBookin
             <span className="text-muted-foreground">אולם:</span>
             <span className="font-medium">{venue.name}</span>
           </div>
-          <div className="flex gap-2 justify-between">
+          <div className="flex flex-col gap-0.5 items-end">
             <span className="text-muted-foreground">תאריך:</span>
             <span className="font-medium">{formatDate(date)}</span>
+            <span className="text-xs text-muted-foreground">{toHebrewDateShort(date)}</span>
           </div>
           <div className="flex gap-2 justify-between">
             <span className="text-muted-foreground">סוג:</span>

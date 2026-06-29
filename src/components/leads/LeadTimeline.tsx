@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDate } from "@/lib/utils";
+import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { Badge } from "@/components/ui/badge";
 import type { LeadRow, LeadInquiryStatus, EventRow } from "@/types/database";
 
@@ -70,6 +71,7 @@ export function LeadTimeline({ lead, inquiries, events }: LeadTimelineProps) {
           <div>
             <p className="text-sm text-muted-foreground">תאריך הוספה</p>
             <p className="font-medium">{formatDate(new Date(lead.created_at))}</p>
+            <p className="text-xs text-muted-foreground">{toHebrewDateShort(lead.created_at)}</p>
           </div>
         </div>
         {lead.notes && (
@@ -122,6 +124,7 @@ export function LeadTimeline({ lead, inquiries, events }: LeadTimelineProps) {
                   <div>
                     <p className="font-medium">{inquiry.venue?.name || "-"}</p>
                     <p className="text-xs text-muted-foreground">{formatDate(new Date(inquiry.created_at))}</p>
+                    <p className="text-xs text-muted-foreground">{toHebrewDateShort(inquiry.created_at)}</p>
                   </div>
                   <Badge variant={INQUIRY_STATUS_VARIANT[inquiry.status]}>
                     {INQUIRY_STATUS_LABELS[inquiry.status]}
@@ -154,7 +157,10 @@ export function LeadTimeline({ lead, inquiries, events }: LeadTimelineProps) {
                 {events.map((event) => (
                   <tr key={event.id} className="border-b hover:bg-muted">
                     <td className="px-4 py-3">{event.venue?.name || "-"}</td>
-                    <td className="px-4 py-3">{formatDate(new Date(event.date))}</td>
+                    <td className="px-4 py-3">
+                      <div>{formatDate(new Date(event.date))}</div>
+                      <div className="text-xs text-muted-foreground">{toHebrewDateShort(event.date)}</div>
+                    </td>
                     <td className="px-4 py-3">{event.event_type}</td>
                     <td className="px-4 py-3" dir="ltr">{event.price_final}₪</td>
                   </tr>

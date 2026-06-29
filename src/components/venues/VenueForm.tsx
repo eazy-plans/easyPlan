@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/select";
 import Image from "next/image";
 import { X, Star, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
-import type { VenueRow, UserRow, VenueImageRow } from "@/types/database";
+import type { VenueRow, UserRow, VenueImageRow, CancellationPolicyType, VenueApprovalStatus } from "@/types/database";
+import { CancellationPolicyForm } from "./CancellationPolicyForm";
 import {
   uploadVenueImage,
   deleteVenueImage,
@@ -58,10 +59,10 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
     description_long: venue?.description_long ?? "",
     parking_info: venue?.parking_info ?? "",
     public_transport_info: venue?.public_transport_info ?? "",
-    has_elevator: venue?.has_elevator ?? false,
-    has_parking: venue?.has_parking ?? false,
-    is_accessible: venue?.is_accessible ?? false,
-    has_public_transport: venue?.has_public_transport ?? false,
+    has_elevator: typeof venue?.has_elevator === "string" ? venue.has_elevator === "true" : (venue?.has_elevator ?? false),
+    has_parking: typeof venue?.has_parking === "string" ? venue.has_parking === "true" : (venue?.has_parking ?? false),
+    is_accessible: typeof venue?.is_accessible === "string" ? venue.is_accessible === "true" : (venue?.is_accessible ?? false),
+    has_public_transport: typeof venue?.has_public_transport === "string" ? venue.has_public_transport === "true" : (venue?.has_public_transport ?? false),
     price_morning: venue?.price_morning?.toString() ?? "",
     price_evening: venue?.price_evening?.toString() ?? "",
     price_full_day: venue?.price_full_day?.toString() ?? "",
@@ -75,6 +76,12 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
     hours_shabbat_start: venue?.hours_shabbat_start ?? "",
     hours_shabbat_end: venue?.hours_shabbat_end ?? "",
     is_active: venue?.is_active ?? true,
+    cancellation_policy_type: (venue?.cancellation_policy_type ?? "moderate") as CancellationPolicyType,
+    cancellation_deadline_days: venue?.cancellation_deadline_days ?? 7,
+    cancellation_fee_percent: venue?.cancellation_fee_percent ?? 20,
+    refund_details: venue?.refund_details ?? null,
+    approval_status: (venue?.approval_status ?? "pending") as VenueApprovalStatus,
+    rejection_reason: venue?.rejection_reason ?? null,
   });
 
   // Image state
@@ -182,7 +189,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
     );
   }
 
-  function set(field: string, value: string | boolean) {
+  function set(field: string, value: string | boolean | number | null) {
     setForm((f) => ({ ...f, [field]: value }));
     setErrors((e) => { const next = { ...e }; delete next[field]; return next; });
   }
@@ -259,6 +266,12 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
       hours_shabbat_start: form.hours_shabbat_start || null,
       hours_shabbat_end: form.hours_shabbat_end || null,
       is_active: form.is_active,
+      cancellation_policy_type: form.cancellation_policy_type,
+      cancellation_deadline_days: form.cancellation_deadline_days,
+      cancellation_fee_percent: form.cancellation_fee_percent,
+      refund_details: form.refund_details,
+      approval_status: form.approval_status,
+      rejection_reason: form.rejection_reason,
     };
 
     let error;
@@ -324,26 +337,33 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
       {/* Basic info */}
       <section className="space-y-4">
         <h2 className="text-lg font-semibold border-b pb-2">פרטים כלליים</h2>
+        <div className="space-y-1 col-span-2">
+          <Label htmlFor="name">שם האולם *</Label>
+          <Input id="name" value={form.name} onChange={(e) => set("name", e.target.value)} className={errors.name ? "border-destructive" : ""} />
+          {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-muted-foreground">מיקום</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1 col-span-2">
+              <Label htmlFor="address">כתובת *</Label>
+              <Input id="address" value={form.address} onChange={(e) => set("address", e.target.value)} className={errors.address ? "border-destructive" : ""} />
+              {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="city">עיר *</Label>
+              <Input id="city" value={form.city} onChange={(e) => set("city", e.target.value)} className={errors.city ? "border-destructive" : ""} />
+              {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="neighborhood">שכונה</Label>
+              <Input id="neighborhood" value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} />
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1 col-span-2">
-            <Label htmlFor="name">שם האולם *</Label>
-            <Input id="name" value={form.name} onChange={(e) => set("name", e.target.value)} className={errors.name ? "border-destructive" : ""} />
-            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-          </div>
-          <div className="space-y-1 col-span-2">
-            <Label htmlFor="address">כתובת *</Label>
-            <Input id="address" value={form.address} onChange={(e) => set("address", e.target.value)} className={errors.address ? "border-destructive" : ""} />
-            {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="city">עיר *</Label>
-            <Input id="city" value={form.city} onChange={(e) => set("city", e.target.value)} className={errors.city ? "border-destructive" : ""} />
-            {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="neighborhood">שכונה</Label>
-            <Input id="neighborhood" value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} />
-          </div>
           <div className="space-y-1">
             <Label htmlFor="max_capacity">קיבולת מקסימלית *</Label>
             <Input id="max_capacity" type="number" min="1" value={form.max_capacity} onChange={(e) => set("max_capacity", e.target.value)} className={errors.max_capacity ? "border-destructive" : ""} />
@@ -368,13 +388,17 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
             </div>
           )}
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="description_short">תיאור קצר</Label>
-          <Input id="description_short" value={form.description_short} onChange={(e) => set("description_short", e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="description_long">תיאור מפורט</Label>
-          <Textarea id="description_long" rows={4} value={form.description_long} onChange={(e) => set("description_long", e.target.value)} />
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-muted-foreground">תיאור</h3>
+          <div className="space-y-1">
+            <Label htmlFor="description_short">תיאור קצר</Label>
+            <Input id="description_short" value={form.description_short} onChange={(e) => set("description_short", e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="description_long">תיאור מפורט</Label>
+            <Textarea id="description_long" rows={4} value={form.description_long} onChange={(e) => set("description_long", e.target.value)} />
+          </div>
         </div>
       </section>
 
@@ -442,41 +466,143 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
         </div>
       </section>
 
-      {/* Access */}
+      {/* Amenities & Access */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold border-b pb-2">פרטי גישה</h2>
-        <div className="space-y-1">
-          <Label htmlFor="parking_info">חנייה</Label>
-          <Textarea id="parking_info" rows={2} value={form.parking_info} onChange={(e) => set("parking_info", e.target.value)} />
+        <h2 className="text-lg font-semibold border-b pb-2">גישה</h2>
+
+        <div className="space-y-3">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.has_elevator}
+              onChange={(e) => set("has_elevator", e.target.checked)}
+              className="w-5 h-5 rounded"
+            />
+            <span className="text-sm">מעלית</span>
+          </label>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.is_accessible}
+              onChange={(e) => set("is_accessible", e.target.checked)}
+              className="w-5 h-5 rounded"
+            />
+            <span className="text-sm">נגיש לנכים</span>
+          </label>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="public_transport_info">תחבורה ציבורית</Label>
-          <Textarea id="public_transport_info" rows={2} value={form.public_transport_info} onChange={(e) => set("public_transport_info", e.target.value)} />
+
+        <div className="border-t pt-4 space-y-4">
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.has_parking}
+                onChange={(e) => set("has_parking", e.target.checked)}
+                className="w-5 h-5 rounded"
+              />
+              <span className="text-sm font-medium">חנייה</span>
+            </label>
+            <Textarea
+              id="parking_info"
+              placeholder="תיאור פרטי החנייה (כמות מקומות, סוג, מחיר וכו')"
+              rows={2}
+              value={form.parking_info}
+              onChange={(e) => set("parking_info", e.target.value)}
+              className="ml-8"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.has_public_transport}
+                onChange={(e) => set("has_public_transport", e.target.checked)}
+                className="w-5 h-5 rounded"
+              />
+              <span className="text-sm font-medium">תחבורה ציבורית</span>
+            </label>
+            <Textarea
+              id="public_transport_info"
+              placeholder="תיאור האפשרויות של תחבורה ציבורית (תחנת אוטובוס, רכבת וכו')"
+              rows={2}
+              value={form.public_transport_info}
+              onChange={(e) => set("public_transport_info", e.target.value)}
+              className="ml-8"
+            />
+          </div>
         </div>
       </section>
 
-      {/* Amenities */}
+      {/* Cancellation Policy */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold border-b pb-2">מתקנים</h2>
-        <div className="grid grid-cols-2 gap-4">
-          {[
-            { key: "has_elevator", label: "מעלית" },
-            { key: "has_parking", label: "חניה" },
-            { key: "is_accessible", label: "נגיש לנכים" },
-            { key: "has_public_transport", label: "תחבורה ציבורית" },
-          ].map(({ key, label }) => (
-            <label key={key} className="flex items-center gap-2 cursor-pointer p-3 rounded border hover:bg-muted transition-colors">
-              <input
-                type="checkbox"
-                checked={form[key as keyof typeof form] as boolean}
-                onChange={(e) => set(key, e.target.checked ? "true" : "false")}
-                className="w-4 h-4"
-              />
-              <span>{label}</span>
-            </label>
-          ))}
-        </div>
+        <h2 className="text-lg font-semibold border-b pb-2">מדיניות ביטול</h2>
+        <CancellationPolicyForm
+          policyType={form.cancellation_policy_type as CancellationPolicyType}
+          deadlineDays={form.cancellation_deadline_days}
+          feePercent={form.cancellation_fee_percent}
+          refundDetails={form.refund_details}
+          onChange={(data) => {
+            set("cancellation_policy_type", data.policyType);
+            set("cancellation_deadline_days", data.deadlineDays);
+            set("cancellation_fee_percent", data.feePercent);
+            set("refund_details", data.refundDetails);
+          }}
+        />
       </section>
+
+      {/* Admin Approval */}
+      {isAdmin && isEdit && (
+        <section className="space-y-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <h2 className="text-lg font-semibold border-b pb-2">אישור מנהל</h2>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="approval_status">סטטוס אישור</Label>
+              <Select value={form.approval_status} onValueChange={(v) => set("approval_status", v as VenueApprovalStatus)}>
+                <SelectTrigger dir="rtl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  <SelectItem value="pending">בהמתנה</SelectItem>
+                  <SelectItem value="approved">אושר</SelectItem>
+                  <SelectItem value="rejected">דחוי</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {form.approval_status === "rejected" && (
+              <div className="space-y-1">
+                <Label htmlFor="rejection_reason">סיבת דחייה</Label>
+                <Textarea
+                  id="rejection_reason"
+                  placeholder="הסבר מדוע דחה הנכס"
+                  rows={3}
+                  value={form.rejection_reason ?? ""}
+                  onChange={(e) => set("rejection_reason", e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Show Approval Status Badge */}
+      {isEdit && (
+        <div className="bg-gray-50 p-3 rounded-lg border">
+          <p className="text-sm text-muted-foreground mb-1">סטטוס אישור:</p>
+          <div className="flex items-center gap-2">
+            {form.approval_status === "pending" && (
+              <><span className="inline-block w-2 h-2 bg-yellow-500 rounded-full"></span><span className="text-sm font-medium">בהמתנה</span></>
+            )}
+            {form.approval_status === "approved" && (
+              <><span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span><span className="text-sm font-medium">אושר</span></>
+            )}
+            {form.approval_status === "rejected" && (
+              <><span className="inline-block w-2 h-2 bg-red-500 rounded-full"></span><span className="text-sm font-medium">דחוי</span></>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Images */}
       <section className="space-y-4">
@@ -582,9 +708,11 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
         <Button type="submit" disabled={loading}>
           {loading ? "שומר..." : isEdit ? "עדכן אולם" : "הוסף אולם"}
         </Button>
-        <Button type="button" variant="outline" onClick={() => onSuccess ? onSuccess() : router.back()}>
-          ביטול
-        </Button>
+        {!isEdit && (
+          <Button type="button" variant="outline" onClick={() => onSuccess ? onSuccess() : router.back()}>
+            ביטול
+          </Button>
+        )}
       </div>
 
       {/* Lightbox - nested Radix Dialog avoids parent dialog's onInteractOutside interference */}

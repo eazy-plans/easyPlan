@@ -17,6 +17,7 @@ import {
   X,
   ZoomIn,
   ZoomOut,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -26,9 +27,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import type { VenueRow, VenueImageRow } from "@/types/database";
+import type { VenueRow, VenueImageRow, UserRole } from "@/types/database";
+import { EventFormModal } from "@/components/calendar/EventFormModal";
 
 const BUCKET = "venue-images";
 
@@ -36,6 +41,8 @@ interface VenueDetailModalProps {
   venue: VenueRow;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  userId?: string;
+  role?: UserRole;
 }
 
 function ImageCarousel({ venueId }: { venueId: string }) {
@@ -287,7 +294,13 @@ export function VenueDetailModal({
   venue,
   open,
   onOpenChange,
+  userId,
+  role,
 }: VenueDetailModalProps) {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+
   const hasPrices =
     venue.price_morning ||
     venue.price_evening ||
@@ -299,21 +312,69 @@ export function VenueDetailModal({
     venue.hours_full_start ||
     venue.hours_shabbat_start;
   const hasAccess = venue.parking_info || venue.public_transport_info;
+  const isAdmin = role === "admin";
+  const canCreateEvent = userId && role;
+
+  const handleEventFormClose = () => {
+    setShowEventForm(false);
+    setDatePickerOpen(false);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            {venue.name}
-            <Badge
-              variant={venue.is_active ? "default" : "secondary"}
-              className="text-xs"
-            >
-              {venue.is_active ? "פעיל" : "לא פעיל"}
-            </Badge>
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap">
+                <DialogTitle>{venue.name}</DialogTitle>
+                <Badge
+                  variant={venue.is_active ? "default" : "secondary"}
+                  className="text-xs"
+                >
+                  {venue.is_active ? "פעיל" : "לא פעיל"}
+                </Badge>
+                <Badge
+                  variant={
+                    venue.approval_status === "approved"
+                      ? "default"
+                      : venue.approval_status === "pending"
+                        ? "secondary"
+                        : "destructive"
+                  }
+                  className="text-xs"
+                >
+                  {venue.approval_status === "approved" && "אושר"}
+                  {venue.approval_status === "pending" && "בהמתנה"}
+                  {venue.approval_status === "rejected" && "דחוי"}
+                </Badge>
+              </div>
+              {canCreateEvent && (
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="default" className="gap-1.5">
+                      <CalendarIcon className="h-4 w-4" />
+                      אירוע חדש
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          setSelectedDate(date);
+                          setDatePickerOpen(false);
+                          setShowEventForm(true);
+                        }
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+          </DialogHeader>
 
         <DialogBody>
           <div className="space-y-6 pt-1">
@@ -339,7 +400,7 @@ export function VenueDetailModal({
             {/* Amenities */}
             {(venue.has_elevator || venue.has_parking || venue.is_accessible || venue.has_public_transport) && (
               <section>
-                <h3 className="text-sm font-semibold mb-3">מתקנים</h3>
+                <h3 className="text-sm font-semibold mb-3">גישה</h3>
                 <div className="flex flex-wrap gap-2">
                   {venue.has_elevator && <Badge variant="outline">🛗 מעלית</Badge>}
                   {venue.has_parking && <Badge variant="outline">🅿️ חניה</Badge>}
@@ -363,6 +424,14 @@ export function VenueDetailModal({
                     {venue.description_long}
                   </p>
                 )}
+              </section>
+            )}
+
+            {/* Rejection Reason */}
+            {venue.approval_status === "rejected" && venue.rejection_reason && (
+              <section className="bg-red-50 rounded-lg p-3 border border-red-200">
+                <h3 className="text-sm font-semibold text-red-900 mb-2">סיבת דחייה</h3>
+                <p className="text-sm text-red-800">{venue.rejection_reason}</p>
               </section>
             )}
 
@@ -442,5 +511,17 @@ export function VenueDetailModal({
         </DialogBody>
       </DialogContent>
     </Dialog>
+
+    {canCreateEvent && (
+      <EventFormModal
+        open={showEventForm}
+        onClose={handleEventFormClose}
+        date={selectedDate}
+        venueId={venue.id}
+        userId={userId}
+        isAdmin={isAdmin}
+      />
+    )}
+    </>
   );
 }

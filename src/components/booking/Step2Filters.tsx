@@ -39,26 +39,28 @@ export function Step2Filters({
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4" dir="rtl">
           <Label className="text-base font-semibold">סינון אולמות</Label>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-4" dir="rtl">
+            <div className="space-y-1" dir="rtl">
               <Label htmlFor="city">עיר</Label>
               <Input
                 id="city"
                 placeholder="כל הערים"
                 value={city}
                 onChange={(e) => onChange("city", e.target.value)}
+                dir="rtl"
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1" dir="rtl">
               <Label htmlFor="neighborhood">שכונה</Label>
               <Input
                 id="neighborhood"
                 placeholder="כל השכונות"
                 value={neighborhood}
                 onChange={(e) => onChange("neighborhood", e.target.value)}
+                dir="rtl"
               />
             </div>
             <div className="space-y-1">
@@ -70,6 +72,7 @@ export function Step2Filters({
                 placeholder="ללא הגבלה"
                 value={minCapacity}
                 onChange={(e) => onChange("minCapacity", e.target.value)}
+                dir="rtl"
               />
             </div>
             <div className="space-y-1">
@@ -82,6 +85,7 @@ export function Step2Filters({
                 placeholder="ללא הגבלה"
                 value={maxPrice}
                 onChange={(e) => onChange("maxPrice", e.target.value)}
+                dir="rtl"
               />
             </div>
           </div>

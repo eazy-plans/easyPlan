@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatCurrency, formatDate, isValidPhone } from "@/lib/utils";
+import { formatCurrency, formatDate, isValidPhone, toLocalDateStr } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS, PRICE_KEY } from "@/types/booking";
 import type { EventType, EventPurpose, VenueRow } from "@/types/database";
@@ -100,37 +100,21 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
   // Acquire booking lock on mount
   useEffect(() => {
     const supabase = createClient();
-    const lockedUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     async function acquireLock() {
-      const dateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(date);
-      const nowIso = new Date().toISOString();
+      // Atomic acquire via the acquire_booking_lock RPC - the old client-side
+      // check-then-upsert let two users pass the check simultaneously and the
+      // second one silently stole the lock. Errors are ignored (the lock is
+      // best-effort; events_slot_unique is the real double-booking guard).
+      const { data: acquired, error } = await (supabase.rpc as any)("acquire_booking_lock", {
+        p_venue_id: venue.id,
+        p_date: toLocalDateStr(date),
+        p_event_type: eventType,
+      });
 
-      // Check if another user holds an active lock on this slot
-
-      const { data: existing } = await (supabase.from("booking_locks") as any)
-        .select("locked_by_user_id, locked_until")
-        .eq("venue_id", venue.id)
-        .eq("date", dateStr)
-        .eq("event_type", eventType)
-        .gt("locked_until", nowIso)
-        .neq("locked_by_user_id", userId)
-        .maybeSingle();
-
-      if (existing) {
+      if (!error && acquired === false) {
         setLockError("התאריך נעול כרגע על ידי מזכירה אחרת. נסה שוב בעוד כמה דקות.");
-        return;
       }
-
-      // Acquire (or refresh) the lock - ignore errors (RLS / table issues don't block booking)
-
-      await (supabase.from("booking_locks") as any).upsert({
-        venue_id: venue.id,
-        date: dateStr,
-        event_type: eventType,
-        locked_by_user_id: userId,
-        locked_until: lockedUntil,
-      }, { onConflict: "venue_id,date,event_type" });
     }
     acquireLock();
 
@@ -153,7 +137,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       (supabase.from("booking_locks") as any)
         .delete()
         .eq("venue_id", venue.id)
-        .eq("date", new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(date))
+        .eq("date", toLocalDateStr(date))
         .eq("event_type", eventType)
         .eq("locked_by_user_id", userId)
         .then(() => null)
@@ -190,7 +174,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
 
     const { data, error } = await (supabase.from("events") as any).insert({
       venue_id: venue.id,
-      date: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(date),
+      date: toLocalDateStr(date),
       event_type: eventType,
       event_purpose: form.event_purpose,
       status: "approved",

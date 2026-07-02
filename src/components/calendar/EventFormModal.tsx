@@ -10,11 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
+import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon } from "lucide-react";
 import type { EventType, EventPurpose, EventRow } from "@/types/database";
-import { formatDate, isValidPhone } from "@/lib/utils";
+import { formatDate, isValidPhone, toLocalDateStr } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 
@@ -131,8 +131,8 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
     if (isEdit && event) {
       const updatePayload = {
         ...payload,
-        ...(event.date !== selectedDate.toISOString().split("T")[0] && {
-          date: selectedDate.toISOString().split("T")[0],
+        ...(event.date !== toLocalDateStr(selectedDate) && {
+          date: toLocalDateStr(selectedDate),
         }),
       };
       ({ error } = await (supabase.from("events") as any).update(updatePayload).eq("id", event.id));
@@ -140,7 +140,7 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
       ({ error } = await (supabase.from("events") as any).insert({
         ...payload,
         venue_id: venueId,
-        date: selectedDate.toISOString().split("T")[0],
+        date: toLocalDateStr(selectedDate),
         status: "approved",
         created_by: userId,
       }));
@@ -220,17 +220,15 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
                   <CalendarIcon className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="single"
+              <PopoverContent className="w-auto p-4" align="end">
+                <HebrewCalendar
                   selected={selectedDate}
-                  onSelect={(d) => {
+                  onSelect={(d: Date | undefined) => {
                     if (d) {
                       setSelectedDate(d);
                       setDatePickerOpen(false);
                     }
                   }}
-                  initialFocus
                 />
               </PopoverContent>
             </Popover>

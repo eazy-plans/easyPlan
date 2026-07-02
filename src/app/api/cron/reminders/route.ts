@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resend } from "@/lib/email/resend";
 import { reminderHtml } from "@/lib/email/templates/reminder";
 import { EVENT_TYPE_LABELS } from "@/types/booking";
+import { toLocalDateStr } from "@/lib/utils";
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -22,7 +23,9 @@ export async function GET(request: Request) {
   const supabase = createAdminClient();
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split("T")[0];
+  // Israel-local date, not UTC: the old toISOString() version only worked
+  // because the cron fires at 06:00 UTC when both dates happen to agree.
+  const tomorrowStr = toLocalDateStr(tomorrow);
 
 
   const { data: events, error } = await (supabase.from("events") as any)

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWaitlistNotifyEmail, sendCancellationEmail } from "@/lib/email/sendEventEmails";
@@ -7,9 +8,18 @@ import { calculateRefund } from "@/lib/cancellation/refundCalculator";
 
 // POST /api/events/cancel
 // body: { eventId: string, cancellationReason?: string }
+const BodySchema = z.object({
+  eventId: z.uuid(),
+  cancellationReason: z.string().trim().max(2000).optional(),
+});
+
 export async function POST(request: Request) {
-  const { eventId, cancellationReason } = await request.json();
-  if (!eventId) return NextResponse.json({ error: "Missing eventId" }, { status: 400 });
+  const body = await request.json().catch(() => null);
+  const parsed = BodySchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  const { eventId, cancellationReason } = parsed.data;
 
   // Cookie-scoped client: getUser + the event read/update stay under RLS, so the
   // existing "who may cancel which event" row policies keep applying.
@@ -87,22 +97,23 @@ export async function POST(request: Request) {
     });
   }
 
-  // Update linked lead_inquiry status to cancelled (if exists)
-  try {
-    const { data: leadInquiry } = await (admin.from("lead_inquiries") as any)
+  // Update the linked lead_inquiry status to cancelled (if it exists). The
+  // booking flow upserts leads keyed by client_phone, so resolve this event's
+  // lead the same way - matching any "booked" inquiry for the venue could
+  // cancel a different client's inquiry.
+  if (event.client_phone) {
+    const { data: lead } = await (admin.from("leads") as any)
       .select("id")
-      .eq("venue_id", venue.id)
-      .eq("status", "booked")
-      .limit(1)
-      .single();
+      .eq("client_phone", event.client_phone)
+      .maybeSingle();
 
-    if (leadInquiry) {
+    if (lead) {
       await (admin.from("lead_inquiries") as any)
         .update({ status: "cancelled" })
-        .eq("id", leadInquiry.id);
+        .eq("lead_id", lead.id)
+        .eq("venue_id", venue.id)
+        .eq("status", "booked");
     }
-  } catch {
-    // Lead inquiry might not exist, that's okay
   }
 
   // Handle waitlist notifications

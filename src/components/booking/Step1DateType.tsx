@@ -1,7 +1,6 @@
 "use client";
 
-import { he } from "date-fns/locale";
-import { Calendar } from "@/components/ui/calendar";
+import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { EventType } from "@/types/database";
@@ -65,15 +64,13 @@ export function Step1DateType({ date, eventType, onChange, onNext }: Step1Props)
           {/* Calendar */}
           <div className="w-[60%] min-w-0">
             <Label className="text-base font-semibold">בחר תאריך</Label>
-            <Calendar
-              mode="single"
-              selected={date ?? undefined}
-              onSelect={handleDateSelect}
-              locale={he}
-              weekStartsOn={0}
-              disabled={calendarDisabled}
-              className="border rounded-lg p-3 w-full mt-2"
-            />
+            <div className="mt-3 overflow-x-auto">
+              <HebrewCalendar
+                selected={date ?? undefined}
+                onSelect={handleDateSelect}
+                disabled={calendarDisabled}
+              />
+            </div>
           </div>
 
           {/* Event type */}

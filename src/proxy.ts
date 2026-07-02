@@ -1,12 +1,7 @@
 ﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { UserRole } from "@/types/database";
-
-const ROLE_HOME: Record<UserRole, string> = {
-  admin: "/dashboard",
-  secretary: "/booking",
-  venue_owner: "/dashboard",
-};
+import { ROLE_HOME } from "@/lib/role-home";
 
 export async function proxy(request: NextRequest) {
   // Skip auth when Supabase is not yet configured (local dev before setup)

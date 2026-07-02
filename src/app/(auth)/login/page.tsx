@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ROLE_HOME } from "@/lib/role-home";
+import type { UserRole } from "@/types/database";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,13 +41,7 @@ export default function LoginPage() {
       .eq("id", data.user.id)
       .single() as { data: { role: string } | null };
 
-    const roleHome: Record<string, string> = {
-      admin: "/dashboard",
-      secretary: "/booking",
-      venue_owner: "/calendar",
-    };
-
-    router.push(roleHome[profile?.role ?? "secretary"]);
+    router.push(ROLE_HOME[(profile?.role as UserRole) ?? "secretary"]);
     router.refresh();
   }
 

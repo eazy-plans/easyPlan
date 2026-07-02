@@ -22,6 +22,10 @@ export function calculateRefund(
   deadline.setDate(deadline.getDate() + venue.cancellation_deadline_days);
 
   const daysBeforeDeadline = differenceInDays(deadline, cancellationDate);
+  // The moderate policy tiers by days before the EVENT ("לפי ימים לפני האירוע"),
+  // not before the booking-anchored deadline - otherwise a client who booked a
+  // year ahead would get 0% even when cancelling 11 months before the event.
+  const daysBeforeEvent = differenceInDays(eventDate, cancellationDate);
   const originalPrice = event.original_price_final;
 
   let refundPercent = 0;
@@ -39,15 +43,15 @@ export function calculateRefund(
       break;
 
     case "moderate":
-      if (daysBeforeDeadline >= 30) {
+      if (daysBeforeEvent >= 30) {
         refundPercent = 100;
-        message = `מדיניות מתונה: 100% החזר עד 30 ימים`;
-      } else if (daysBeforeDeadline >= 14) {
+        message = `מדיניות מתונה: 100% החזר עד 30 ימים לפני האירוע`;
+      } else if (daysBeforeEvent >= 14) {
         refundPercent = 50;
-        message = `מדיניות מתונה: 50% החזר בין 14-30 ימים`;
-      } else if (daysBeforeDeadline >= 7) {
+        message = `מדיניות מתונה: 50% החזר בין 14-30 ימים לפני האירוע`;
+      } else if (daysBeforeEvent >= 7) {
         refundPercent = 25;
-        message = `מדיניות מתונה: 25% החזר בין 7-14 ימים`;
+        message = `מדיניות מתונה: 25% החזר בין 7-14 ימים לפני האירוע`;
       } else {
         refundPercent = 0;
         message = `מדיניות מתונה: אין החזר תוך 7 ימים לאירוע`;

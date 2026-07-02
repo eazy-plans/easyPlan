@@ -12,6 +12,15 @@ export function formatDate(date: Date | string): string {
   return format(d, "dd/MM/yyyy", { locale: he });
 }
 
+/**
+ * Serializes a Date to "YYYY-MM-DD" in Israel time. Never use
+ * `toISOString().split("T")[0]` for event dates: a date picked at local
+ * midnight in Israel (UTC+2/+3) converts to the previous day in UTC.
+ */
+export function toLocalDateStr(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(d);
+}
+
 export function formatCurrency(amount: number): string {
   return `₪${amount.toLocaleString("he-IL")}`;
 }

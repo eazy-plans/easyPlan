@@ -16,16 +16,25 @@ import { toHebrewDateShort } from "@/lib/hebrew-calendar"
  * - Week navigation
  * - Sabbath highlighting
  */
+// Intl.DateTimeFormat construction is expensive - build the formatters once
+// instead of per render / per calendar cell.
+const hebrewMonthYearFormatter = new Intl.DateTimeFormat("he-IL-u-ca-hebrew", {
+  month: "long",
+  year: "numeric",
+})
+const hebrewDayFormatter = new Intl.DateTimeFormat("he-IL-u-ca-hebrew", { day: "numeric" })
+
+const hebrewNumerals: Record<string, string> = {
+  "1": "א", "2": "ב", "3": "ג", "4": "ד", "5": "ה", "6": "ו", "7": "ז", "8": "ח", "9": "ט",
+  "10": "י", "11": "יא", "12": "יב", "13": "יג", "14": "יד", "15": "טו", "16": "טז", "17": "יז", "18": "יח", "19": "יט",
+  "20": "כ", "21": "כא", "22": "כב", "23": "כג", "24": "כד", "25": "כה", "26": "כו", "27": "כז", "28": "כח", "29": "כט", "30": "ל",
+}
+
 export function HebrewCalendar(props: any) {
   const { className, selected, onSelect, disabled, ...restProps } = props
   const [displayDate, setDisplayDate] = React.useState<Date>(selected instanceof Date ? selected : new Date())
 
-  // Get Hebrew month and year
-  const formatter = new Intl.DateTimeFormat("he-IL-u-ca-hebrew", {
-    month: "long",
-    year: "numeric",
-  })
-  const hebrewMonthYear = formatter.format(displayDate)
+  const hebrewMonthYear = hebrewMonthYearFormatter.format(displayDate)
 
   // Get all days for this month with proper week alignment
   const firstDay = new Date(displayDate.getFullYear(), displayDate.getMonth(), 1)
@@ -60,19 +69,7 @@ export function HebrewCalendar(props: any) {
   }
 
   const formatHebrewDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    const formatter = new Intl.DateTimeFormat("he-IL-u-ca-hebrew", {
-      day: "numeric",
-    })
-    const hebrewNum = formatter.format(date)
-
-    // Convert to Hebrew numerals using the toHebrewDateShort logic
-    const hebrewNumerals: Record<string, string> = {
-      "1": "א", "2": "ב", "3": "ג", "4": "ד", "5": "ה", "6": "ו", "7": "ז", "8": "ח", "9": "ט",
-      "10": "י", "11": "יא", "12": "יב", "13": "יג", "14": "יד", "15": "טו", "16": "טז", "17": "יז", "18": "יח", "19": "יט",
-      "20": "כ", "21": "כא", "22": "כב", "23": "כג", "24": "כד", "25": "כה", "26": "כו", "27": "כז", "28": "כח", "29": "כט", "30": "ל",
-    }
-
+    const hebrewNum = hebrewDayFormatter.format(date)
     return hebrewNumerals[hebrewNum] || hebrewNum
   }
 

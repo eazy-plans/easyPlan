@@ -7,11 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
 import { Building2, Search, CalendarDays, X, ChevronDown, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus } from "lucide-react";
 import Image from "next/image";
-import { he } from "date-fns/locale";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate, formatCurrency, toLocalDateStr } from "@/lib/utils";
 import type { EventType, VenueRow, VenueImageRow } from "@/types/database";
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, PRICE_KEY } from "@/types/booking";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,9 +29,6 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 function getImageUrl(path: string) {
   return `${SUPABASE_URL}/storage/v1/object/public/venue-images/${path}`;
 }
-
-const toLocalDateStr = (d: Date) =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(d);
 
 interface StepSearchProps {
   userId: string;
@@ -491,13 +487,10 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
                 <CalendarDays size={16} />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
+            <PopoverContent className="w-auto p-4" align="end">
+              <HebrewCalendar
                 selected={date ?? undefined}
                 onSelect={handleDateSelect}
-                locale={he}
-                weekStartsOn={0}
                 disabled={calDisabled}
               />
             </PopoverContent>

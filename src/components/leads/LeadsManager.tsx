@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { isValidPhone } from "@/lib/utils";
@@ -52,7 +51,7 @@ interface LeadsManagerProps {
   initialSearch?: string;
 }
 
-const EMPTY_FORM = { client_name: "", client_phone: "", client_email: "", notes: "", status: "new" as LeadStatus };
+const EMPTY_FORM = { client_name: "", client_phone: "", client_email: "" };
 
 export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsManagerProps) {
   const router = useRouter();
@@ -63,6 +62,7 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
   const [form, setForm] = useState(EMPTY_FORM);
   const [phoneError, setPhoneError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
 
   const filtered = useMemo(() => leads.filter((l) => {
     const matchStatus = statusFilter === "all" || l.status === statusFilter;
@@ -93,8 +93,7 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
         client_name: form.client_name,
         client_phone: form.client_phone,
         client_email: form.client_email || null,
-        notes: form.notes || null,
-        status: form.status,
+        status: "new",
       })
       .select("*, interests:lead_venue_interests(venue:venues(id,name)), inquiries:lead_inquiries(id,status,venue_id)")
       .single();
@@ -103,7 +102,7 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
     if (error) { toast.error("שגיאה בשמירת ליד"); return; }
     setLeads((prev) => [data, ...prev]);
     setForm(EMPTY_FORM);
-    setAddOpen(false);
+    setCreatedLeadId(data.id);
     toast.success("הליד נוסף");
     router.refresh();
   }
@@ -115,66 +114,70 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
       <div className="flex flex-col gap-3">
         <div className="flex flex-row gap-2 items-center">
           <Input
-            placeholder="חיפוש לפי שם, טלפון או מייל"
+            placeholder="חיפוש"
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             className="flex-1 h-9 text-sm"
           />
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as LeadStatus | "all")}>
-            <SelectTrigger dir="rtl" className="flex-none w-40 h-9 text-sm">
-              <SelectValue placeholder="כל הסטטוסים" />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              <SelectItem value="all">כל הסטטוסים</SelectItem>
-              {(Object.entries(STATUS_LABELS) as [LeadStatus, string][]).map(([v, l]) => (
-                <SelectItem key={v} value={v}>{l}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <Dialog open={addOpen} onOpenChange={(open) => {
+          if (!open) {
+            setAddOpen(false);
+            setCreatedLeadId(null);
+            setForm(EMPTY_FORM);
+            setPhoneError("");
+          } else {
+            setAddOpen(true);
+          }
+        }}>
           <DialogTrigger asChild>
             <Button size="sm" className="w-fit">+</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>הוספת ליד חדש</DialogTitle>
+              <DialogTitle>{createdLeadId ? "הליד נוסף בהצלחה" : "הוספת ליד חדש"}</DialogTitle>
             </DialogHeader>
             <DialogBody>
-            <form onSubmit={handleAdd} className="space-y-4">
-              <div className="space-y-1">
-                <Label>שם לקוח *</Label>
-                <Input value={form.client_name} onChange={(e) => setF("client_name", e.target.value)} required />
+            {!createdLeadId ? (
+              <form onSubmit={handleAdd} className="space-y-4">
+                <div className="space-y-1">
+                  <Label>שם לקוח *</Label>
+                  <Input value={form.client_name} onChange={(e) => setF("client_name", e.target.value)} required />
+                </div>
+                <div className="space-y-1">
+                  <Label>טלפון</Label>
+                  <Input type="tel" dir="ltr" value={form.client_phone} onChange={(e) => setF("client_phone", e.target.value)} className={phoneError ? "border-destructive" : ""} placeholder="052-1234567" />
+                  {phoneError && <p className="text-xs text-destructive">{phoneError}</p>}
+                </div>
+                <div className="space-y-1">
+                  <Label>מייל</Label>
+                  <Input type="email" dir="ltr" value={form.client_email} onChange={(e) => setF("client_email", e.target.value)} />
+                </div>
+                <div className="flex gap-3">
+                  <Button type="submit" disabled={saving} className="flex-1">{saving ? "שומר..." : "שמור"}</Button>
+                  <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>ביטול</Button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4 py-4">
+                <p className="text-center text-muted-foreground">הליד {form.client_name} נוסף לרשימה</p>
+                <div className="flex flex-col gap-3">
+                  <Button onClick={() => {
+                    setAddOpen(false);
+                    router.push(`/leads/${createdLeadId}`);
+                  }} className="w-full">
+                    עריכת פרטים
+                  </Button>
+                  <Button variant="outline" onClick={() => {
+                    setCreatedLeadId(null);
+                    setForm(EMPTY_FORM);
+                    setPhoneError("");
+                  }} className="w-full">
+                    הוספת ליד נוסף
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label>טלפון</Label>
-                <Input type="tel" dir="ltr" value={form.client_phone} onChange={(e) => setF("client_phone", e.target.value)} className={phoneError ? "border-destructive" : ""} placeholder="052-1234567" />
-                {phoneError && <p className="text-xs text-destructive">{phoneError}</p>}
-              </div>
-              <div className="space-y-1">
-                <Label>מייל</Label>
-                <Input type="email" dir="ltr" value={form.client_email} onChange={(e) => setF("client_email", e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>סטטוס</Label>
-                <Select value={form.status} onValueChange={(v) => setF("status", v)}>
-                  <SelectTrigger dir="rtl"><SelectValue /></SelectTrigger>
-                  <SelectContent dir="rtl">
-                    {(Object.entries(STATUS_LABELS) as [LeadStatus, string][]).map(([v, l]) => (
-                      <SelectItem key={v} value={v}>{l}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>הערות</Label>
-                <Textarea rows={3} value={form.notes} onChange={(e) => setF("notes", e.target.value)} />
-              </div>
-              <div className="flex gap-3">
-                <Button type="submit" disabled={saving} className="flex-1">{saving ? "שומר..." : "שמור"}</Button>
-                <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>ביטול</Button>
-              </div>
-            </form>
+            )}
             </DialogBody>
           </DialogContent>
         </Dialog>
@@ -192,7 +195,7 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
           <button
             key={lead.id}
             onClick={() => router.push(`/leads/${lead.id}`)}
-            className="border rounded-lg p-3 hover:bg-muted/50 hover:border-primary/50 transition-colors text-right h-fit"
+            className="border rounded-lg p-3 hover:bg-muted/50 hover:border-primary/50 transition-colors text-right h-28"
             dir="rtl"
           >
             <div className="space-y-1">

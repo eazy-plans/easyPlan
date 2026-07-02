@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -357,18 +357,16 @@ export function VenueDetailModal({
                       אירוע חדש
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                      mode="single"
+                  <PopoverContent className="w-auto p-4" align="end">
+                    <HebrewCalendar
                       selected={selectedDate}
-                      onSelect={(date) => {
+                      onSelect={(date: Date | undefined) => {
                         if (date) {
                           setSelectedDate(date);
                           setDatePickerOpen(false);
                           setShowEventForm(true);
                         }
                       }}
-                      initialFocus
                     />
                   </PopoverContent>
                 </Popover>

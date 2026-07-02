@@ -2,19 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { he } from "date-fns/locale";
-import { Calendar } from "@/components/ui/calendar";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
+import { toLocalDateStr } from "@/lib/utils";
 import type { EventType, VenueRow, VenueImageRow } from "@/types/database";
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } from "@/types/booking";
 
 type VenueWithImages = VenueRow & { images: VenueImageRow[] };
-
-const toLocalDateStr = (d: Date) =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(d);
 
 interface StepPickDateProps {
   venue: VenueWithImages;
@@ -28,7 +24,6 @@ export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProp
   const [date, setDate] = useState<Date | null>(null);
   const [blockedSet, setBlockedSet] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(true);
-  const [useHebrewCalendar, setUseHebrewCalendar] = useState(false);
 
   const fetchAvailability = useCallback(async () => {
     setLoadingAvailability(true);
@@ -148,36 +143,18 @@ export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProp
 
         <div className="flex gap-4 items-start">
           <div className="w-[60%] min-w-0">
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-base font-semibold">בחר תאריך פנוי</Label>
-              <button
-                type="button"
-                onClick={() => setUseHebrewCalendar(!useHebrewCalendar)}
-                className="text-xs px-2 py-1 border rounded hover:bg-muted transition-colors"
-              >
-                {useHebrewCalendar ? "לוח שנה גרגוריאני" : "לוח שנה עברי"}
-              </button>
-            </div>
+            <Label className="text-base font-semibold">בחר תאריך פנוי</Label>
             {loadingAvailability ? (
               <p className="text-sm text-muted-foreground mt-4">טוען זמינות...</p>
-            ) : useHebrewCalendar ? (
-              <HebrewCalendar
-                mode="single"
-                selected={date ?? undefined}
-                onSelect={handleDateSelect}
-                disabled={calendarDisabled}
-                className="border rounded-lg p-3 w-full"
-              />
             ) : (
-              <Calendar
-                mode="single"
-                selected={date ?? undefined}
-                onSelect={handleDateSelect}
-                locale={he}
-                weekStartsOn={0}
-                disabled={calendarDisabled}
-                className="border rounded-lg p-3 w-full"
-              />
+              <div className="mt-3 overflow-x-auto">
+                <HebrewCalendar
+                  selected={date ?? undefined}
+                  onSelect={handleDateSelect}
+                  disabled={calendarDisabled}
+                  className="w-full"
+                />
+              </div>
             )}
           </div>
 

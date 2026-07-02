@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+    // Client router cache for dynamic pages: back/forward navigation within
+    // 30s reuses the cached segment instead of refetching and re-showing the
+    // loading skeleton. Mutations still bust it via router.refresh().
+    staleTimes: {
+      dynamic: 30,
+    },
   },
   turbopack: {
     root: path.resolve(__dirname),

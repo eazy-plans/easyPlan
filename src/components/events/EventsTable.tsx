@@ -177,7 +177,13 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
               </tr>
             )}
             {filtered.map((ev) => (
-              <tr key={ev.id} className="border-t hover:bg-muted/40 transition-colors cursor-pointer" onClick={() => setDetailEvent(ev)}>
+              <tr
+                key={ev.id}
+                className="border-t hover:bg-muted/40 transition-colors cursor-pointer focus-visible:bg-muted/40 focus-visible:outline-none"
+                onClick={() => setDetailEvent(ev)}
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter") setDetailEvent(ev); }}
+              >
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div>{formatDate(new Date(ev.date))}</div>
                   <div className="text-xs text-muted-foreground">{format(new Date(ev.date), "EEEE", { locale: he })}</div>
@@ -185,7 +191,11 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                 </td>
                 <td className="px-4 py-3">
                   {ev.venue?.id ? (
-                    <Link href={`/venues/${ev.venue.id}`} className="font-medium hover:underline text-primary">
+                    <Link
+                      href={`/venues/${ev.venue.id}`}
+                      className="font-medium hover:underline text-primary"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {ev.venue.name}
                     </Link>
                   ) : (
@@ -193,9 +203,11 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                   )}
                   <div className="text-muted-foreground text-xs">{ev.venue?.city}</div>
                 </td>
+                {/* stopPropagation: without it the row's onClick also fires and
+                    stacks the detail modal on top of the lead dialog */}
                 <td
                   className="px-4 py-3 cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => setLeadDialogEvent(ev)}
+                  onClick={(e) => { e.stopPropagation(); setLeadDialogEvent(ev); }}
                 >
                   <div className="font-medium">{ev.client_name}</div>
                   <div className="text-muted-foreground text-xs" dir="ltr">{ev.client_phone}</div>
@@ -215,7 +227,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                     <span className="text-sm text-muted-foreground/50">-</span>
                   )}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1 justify-end">
                     {canEdit && ev.status !== "cancelled" && (
                       <Button size="sm" variant="ghost" onClick={() => setEditingEvent(ev)} disabled={isPending}>
@@ -241,12 +253,19 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
           <p className="text-center py-10 text-muted-foreground">אין אירועים תואמים</p>
         )}
         {filtered.map((ev) => (
-          <div key={ev.id} className="border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/40 transition-colors" onClick={() => setDetailEvent(ev)}>
+          <div
+            key={ev.id}
+            role="button"
+            tabIndex={0}
+            className="border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/40 transition-colors focus-visible:bg-muted/40 focus-visible:outline-none"
+            onClick={() => setDetailEvent(ev)}
+            onKeyDown={(e) => { if (e.key === "Enter") setDetailEvent(ev); }}
+          >
             <div className="flex items-start justify-between gap-2">
               <button
                 type="button"
                 className="text-right hover:text-primary transition-colors"
-                onClick={() => setLeadDialogEvent(ev)}
+                onClick={(e) => { e.stopPropagation(); setLeadDialogEvent(ev); }}
               >
                 <p className="font-semibold">{ev.client_name}</p>
                 <p className="text-sm text-muted-foreground" dir="ltr">{ev.client_phone}</p>
@@ -264,7 +283,11 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
               <div className="flex justify-between">
                 <span className="text-muted-foreground">אולם</span>
                 {ev.venue?.id ? (
-                  <Link href={`/venues/${ev.venue.id}`} className="hover:underline text-primary font-medium">
+                  <Link
+                    href={`/venues/${ev.venue.id}`}
+                    className="hover:underline text-primary font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {ev.venue.name}
                   </Link>
                 ) : (
@@ -299,7 +322,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
               )}
             </div>
             {(canEdit || canCancel) && ev.status !== "cancelled" && (
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
                 {canEdit && (
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => setEditingEvent(ev)} disabled={isPending}>
                     <Pencil className="h-4 w-4 ml-1" />ערוך

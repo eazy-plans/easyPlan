@@ -21,6 +21,18 @@ export function toLocalDateStr(d: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(d);
 }
 
+/**
+ * Earliest event date the UI fetches, as "YYYY-MM-DD". Event queries are
+ * bounded to a rolling window because unbounded history degrades linearly as
+ * records accumulate. Two years covers all operational lookups; pass a larger
+ * value if a screen ever needs older records.
+ */
+export function eventsHistoryCutoffStr(years = 2): string {
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - years);
+  return toLocalDateStr(cutoff);
+}
+
 export function formatCurrency(amount: number): string {
   return `₪${amount.toLocaleString("he-IL")}`;
 }

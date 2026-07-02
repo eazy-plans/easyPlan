@@ -6,6 +6,17 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import Image from "next/image";
 import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
 import type { VenueImageRow } from "@/types/database";
@@ -139,8 +150,10 @@ export function VenueGallery({ venueId, initialImages }: VenueGalleryProps) {
                   src={getUrl(img.storage_path)}
                   alt="venue"
                   fill
+                  // Without sizes, fill defaults to 100vw and downloads a
+                  // full-viewport image for a ~220px grid cell.
+                  sizes="(max-width: 768px) 33vw, 220px"
                   className="object-cover"
-
                 />
               </div>
 
@@ -161,14 +174,37 @@ export function VenueGallery({ venueId, initialImages }: VenueGalleryProps) {
                     הגדר כראשי
                   </Button>
                 )}
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="w-full text-xs"
-                  onClick={(e) => { e.stopPropagation(); handleDelete(img); }}
-                >
-                  מחק
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="w-full text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      מחק
+                    </Button>
+                  </AlertDialogTrigger>
+                  {/* Portal events bubble through the React tree - stop them so
+                      clicks inside the dialog don't open the tile's lightbox. */}
+                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>מחיקת תמונה</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        התמונה תימחק לצמיתות. לא ניתן לבטל פעולה זו.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>ביטול</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDelete(img)}
+                        className="bg-destructive text-white hover:bg-destructive/90"
+                      >
+                        מחק
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           ))}

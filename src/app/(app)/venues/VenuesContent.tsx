@@ -18,17 +18,20 @@ export async function VenuesContent() {
     venueQuery = venueQuery.eq("approval_status", "approved") as typeof venueQuery;
   }
 
-  const { data: venues } = (await venueQuery) as { data: VenueRow[] | null };
+  const { data: venues, error: venuesError } = (await venueQuery) as { data: VenueRow[] | null; error: { message: string } | null };
+  if (venuesError) throw new Error(`Failed to load venues: ${venuesError.message}`);
 
-  const { data: owners } = isAdmin
+  const { data: owners, error: ownersError } = isAdmin
     ? ((await supabase
         .from("users")
         .select("id, full_name, email")
         .eq("role", "venue_owner")
         .order("full_name")) as {
         data: Pick<UserRow, "id" | "full_name" | "email">[] | null;
+        error: { message: string } | null;
       })
-    : { data: [] as Pick<UserRow, "id" | "full_name" | "email">[] };
+    : { data: [] as Pick<UserRow, "id" | "full_name" | "email">[], error: null };
+  if (ownersError) throw new Error(`Failed to load owners: ${ownersError.message}`);
 
   return (
     <>

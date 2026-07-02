@@ -32,18 +32,18 @@ function getImageUrl(path: string) {
 
 interface StepSearchProps {
   userId: string;
+  /** Server-fetched venue list - fetching here after hydration cost a visible spinner round trip. */
+  venues: VenueWithImages[];
   onSelect: (venue: VenueWithImages, date: Date | null, eventType: EventType | null) => void;
 }
 
-export function StepSearch({ userId, onSelect }: StepSearchProps) {
+export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchProps) {
   const [selectedVenueId, setSelectedVenueId] = useState("");
   const [selectedCity, setSelectedCity]   = useState("");
   const [eventType, setEventType]         = useState<EventType | null>(null);
   const [date, setDate]                   = useState<Date | null>(null);
 
-  const [allVenues, setAllVenues]         = useState<VenueWithImages[]>([]);
   const [bookedSet, setBookedSet]         = useState<Set<string>>(new Set());
-  const [loadingVenues, setLoadingVenues] = useState(true);
   const [loadingAvail, setLoadingAvail]   = useState(false);
   const [activeLocks, setActiveLocks]     = useState<{ venue_id: string; date: string; event_type: EventType; locked_until: string }[]>([]);
   const [showHolds, setShowHolds]         = useState(false);
@@ -59,15 +59,6 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
     hasPublicTransport: false,
   });
 
-  useEffect(() => {
-    const supabase = createClient();
-    (supabase.from("venues") as any)
-      .select("*, images:venue_images(*)")
-      .eq("is_active", true)
-      .order("name")
-      .then(({ data }: any) => { setAllVenues(data ?? []); setLoadingVenues(false); });
-  }, []);
-
   const fetchLocks = useCallback(async () => {
     const supabase = createClient();
     const { data } = await (supabase.from("booking_locks") as any)
@@ -80,6 +71,18 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
   useEffect(() => {
     const id = setInterval(fetchLocks, 30000);
     return () => clearInterval(id);
+  }, [fetchLocks]);
+
+  // Reflect other users' holds instantly when realtime is enabled for
+  // booking_locks; the 30s poll above stays as the fallback (and is what
+  // expires stale holds, since expiry is a timestamp, not a row change).
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("booking-locks")
+      .on("postgres_changes", { event: "*", schema: "public", table: "booking_locks" }, () => { fetchLocks(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [fetchLocks]);
 
   const fetchAvailability = useCallback(async (d: Date, et: EventType) => {
@@ -254,7 +257,7 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
               </SelectTrigger>
               <SelectContent align="end">
                 <SelectItem value="all">כל האולמות</SelectItem>
-                {!loadingVenues && allVenues.map((venue) => (
+                {allVenues.map((venue) => (
                   <SelectItem key={venue.id} value={venue.id}>
                     {venue.name}
                   </SelectItem>
@@ -276,7 +279,7 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
               </SelectTrigger>
               <SelectContent align="end">
                 <SelectItem value="all">כל הערים</SelectItem>
-                {!loadingVenues && uniqueCities.map((city) => (
+                {uniqueCities.map((city) => (
                   <SelectItem key={city} value={city}>
                     {city}
                   </SelectItem>
@@ -459,7 +462,6 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
 
       {/* Date picker */}
       <div className="space-y-3 bg-card rounded-lg p-4 border border-border" dir="rtl">
-          <CalendarDays size={16} className="text-primary" />
         <div className="flex flex-row-reverse items-center justify-end gap-3 flex-wrap-reverse">
           {anyFilter && (
             <button
@@ -500,8 +502,7 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
 
       {/* Results */}
       <p className="text-sm text-muted-foreground text-right">
-        {loadingVenues  ? "טוען אולמות..." :
-         loadingAvail   ? "בודק זמינות..." :
+        {loadingAvail   ? "בודק זמינות..." :
          hasDateFilter  ? `${filtered.length} אולמות פנויים` :
          `${filtered.length} אולמות`}
       </p>
@@ -544,7 +545,7 @@ export function StepSearch({ userId, onSelect }: StepSearchProps) {
         </div>
       )}
 
-      {!loadingVenues && (
+      {(
         filtered.length === 0 ? (
           <div className="flex flex-col items-center py-12 text-muted-foreground gap-2 text-right">
             <Building2 size={40} strokeWidth={1} />

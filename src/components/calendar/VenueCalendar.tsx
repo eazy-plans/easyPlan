@@ -1,11 +1,12 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Calendar, dateFnsLocalizer, type View } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { he } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
+import { eventsHistoryCutoffStr } from "@/lib/utils";
 import { EventFormModal } from "./EventFormModal";
 import { EventDetailModal } from "./EventDetailModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -77,18 +78,31 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
   const isAdmin = role === "admin";
   const canCancel = isAdmin || role === "venue_owner";
 
-  // Reload events when venue changes
+  // Reload events when venue changes. Must match the server query in
+  // CalendarContent (history cutoff, no cancelled) so switching venues and
+  // closing modals doesn't change what the calendar shows.
   const loadEvents = useCallback(async (venueId: string) => {
     const { data } = await (supabase as any)
       .from("events")
       .select("*, creator:users!created_by(full_name), cancelled_by_user:users!cancelled_by(full_name)")
       .eq("venue_id", venueId)
+      .gte("date", eventsHistoryCutoffStr())
+      .neq("status", "cancelled")
       .order("date") as { data: (EventRow & { creator?: { full_name: string } | null; cancelled_by_user?: { full_name: string } | null })[] | null };
     setEvents(data ?? []);
   }, [supabase]);
 
+  // The server already provided the first venue's events, so skip the refetch
+  // on mount - only reload when the user switches venues.
+  const initialVenueIdRef = useRef<string | null>(venues[0]?.id ?? null);
   useEffect(() => {
-    if (selectedVenueId) loadEvents(selectedVenueId);
+    if (!selectedVenueId) return;
+    if (initialVenueIdRef.current === selectedVenueId) {
+      initialVenueIdRef.current = null;
+      return;
+    }
+    initialVenueIdRef.current = null;
+    loadEvents(selectedVenueId);
   }, [selectedVenueId, loadEvents]);
 
   // Supabase Realtime - reflect changes from other users instantly
@@ -187,7 +201,6 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
         }
 
         const hebrewDate = toHebrewDateShort(testDate);
-        if (index === 0) console.log("Sample Hebrew date conversion:", testDate, "→", hebrewDate);
         if (!hebrewDate) return;
         const hebrewSpan = document.createElement("div");
         hebrewSpan.className = "hebrew-date";

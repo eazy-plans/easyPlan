@@ -60,9 +60,11 @@ function SimpleTooltip({ active, payload, label }: any) {
 
 interface Props {
   events: EventRow[];
+  /** All-time non-cancelled count from the server - events only covers the recent history window. */
+  allTimeCount: number;
 }
 
-export function VenueStatsPanel({ events }: Props) {
+export function VenueStatsPanel({ events, allTimeCount }: Props) {
   const currentYear = new Date().getFullYear();
 
   const yearEvents = useMemo(
@@ -76,8 +78,6 @@ export function VenueStatsPanel({ events }: Props) {
   );
 
   const avgPrice = yearEvents.length > 0 ? Math.round(totalRevenue / yearEvents.length) : 0;
-
-  const allTimeCount = events.filter((e) => e.status !== "cancelled").length;
 
   const byMonth = useMemo(() => {
     const counts  = Array(12).fill(0);

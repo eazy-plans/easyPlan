@@ -18,10 +18,11 @@ export async function DashboardContent({
 
   let ownerVenueIds: string[] | null = null;
   if (isOwner) {
-    const { data: ownerVenues } = await (supabase.from("venues") as any)
+    const { data: ownerVenues, error: ownerVenuesError } = await (supabase.from("venues") as any)
       .select("id")
       .eq("owner_user_id", userId)
       .eq("is_active", true);
+    if (ownerVenuesError) throw new Error(`Failed to load venues: ${ownerVenuesError.message}`);
     ownerVenueIds = (ownerVenues ?? []).map((v: { id: string }) => v.id);
   }
 
@@ -35,18 +36,26 @@ export async function DashboardContent({
   let venuesQuery = (supabase.from("venues") as any).select("id, name").eq("is_active", true);
   if (isOwner) venuesQuery = venuesQuery.eq("owner_user_id", userId);
 
-  const [{ data: events }, { data: leads }, { data: venues }, { data: pendingInquiries }] = await Promise.all([
+  const [eventsRes, leadsRes, venuesRes, inquiriesRes] = await Promise.all([
     eventsQuery,
     isOwner
-      ? Promise.resolve({ data: [] })
+      ? Promise.resolve({ data: [], error: null })
       : (supabase.from("leads") as any).select("id, status"),
     venuesQuery,
     isOwner
-      ? Promise.resolve({ data: [] })
+      ? Promise.resolve({ data: [], error: null })
       : (supabase.from("lead_inquiries") as any)
           .select("id, lead_id, venue_id, status, leads(client_name), venues(name)")
           .in("status", ["considering", "waiting_for_date"]),
   ]);
+
+  for (const [label, res] of [["events", eventsRes], ["leads", leadsRes], ["venues", venuesRes], ["inquiries", inquiriesRes]] as const) {
+    if (res.error) throw new Error(`Failed to load ${label}: ${res.error.message}`);
+  }
+  const { data: events } = eventsRes;
+  const { data: leads } = leadsRes;
+  const { data: venues } = venuesRes;
+  const { data: pendingInquiries } = inquiriesRes;
 
   return (
     <DashboardStatsClient

@@ -15,6 +15,8 @@ interface Props {
   owners: Pick<UserRow, "id" | "full_name" | "email">[];
   images: VenueImageRow[];
   events: EventRow[];
+  /** All-time non-cancelled event count - events only covers the recent history window. */
+  allTimeCount: number;
   userId: string;
   isAdmin: boolean;
 }
@@ -25,7 +27,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "edit",   label: "עריכה" },
 ];
 
-export function VenueDetailTabs({ venue, owners, images, events, userId, isAdmin }: Props) {
+export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, userId, isAdmin }: Props) {
   const [tab, setTab] = useState<Tab>("events");
 
   return (
@@ -80,7 +82,7 @@ export function VenueDetailTabs({ venue, owners, images, events, userId, isAdmin
         )}
 
         {tab === "stats" && (
-          <VenueStatsPanel events={events} />
+          <VenueStatsPanel events={events} allTimeCount={allTimeCount} />
         )}
 
         {tab === "edit" && (

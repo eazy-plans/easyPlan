@@ -23,14 +23,18 @@ const STEPS: { screen: Screen; title: string }[] = [
 interface BookingWizardProps {
   isAdmin: boolean;
   userId: string;
+  venues: VenueWithImages[];
 }
 
-export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
+export function BookingWizard({ isAdmin, userId, venues }: BookingWizardProps) {
   const [screen, setScreen]               = useState<Screen>("search");
   const [selectedVenue, setSelectedVenue] = useState<VenueWithImages | null>(null);
   const [date, setDate]                   = useState<Date | null>(null);
   const [eventType, setEventType]         = useState<EventType | null>(null);
   const [confirmedEventId, setConfirmedEventId] = useState("");
+  // Whether this booking flow goes through the pick-date screen. Drives the
+  // progress bar so it doesn't claim 4 steps for a 3-step flow.
+  const [usedPickDate, setUsedPickDate]   = useState(true);
 
   function reset() {
     setScreen("search");
@@ -38,6 +42,7 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
     setDate(null);
     setEventType(null);
     setConfirmedEventId("");
+    setUsedPickDate(true);
   }
 
   function handleVenueSelect(venue: VenueWithImages, d: Date | null, et: EventType | null) {
@@ -45,14 +50,12 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
     setDate(d);
     setEventType(et);
     // Skip pick-date if the user already chose both date and event type in the search
+    setUsedPickDate(!(d && et));
     setScreen(d && et ? "venue-detail" : "pick-date");
   }
 
-  // Progress bar: skip pick-date step if it was skipped
-  const visibleSteps = STEPS.filter(
-    (s) => s.screen !== "pick-date" || screen === "pick-date" || (!date || !eventType)
-  );
-  const currentIndex = STEPS.findIndex((s) => s.screen === screen);
+  const visibleSteps = usedPickDate ? STEPS : STEPS.filter((s) => s.screen !== "pick-date");
+  const currentIndex = visibleSteps.findIndex((s) => s.screen === screen);
   const showProgress = screen !== "confirm";
 
   return (
@@ -60,11 +63,11 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
       {showProgress && currentIndex >= 0 && (
         <div className="mb-4 shrink-0">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-lg font-semibold">{STEPS[currentIndex].title}</h1>
-            <span className="text-sm text-muted-foreground">שלב {currentIndex + 1} מתוך {STEPS.length}</span>
+            <h1 className="text-lg font-semibold">{visibleSteps[currentIndex].title}</h1>
+            <span className="text-sm text-muted-foreground">שלב {currentIndex + 1} מתוך {visibleSteps.length}</span>
           </div>
           <div className="flex gap-1">
-            {STEPS.map((_, i) => (
+            {visibleSteps.map((_, i) => (
               <div
                 key={i}
                 className={`h-1 flex-1 rounded-full transition-colors ${i <= currentIndex ? "bg-primary" : "bg-muted"}`}
@@ -77,7 +80,7 @@ export function BookingWizard({ isAdmin, userId }: BookingWizardProps) {
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
 
         {screen === "search" && (
-          <StepSearch userId={userId} onSelect={handleVenueSelect} />
+          <StepSearch userId={userId} venues={venues} onSelect={handleVenueSelect} />
         )}
 
         {screen === "pick-date" && selectedVenue && (

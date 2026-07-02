@@ -10,7 +10,7 @@ import { EventDetailModal } from "@/components/calendar/EventDetailModal";
 import { EventFormModal } from "@/components/calendar/EventFormModal";
 import type { EventRow } from "@/types/database";
 import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, EVENT_PURPOSE_LABELS } from "@/types/booking";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate, formatCurrency, eventsHistoryCutoffStr } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
@@ -38,9 +38,11 @@ export function VenueEventsPanel({ venueId, initialEvents, userId, isAdmin }: Pr
   const [detail, setDetail]       = useState<{ open: boolean; event: EventRow | null }>({ open: false, event: null });
 
   const loadEvents = useCallback(async () => {
+    // Same rolling history window as the server fetch in VenueDetailContent.
     const { data } = await (supabase.from("events") as any)
       .select("*")
       .eq("venue_id", venueId)
+      .gte("date", eventsHistoryCutoffStr())
       .order("date");
     setEvents(data ?? []);
   }, [supabase, venueId]);

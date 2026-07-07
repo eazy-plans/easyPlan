@@ -54,6 +54,8 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
     neighborhood: venue?.neighborhood ?? "",
     max_capacity: venue?.max_capacity?.toString() ?? "",
     owner_user_id: venue?.owner_user_id ?? "",
+    contact_name: venue?.contact_name ?? "",
+    contact_phone: venue?.contact_phone ?? "",
     description_short: venue?.description_short ?? "",
     description_long: venue?.description_long ?? "",
     parking_info: venue?.parking_info ?? "",
@@ -206,6 +208,9 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
 
     if (isAdmin && !form.owner_user_id) errs.owner_user_id = "יש לבחור בעל אולם";
 
+    if (form.contact_phone.trim() && !/^[\d+\-() ]{7,15}$/.test(form.contact_phone.trim()))
+      errs.contact_phone = "מספר טלפון לא תקין";
+
     for (const key of ["price_morning", "price_evening", "price_full_day", "price_shabbat"]) {
       const val = form[key as keyof typeof form] as string;
       if (val !== "" && (isNaN(parseFloat(val)) || parseFloat(val) < 0))
@@ -241,6 +246,8 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
       neighborhood: form.neighborhood || null,
       max_capacity: parseInt(form.max_capacity),
       owner_user_id: form.owner_user_id,
+      contact_name: form.contact_name.trim() || null,
+      contact_phone: form.contact_phone.trim() || null,
       description_short: form.description_short || null,
       description_long: form.description_long || null,
       parking_info: form.parking_info || null,
@@ -271,7 +278,13 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
     let venueId: string;
 
     if (isEdit) {
-      ({ error } = await (supabase.from("venues") as any).update(payload).eq("id", venue.id));
+      // A changed address invalidates the stored coordinates - clear them so
+      // the map re-geocodes (and re-persists) on its next view.
+      const addressChanged = venue.address !== form.address || venue.city !== form.city;
+      const updatePayload = addressChanged
+        ? { ...payload, lat: null, lng: null, coords_approximate: false }
+        : payload;
+      ({ error } = await (supabase.from("venues") as any).update(updatePayload).eq("id", venue.id));
       venueId = venue.id;
     } else {
       const { data: inserted, error: insertError } = await (supabase.from("venues") as any)
@@ -380,6 +393,21 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
               {errors.owner_user_id && <p className="text-xs text-destructive">{errors.owner_user_id}</p>}
             </div>
           )}
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-muted-foreground">איש קשר</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="contact_name">איש קשר</Label>
+              <Input id="contact_name" value={form.contact_name} onChange={(e) => set("contact_name", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="contact_phone">טלפון</Label>
+              <Input id="contact_phone" type="tel" dir="ltr" value={form.contact_phone} onChange={(e) => set("contact_phone", e.target.value)} className={errors.contact_phone ? "border-destructive" : ""} />
+              {errors.contact_phone && <p className="text-xs text-destructive">{errors.contact_phone}</p>}
+            </div>
+          </div>
         </div>
 
         <div className="space-y-4">

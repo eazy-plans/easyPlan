@@ -1,8 +1,8 @@
 import { Building2 } from "lucide-react";
 import type { VenueRow, UserRow } from "@/types/database";
 import { AddVenueModal } from "@/components/venues/AddVenueModal";
-import { VenuesTable } from "@/components/venues/VenuesTable";
 import { PendingVenuesPanel } from "@/components/venues/PendingVenuesPanel";
+import { VenuesViewToggle } from "@/components/venues/VenuesViewToggle";
 import { getUserProfile } from "@/lib/supabase/queries";
 
 export async function VenuesContent() {
@@ -37,11 +37,6 @@ export async function VenuesContent() {
     <>
       {isAdmin && <PendingVenuesPanel />}
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{venues?.length ?? 0} אולמות במערכת</p>
-        {isAdmin && <AddVenueModal owners={owners ?? []} />}
-      </div>
-
       {!venues?.length ? (
         <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground gap-3">
           <Building2 size={48} strokeWidth={1} />
@@ -56,14 +51,13 @@ export async function VenuesContent() {
           )}
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <VenuesTable
-            venues={venues}
-            owners={owners ?? []}
-            isAdmin={isAdmin}
-            isVenueOwner={profile.role === "venue_owner"}
-          />
-        </div>
+        <VenuesViewToggle
+          venues={venues}
+          owners={owners ?? []}
+          isAdmin={isAdmin}
+          isVenueOwner={profile.role === "venue_owner"}
+          actions={isAdmin ? <AddVenueModal key="add-venue" owners={owners ?? []} /> : undefined}
+        />
       )}
     </>
   );

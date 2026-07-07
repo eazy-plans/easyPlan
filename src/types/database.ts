@@ -82,11 +82,16 @@ export interface VenueRow {
   has_public_transport: boolean;
   owner_user_id: string;
   is_active: boolean;
+  contact_name: string | null;
+  contact_phone: string | null;
   cancellation_policy: string | null;
   approval_status: VenueApprovalStatus;
   approved_by: string | null;
   approved_at: string | null;
   rejection_reason: string | null;
+  lat: number | null;
+  lng: number | null;
+  coords_approximate: boolean;
   created_at: string;
 }
 

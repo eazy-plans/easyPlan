@@ -9,18 +9,6 @@ function toHDate(date: Date | string): HDate | null {
   return new HDate(d);
 }
 
-/** Full Hebrew date with gematriya, e.g. י״ז תמוז תשפ״ו */
-export function toHebrewDate(date: Date | string): string {
-  try {
-    const hd = toHDate(date);
-    if (!hd) return "";
-    return `${gematriya(hd.getDate())} ${stripNikud(Locale.gettext(hd.getMonthName(), "he"))} ${gematriya(hd.getFullYear())}`;
-  } catch (err) {
-    console.error("Hebrew date conversion error:", err);
-    return "";
-  }
-}
-
 /** Short Hebrew date with gematriya, e.g. י״ז תמוז */
 export function toHebrewDateShort(date: Date | string): string {
   try {

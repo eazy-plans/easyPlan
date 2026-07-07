@@ -132,7 +132,11 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
 
     if (result.error) { toast.error("שגיאה ביצירת משתמש: " + result.error); return; }
 
-    toast.success("המשתמש נוצר בהצלחה.");
+    if (!inviteForm.email.trim() && result.email) {
+      toast.success(`המשתמש נוצר בהצלחה. אימייל להתחברות: ${result.email}`, { duration: 12000 });
+    } else {
+      toast.success("המשתמש נוצר בהצלחה.");
+    }
     setInviteOpen(false);
     setInviteForm({ email: "", full_name: "", role: "secretary", password: "" });
     router.refresh();
@@ -212,14 +216,14 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                 />
               </div>
               <div className="space-y-1">
-                <Label>אימייל *</Label>
+                <Label>אימייל</Label>
                 <Input
                   type="email"
                   dir="ltr"
                   value={inviteForm.email}
                   onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
-                  required
                 />
+                <p className="text-xs text-muted-foreground">אפשר להשאיר ריק — תיווצר כתובת ברירת מחדל להתחברות.</p>
               </div>
               <div className="space-y-1">
                 <Label>תפקיד *</Label>

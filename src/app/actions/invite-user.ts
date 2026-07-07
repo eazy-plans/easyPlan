@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
+import { randomUUID } from "crypto";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/types/database";
@@ -23,8 +24,11 @@ export async function inviteUser(email: string, full_name: string, role: UserRol
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
+  // Users without an email address still need one to sign in with password.
+  const finalEmail = email.trim() || `user-${randomUUID().slice(0, 8)}@eazyplans.local`;
+
   const { error } = await adminClient.auth.admin.createUser({
-    email,
+    email: finalEmail,
     password,
     email_confirm: true,
     user_metadata: { full_name },
@@ -34,5 +38,5 @@ export async function inviteUser(email: string, full_name: string, role: UserRol
   });
 
   if (error) return { error: error.message };
-  return { ok: true };
+  return { ok: true, email: finalEmail };
 }

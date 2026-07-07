@@ -49,6 +49,17 @@ export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, u
               {venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}
               {venue.address ? ` · ${venue.address}` : ""}
             </p>
+            {(venue.contact_name || venue.contact_phone) && (
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                איש קשר: {venue.contact_name}
+                {venue.contact_name && venue.contact_phone ? " · " : ""}
+                {venue.contact_phone && (
+                  <a href={`tel:${venue.contact_phone}`} dir="ltr" className="hover:underline">
+                    {venue.contact_phone}
+                  </a>
+                )}
+              </p>
+            )}
           </div>
         </div>
         {/* Tab bar */}

@@ -19,8 +19,7 @@ import {
 } from "@/components/ui/select";
 import Image from "next/image";
 import { X, Star, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
-import type { VenueRow, UserRow, VenueImageRow, CancellationPolicyType, VenueApprovalStatus } from "@/types/database";
-import { CancellationPolicyForm } from "./CancellationPolicyForm";
+import type { VenueRow, UserRow, VenueImageRow, VenueApprovalStatus } from "@/types/database";
 import {
   uploadVenueImage,
   deleteVenueImage,
@@ -76,10 +75,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
     hours_shabbat_start: venue?.hours_shabbat_start ?? "",
     hours_shabbat_end: venue?.hours_shabbat_end ?? "",
     is_active: venue?.is_active ?? true,
-    cancellation_policy_type: (venue?.cancellation_policy_type ?? "moderate") as CancellationPolicyType,
-    cancellation_deadline_days: venue?.cancellation_deadline_days ?? 7,
-    cancellation_fee_percent: venue?.cancellation_fee_percent ?? 20,
-    refund_details: venue?.refund_details ?? null,
+    cancellation_policy: venue?.cancellation_policy ?? "",
     approval_status: (venue?.approval_status ?? "pending") as VenueApprovalStatus,
     rejection_reason: venue?.rejection_reason ?? null,
   });
@@ -266,10 +262,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
       hours_shabbat_start: form.hours_shabbat_start || null,
       hours_shabbat_end: form.hours_shabbat_end || null,
       is_active: form.is_active,
-      cancellation_policy_type: form.cancellation_policy_type,
-      cancellation_deadline_days: form.cancellation_deadline_days,
-      cancellation_fee_percent: form.cancellation_fee_percent,
-      refund_details: form.refund_details,
+      cancellation_policy: form.cancellation_policy.trim() || null,
       approval_status: form.approval_status,
       rejection_reason: form.rejection_reason,
     };
@@ -538,18 +531,19 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
       {/* Cancellation Policy */}
       <section className="space-y-4">
         <h2 className="text-lg font-semibold border-b pb-2">מדיניות ביטול</h2>
-        <CancellationPolicyForm
-          policyType={form.cancellation_policy_type as CancellationPolicyType}
-          deadlineDays={form.cancellation_deadline_days}
-          feePercent={form.cancellation_fee_percent}
-          refundDetails={form.refund_details}
-          onChange={(data) => {
-            set("cancellation_policy_type", data.policyType);
-            set("cancellation_deadline_days", data.deadlineDays);
-            set("cancellation_fee_percent", data.feePercent);
-            set("refund_details", data.refundDetails);
-          }}
-        />
+        <div className="space-y-1">
+          <Label htmlFor="cancellation_policy">תנאי הביטול של האולם</Label>
+          <Textarea
+            id="cancellation_policy"
+            placeholder="תאר את תנאי הביטול וההחזר של האולם (לדוגמה: החזר מלא בביטול עד 14 ימים לפני האירוע)"
+            rows={4}
+            value={form.cancellation_policy}
+            onChange={(e) => set("cancellation_policy", e.target.value)}
+          />
+          <p className="text-xs text-gray-500">
+            הטקסט יוצג ללקוח בעת ההזמנה ובעת ביטול הזמנה.
+          </p>
+        </div>
       </section>
 
       {/* Admin Approval */}

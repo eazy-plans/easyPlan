@@ -1,61 +1,14 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Calendar, dateFnsLocalizer, type View } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay } from "date-fns";
-import { he } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
-import { toHebrewDateShort } from "@/lib/hebrew-calendar";
-import { eventsHistoryCutoffStr } from "@/lib/utils";
+import { eventsHistoryCutoffStr, toLocalDateStr } from "@/lib/utils";
 import { EventFormModal } from "./EventFormModal";
 import { EventDetailModal } from "./EventDetailModal";
+import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { EventRow, VenueRow, UserRole } from "@/types/database";
 import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS } from "@/types/booking";
-import "react-big-calendar/lib/css/react-big-calendar.css";
-import "./calendar.css";
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 0 }), // Sunday
-  getDay,
-  locales: { he },
-});
-
-const MESSAGES = {
-  next: "הבא",
-  previous: "הקודם",
-  today: "היום",
-  month: "חודש",
-  week: "שבוע",
-  day: "יום",
-  showMore: (count: number) => `+${count} נוספים`,
-};
-
-function eventClassName(event: EventRow) {
-  return `event-${event.event_type}`;
-}
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  start: Date;
-  end: Date;
-  resource: EventRow;
-}
-
-function toCalendarEvent(e: EventRow): CalendarEvent {
-  const date = new Date(e.date);
-  const hebrewDate = toHebrewDateShort(e.date);
-  return {
-    id: e.id,
-    title: `${e.client_name} (${hebrewDate})`,
-    start: date,
-    end: date,
-    resource: e,
-  };
-}
 
 interface VenueCalendarProps {
   venues: Pick<VenueRow, "id" | "name">[];
@@ -68,8 +21,6 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
   const supabase = useMemo(() => createClient(), []);
   const [selectedVenueId, setSelectedVenueId] = useState(venues[0]?.id ?? "");
   const [events, setEvents] = useState<EventRow[]>(initialEvents.filter((e) => e.venue_id === venues[0]?.id));
-  const [view, setView] = useState<View>("month");
-  const [date, setDate] = useState(new Date());
 
   // Modal state
   const [addModal, setAddModal] = useState<{ open: boolean; date: Date }>({ open: false, date: new Date() });
@@ -121,101 +72,59 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
     return () => { supabase.removeChannel(channel); };
   }, [selectedVenueId, loadEvents]);
 
-  function handleSelectSlot({ start }: { start: Date }) {
-    setAddModal({ open: true, date: start });
-  }
-
-  function handleSelectEvent(calEvent: CalendarEvent) {
-    setDetailModal({ open: true, event: calEvent.resource });
-  }
-
   function handleModalClose() {
     setAddModal((s) => ({ ...s, open: false }));
     setDetailModal({ open: false, event: null });
     loadEvents(selectedVenueId);
   }
 
-  const calendarEvents = useMemo(() => events.map(toCalendarEvent), [events]);
+  // O(events) once per events change, instead of filtering the whole events
+  // array for each of the ~35-42 day cells on every render.
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, EventRow[]>();
+    for (const event of events) {
+      const bucket = map.get(event.date);
+      if (bucket) bucket.push(event);
+      else map.set(event.date, [event]);
+    }
+    return map;
+  }, [events]);
 
   const bookedDates = useMemo(() => {
     const set = new Set<string>();
     events.forEach((e) => {
-      if (e.status === "approved") {
-        set.add(e.date);
-      }
+      if (e.status === "approved") set.add(e.date);
     });
     return set;
   }, [events]);
 
-  const dayPropGetter = (date: Date) => {
-    const dateStr = format(date, "yyyy-MM-dd");
-    if (bookedDates.has(dateStr)) {
-      return { className: "rbc-day-booked" };
-    }
-    return {};
-  };
-
-  // Add Hebrew dates to calendar cells after render
-  useEffect(() => {
-    const addHebrewDates = () => {
-      // Try multiple selectors to find date cells
-      let dateCells = document.querySelectorAll(".rbc-date-cell");
-
-      // If no cells found, try alternative selectors
-      if (dateCells.length === 0) {
-        dateCells = document.querySelectorAll(".rbc-day-bg");
-      }
-      if (dateCells.length === 0) {
-        dateCells = document.querySelectorAll("[role='gridcell']");
-      }
-
-      if (dateCells.length === 0) return;
-
-      const currentDate = new Date(date);
-
-      dateCells.forEach((cell, index) => {
-        // Skip if Hebrew date already added
-        if (cell.querySelector(".hebrew-date")) return;
-
-        // Get the date number from cell content
-        const cellText = cell.textContent?.trim();
-        if (!cellText) return;
-
-        // Extract just the number part
-        const dateMatch = cellText.match(/^\d+/);
-        if (!dateMatch) return;
-
-        const dayNum = parseInt(dateMatch[0]);
-        if (isNaN(dayNum) || dayNum < 1 || dayNum > 31) return;
-
-        // Calculate the actual date
-        let testDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNum);
-
-        // For cells at start of month showing previous month's dates
-        if (dayNum > 20 && index < 7) {
-          testDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, dayNum);
-        }
-        // For cells at end of month showing next month's dates
-        else if (dayNum < 10 && index > dateCells.length - 7) {
-          testDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, dayNum);
-        }
-
-        const hebrewDate = toHebrewDateShort(testDate);
-        if (!hebrewDate) return;
-        const hebrewSpan = document.createElement("div");
-        hebrewSpan.className = "hebrew-date";
-        hebrewSpan.textContent = hebrewDate;
-        cell.appendChild(hebrewSpan);
-      });
-    };
-
-    // Try multiple times with increasing delays
-    const timeouts = [100, 200, 400].map(delay =>
-      setTimeout(addHebrewDates, delay)
+  const renderDay = useCallback((date: Date) => {
+    const dayEvents = eventsByDay.get(toLocalDateStr(date));
+    if (!dayEvents?.length) return null;
+    return (
+      <div className="space-y-1">
+        {dayEvents.map((event) => (
+          <div
+            key={event.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              setDetailModal({ open: true, event });
+            }}
+            className="truncate rounded px-1.5 py-0.5 text-right text-[11px] font-medium leading-tight hover:opacity-80"
+            style={{ backgroundColor: EVENT_TYPE_COLORS[event.event_type], color: "#fff" }}
+            title={`${event.client_name} · ${EVENT_TYPE_LABELS[event.event_type]}`}
+          >
+            {event.client_name}
+          </div>
+        ))}
+      </div>
     );
+  }, [eventsByDay]);
 
-    return () => timeouts.forEach(t => clearTimeout(t));
-  }, [date, view]);
+  const dayClassName = useCallback(
+    (date: Date) => (bookedDates.has(toLocalDateStr(date)) ? "bg-slate-200" : undefined),
+    [bookedDates]
+  );
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
@@ -246,26 +155,11 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
         ))}
       </div>
 
-      <div className="flex-1 min-h-[520px]">
-        <Calendar
-          localizer={localizer}
-          events={calendarEvents}
-          view={view}
-          date={date}
-          onView={setView}
-          onNavigate={setDate}
-          onSelectSlot={handleSelectSlot}
-          onSelectEvent={handleSelectEvent}
-          selectable
-          style={{ height: "100%" }}
-          views={["month", "week", "day"]}
-          messages={MESSAGES}
-          culture="he"
-          eventPropGetter={(calEvent) => ({
-            className: eventClassName(calEvent.resource),
-          })}
-          dayPropGetter={dayPropGetter}
-          popup
+      <div className="flex-1 overflow-x-auto">
+        <HebrewCalendar
+          onSelect={(date) => setAddModal({ open: true, date })}
+          renderDay={renderDay}
+          dayClassName={dayClassName}
         />
       </div>
 

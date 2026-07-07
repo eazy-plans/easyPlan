@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
 import { Building2, Search, CalendarDays, X, ChevronDown, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus } from "lucide-react";
 import Image from "next/image";
@@ -42,6 +42,7 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
   const [selectedCity, setSelectedCity]   = useState("");
   const [eventType, setEventType]         = useState<EventType | null>(null);
   const [date, setDate]                   = useState<Date | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const [bookedSet, setBookedSet]         = useState<Set<string>>(new Set());
   const [loadingAvail, setLoadingAvail]   = useState(false);
@@ -140,6 +141,7 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
     else if (sel && isFriday(sel) && (eventType === "evening" || eventType === "full_day")) setEventType(null);
     else if (sel && !isFriday(sel) && !isSaturday(sel) && eventType === "shabbat") setEventType(null);
     setDate(sel);
+    if (sel) setDatePickerOpen(false);
   };
 
   const handleEventType = (type: EventType) => {
@@ -482,21 +484,27 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
               <X size={14} />
             </button>
           )}
-          <Popover>
-            <PopoverTrigger asChild>
+          <Dialog open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+            <DialogTrigger asChild>
               <Button variant="outline" className="gap-2">
                 {date ? formatDate(date) : "בחר תאריך"}
                 <CalendarDays size={16} />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-4" align="end">
-              <HebrewCalendar
-                selected={date ?? undefined}
-                onSelect={handleDateSelect}
-                disabled={calDisabled}
-              />
-            </PopoverContent>
-          </Popover>
+            </DialogTrigger>
+            <DialogContent className="max-w-[660px]" dir="rtl">
+              <DialogHeader>
+                <DialogTitle>בחר תאריך</DialogTitle>
+              </DialogHeader>
+              <DialogBody>
+                <HebrewCalendar
+                  compact
+                  selected={date ?? undefined}
+                  onSelect={handleDateSelect}
+                  disabled={calDisabled}
+                />
+              </DialogBody>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

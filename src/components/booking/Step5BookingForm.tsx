@@ -13,7 +13,6 @@ import { formatCurrency, formatDate, isValidPhone, toLocalDateStr } from "@/lib/
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS, PRICE_KEY } from "@/types/booking";
 import type { EventType, EventPurpose, VenueRow } from "@/types/database";
-import { getPolicyDescription } from "@/lib/cancellation/refundCalculator";
 
 type ClientSuggestion = { client_name: string; client_phone: string; client_email: string };
 
@@ -363,11 +362,11 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
           <div className="flex items-start gap-2">
             <div className="text-amber-700 font-medium text-sm">📋 מדיניות ביטול</div>
           </div>
-          <p className="text-xs text-amber-800">
-            {getPolicyDescription(venue.cancellation_policy_type, venue)}
+          <p className="text-xs text-amber-800 whitespace-pre-wrap">
+            {venue.cancellation_policy?.trim() || "לא הוגדרה מדיניות ביטול לאולם זה. לפרטים יש לפנות לאולם."}
           </p>
           <p className="text-xs text-amber-700 font-medium">
-            בעת ביטול ההזמנה, ההחזר יחושב לפי מדיניות זו.
+            בעת ביטול ההזמנה, ההחזר יטופל לפי מדיניות זו.
           </p>
         </div>
 

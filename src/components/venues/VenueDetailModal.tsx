@@ -357,8 +357,9 @@ export function VenueDetailModal({
                       אירוע חדש
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-4" align="end">
+                  <PopoverContent className="w-[620px] max-w-[95vw] overflow-x-auto p-3" align="end">
                     <HebrewCalendar
+                      compact
                       selected={selectedDate}
                       onSelect={(date: Date | undefined) => {
                         if (date) {

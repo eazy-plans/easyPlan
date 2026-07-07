@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { inviteUser } from "@/app/actions/invite-user";
+import { setUserAccess } from "@/app/actions/user-access";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,17 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { formatDate } from "@/lib/utils";
 import type { UserRole } from "@/types/database";
 import { useRouter } from "next/navigation";
@@ -28,11 +40,37 @@ const ROLE_VARIANT: Record<UserRole, "default" | "secondary" | "outline"> = {
   venue_owner: "outline",
 };
 
-type UserRow = { id: string; email: string; full_name: string; role: UserRole; created_at: string };
+type UserRow = { id: string; email: string; full_name: string; role: UserRole; created_at: string; blocked: boolean };
 
 interface UsersManagerProps {
   users: UserRow[];
   currentUserId: string;
+}
+
+function BlockAccessConfirm({ user, loading, onConfirm, className }: { user: UserRow; loading: boolean; onConfirm: () => void; className?: string }) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="outline" className={`text-destructive ${className ?? ""}`} disabled={loading}>
+          {loading ? "חוסם..." : "חסום גישה"}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent dir="rtl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>חסימת גישה למערכת</AlertDialogTitle>
+          <AlertDialogDescription>
+            {user.full_name} ({user.email}) לא יוכל/תוכל יותר להתחבר למערכת. הנתונים לא יימחקו וניתן לשחזר את הגישה בכל עת.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>ביטול</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} className="bg-destructive text-white hover:bg-destructive/90">
+            חסום גישה
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }
 
 export function UsersManager({ users: initialUsers, currentUserId }: UsersManagerProps) {
@@ -46,6 +84,19 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
   const [editForm, setEditForm] = useState({ full_name: "", role: "secretary" as UserRole });
   const [editLoading, setEditLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [accessLoading, setAccessLoading] = useState<string | null>(null);
+
+  async function toggleAccess(u: UserRow) {
+    setAccessLoading(u.id);
+    const result = await setUserAccess(u.id, !u.blocked);
+    setAccessLoading(null);
+
+    if (result.error) { toast.error("שגיאה בעדכון הגישה: " + result.error); return; }
+
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, blocked: !u.blocked } : x)));
+    toast.success(u.blocked ? "הגישה שוחזרה" : "הגישה נחסמה");
+    router.refresh();
+  }
 
   function openEdit(u: UserRow) {
     setEditForm({ full_name: u.full_name, role: u.role });
@@ -238,11 +289,25 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                 </td>
                 <td className="px-4 py-3 text-muted-foreground" dir="ltr">{u.email}</td>
                 <td className="px-4 py-3">
-                  <Badge variant={ROLE_VARIANT[u.role]}>{ROLE_LABELS[u.role]}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={ROLE_VARIANT[u.role]}>{ROLE_LABELS[u.role]}</Badge>
+                    {u.blocked && <Badge variant="destructive">הגישה חסומה</Badge>}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{formatDate(new Date(u.created_at))}</td>
                 <td className="px-4 py-3">
-                  <Button size="sm" variant="outline" onClick={() => openEdit(u)}>ערוך</Button>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openEdit(u)}>ערוך</Button>
+                    {u.id !== currentUserId && (
+                      u.blocked ? (
+                        <Button size="sm" variant="outline" onClick={() => toggleAccess(u)} disabled={accessLoading === u.id}>
+                          {accessLoading === u.id ? "משחזר..." : "שחזר גישה"}
+                        </Button>
+                      ) : (
+                        <BlockAccessConfirm user={u} loading={accessLoading === u.id} onConfirm={() => toggleAccess(u)} />
+                      )
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -262,9 +327,23 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                 </p>
                 <p className="text-sm text-muted-foreground" dir="ltr">{u.email}</p>
               </div>
-              <Badge variant={ROLE_VARIANT[u.role]}>{ROLE_LABELS[u.role]}</Badge>
+              <div className="flex flex-col items-end gap-1">
+                <Badge variant={ROLE_VARIANT[u.role]}>{ROLE_LABELS[u.role]}</Badge>
+                {u.blocked && <Badge variant="destructive">הגישה חסומה</Badge>}
+              </div>
             </div>
-            <Button size="sm" variant="outline" className="w-full" onClick={() => openEdit(u)}>ערוך</Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(u)}>ערוך</Button>
+              {u.id !== currentUserId && (
+                u.blocked ? (
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => toggleAccess(u)} disabled={accessLoading === u.id}>
+                    {accessLoading === u.id ? "משחזר..." : "שחזר גישה"}
+                  </Button>
+                ) : (
+                  <BlockAccessConfirm user={u} loading={accessLoading === u.id} onConfirm={() => toggleAccess(u)} className="flex-1" />
+                )
+              )}
+            </div>
           </div>
         ))}
       </div>

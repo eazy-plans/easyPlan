@@ -29,8 +29,6 @@ export type EmailType =
   | "waitlist_notify"
   | "event_cancelled";
 
-export type CancellationPolicyType = "flexible" | "moderate" | "strict" | "custom";
-
 export type VenueApprovalStatus = "pending" | "approved" | "rejected";
 
 export type EmailStatus = "sent" | "failed";
@@ -84,10 +82,7 @@ export interface VenueRow {
   has_public_transport: boolean;
   owner_user_id: string;
   is_active: boolean;
-  cancellation_policy_type: CancellationPolicyType;
-  cancellation_deadline_days: number;
-  cancellation_fee_percent: number;
-  refund_details: string | null;
+  cancellation_policy: string | null;
   approval_status: VenueApprovalStatus;
   approved_by: string | null;
   approved_at: string | null;
@@ -182,26 +177,6 @@ export interface LeadInquiryRow {
   rejection_reason: string | null;
   created_at: string;
   updated_at: string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Cancellation & Refund Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface RefundCalculation {
-  refundAmount: number;
-  refundPercent: number;
-  policyApplied: CancellationPolicyType;
-  daysBeforeDeadline: number;
-  message: string;
-}
-
-export interface CancellationDetails {
-  originalPrice: number;
-  refundAmount: number;
-  refundDate: string;
-  reason: string;
-  policyType: CancellationPolicyType;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

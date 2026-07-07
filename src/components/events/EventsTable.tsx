@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate, formatCurrency, toLocalDateStr } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 import type { EventStatus, UserRole, EventRow } from "@/types/database";
@@ -49,6 +49,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("");
+  const [timeFilter, setTimeFilter] = useState<"upcoming" | "past" | "all">("upcoming");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [leadDialogEvent, setLeadDialogEvent] = useState<EventWithMetadata | null>(null);
@@ -67,16 +68,25 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
     [events]
   );
 
-  const filtered = useMemo(() => events.filter((ev) => {
-    const matchVenue = venueFilter === "all" || ev.venue?.id === venueFilter;
-    const matchDate = !dateFilter || ev.date === dateFilter;
-    const q = search.toLowerCase();
-    const matchSearch = !q ||
-      ev.client_name.toLowerCase().includes(q) ||
-      ev.client_phone.includes(q) ||
-      (ev.venue?.name ?? "").toLowerCase().includes(q);
-    return matchVenue && matchDate && matchSearch;
-  }), [events, search, venueFilter, dateFilter]);
+  const filtered = useMemo(() => {
+    const today = toLocalDateStr(new Date());
+    const list = events.filter((ev) => {
+      const matchVenue = venueFilter === "all" || ev.venue?.id === venueFilter;
+      const matchDate = !dateFilter || ev.date === dateFilter;
+      // An explicit date wins over the upcoming/past range, otherwise picking
+      // a past date while on "upcoming" silently shows nothing.
+      const matchTime = !!dateFilter || timeFilter === "all" ||
+        (timeFilter === "upcoming" ? ev.date >= today : ev.date < today);
+      const q = search.toLowerCase();
+      const matchSearch = !q ||
+        ev.client_name.toLowerCase().includes(q) ||
+        ev.client_phone.includes(q) ||
+        (ev.venue?.name ?? "").toLowerCase().includes(q);
+      return matchVenue && matchDate && matchTime && matchSearch;
+    });
+    // Server order is date-ascending; history reads best newest-first
+    return timeFilter === "past" && !dateFilter ? list.reverse() : list;
+  }, [events, search, venueFilter, dateFilter, timeFilter]);
 
   async function openCancellationDialog(event: EventWithMetadata) {
     setEventToCancelWithVenue(event as EventWithMetadata & { venue: VenueRow });
@@ -128,6 +138,16 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1"
         />
+        <Select value={timeFilter} onValueChange={(v) => setTimeFilter(v as "upcoming" | "past" | "all")}>
+          <SelectTrigger dir="rtl" className="w-full sm:w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent dir="rtl">
+            <SelectItem value="upcoming">אירועים קרובים</SelectItem>
+            <SelectItem value="past">אירועי עבר</SelectItem>
+            <SelectItem value="all">כל האירועים</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={venueFilter} onValueChange={setVenueFilter}>
           <SelectTrigger dir="rtl" className="w-full sm:w-44">
             <SelectValue placeholder="כל האולמות" />

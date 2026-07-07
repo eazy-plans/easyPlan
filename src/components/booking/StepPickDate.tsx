@@ -93,6 +93,11 @@ export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProp
     return blockedSet.has(`${toLocalDateStr(d)}:${eventType}`);
   };
 
+  // Actually booked (event or hold) - shown in red, unlike past/rule-blocked
+  // days which stay gray
+  const isBooked = (d: Date) =>
+    !!eventType && d >= today && blockedSet.has(`${toLocalDateStr(d)}:${eventType}`);
+
   const isTypeDisabled = (type: EventType) => {
     if (!date) return false;
     if (isSaturday(date) && type !== "shabbat") return true;
@@ -141,51 +146,67 @@ export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProp
           <span className="font-medium">{venue.max_capacity} אורחים</span>
         </div>
 
-        <div className="flex gap-4 items-start">
-          <div className="w-[60%] min-w-0">
-            <Label className="text-base font-semibold">בחר תאריך פנוי</Label>
-            {loadingAvailability ? (
-              <p className="text-sm text-muted-foreground mt-4">טוען זמינות...</p>
-            ) : (
-              <div className="mt-3 overflow-x-auto">
-                <HebrewCalendar
-                  selected={date ?? undefined}
-                  onSelect={handleDateSelect}
-                  disabled={calendarDisabled}
-                  className="w-full"
-                />
-              </div>
-            )}
+        <div>
+          <Label className="text-base font-semibold">סוג האירוע</Label>
+          <div className="grid grid-cols-4 gap-2 mt-2">
+            {(Object.entries(EVENT_TYPE_LABELS) as [EventType, string][]).map(([type, label]) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleEventTypeChange(type)}
+                disabled={isTypeDisabled(type)}
+                className="border-2 rounded-lg py-2.5 px-2 text-sm font-medium transition-all hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{
+                  borderColor: EVENT_TYPE_COLORS[type],
+                  backgroundColor: eventType === type ? EVENT_TYPE_COLORS[type] : undefined,
+                  color: eventType === type ? "#fff" : undefined,
+                }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
+        </div>
 
-          <div className="w-[40%] min-w-0">
-            <Label className="text-base font-semibold">סוג האירוע</Label>
-            <div className="grid grid-cols-2 gap-3 mt-2">
-              {(Object.entries(EVENT_TYPE_LABELS) as [EventType, string][]).map(([type, label]) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => handleEventTypeChange(type)}
-                  disabled={isTypeDisabled(type)}
-                  className="border-2 rounded-lg py-6 px-3 text-base font-medium transition-all hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
-                  style={{
-                    borderColor: EVENT_TYPE_COLORS[type],
-                    backgroundColor: eventType === type ? EVENT_TYPE_COLORS[type] : undefined,
-                    color: eventType === type ? "#fff" : undefined,
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {date && (
-              <div className="mt-4 p-2 bg-muted rounded text-sm text-right">
-                <div className="text-muted-foreground">התאריך שנבחר:</div>
-                <div className="font-medium">{date.toLocaleDateString("he-IL")}</div>
-                <div className="text-xs text-muted-foreground">{toHebrewDateShort(date)}</div>
+        <div>
+          <Label className="text-base font-semibold">בחר תאריך פנוי</Label>
+          {loadingAvailability ? (
+            <p className="text-sm text-muted-foreground mt-4">טוען זמינות...</p>
+          ) : (
+            <div className="mt-3">
+              <HebrewCalendar
+                compact
+                selected={date ?? undefined}
+                onSelect={handleDateSelect}
+                disabled={calendarDisabled}
+                dayClassName={(d) => (isBooked(d) ? "bg-red-100 opacity-100" : undefined)}
+                renderDay={(d) =>
+                  isBooked(d) ? (
+                    <span className="inline-block rounded bg-red-200/70 px-1 text-[10px] font-semibold text-red-800">תפוס</span>
+                  ) : null
+                }
+                className="w-full"
+              />
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-sm border border-red-200 bg-red-100" /> תפוס
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-sm border border-gray-200 bg-gray-100" /> לא זמין
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-sm border border-amber-200 bg-amber-100" /> היום
+                </span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+          {date && (
+            <div className="mt-3 p-2 bg-muted rounded text-sm text-right flex items-center gap-2">
+              <span className="text-muted-foreground">התאריך שנבחר:</span>
+              <span className="font-medium">{date.toLocaleDateString("he-IL")}</span>
+              <span className="text-xs text-muted-foreground">({toHebrewDateShort(date)})</span>
+            </div>
+          )}
         </div>
       </div>
 

@@ -7,10 +7,7 @@ interface EventCancelledData {
   dayOfWeek: string;
   eventType: string;
   originalPrice: string;
-  refundAmount: string;
-  refundDeadline?: string;
-  policyType: string;
-  policyDescription: string;
+  policyDescription?: string;
   cancellationReason?: string;
   contactName?: string;
   contactPhone?: string;
@@ -54,19 +51,17 @@ export function eventCancelledHtml(d: EventCancelledData): string {
     ${row("יום בשבוע", d.dayOfWeek)}
     ${row("סוג האירוע", d.eventType)}
     ${row("אולם", d.venueName)}
+    ${row("מחיר", d.originalPrice)}
   </ul>
 
-  <div class="refund-section">
-    <p><strong>🔄 פרטי ההחזר:</strong></p>
-    <ul>
-      ${row("מחיר המקורי", d.originalPrice)}
-      ${row("סכום החזר", d.refundAmount)}
-      ${d.refundDeadline ? row("תאריך עיבוד החזר", d.refundDeadline) : ""}
-    </ul>
-  </div>
-
-  <p><strong>מדיניות הביטול:</strong></p>
-  <p>${escapeHtml(d.policyDescription)}</p>
+  ${
+    d.policyDescription
+      ? `<div class="refund-section">
+    <p><strong>מדיניות הביטול של האולם:</strong></p>
+    <p>${escapeHtml(d.policyDescription)}</p>
+  </div>`
+      : ""
+  }
 
   ${
     d.cancellationReason
@@ -76,7 +71,7 @@ export function eventCancelledHtml(d: EventCancelledData): string {
 
   <p><strong>מה הלאה?</strong></p>
   <ul>
-    <li>ההחזר יעובד תוך 7-10 ימי עסקים לחשבון הבנק שלכם</li>
+    <li>החזר כספי, ככל שמגיע, יטופל בהתאם למדיניות הביטול של האולם</li>
     <li>לשאלות או בעיות, אנא צרו קשר עם האולם ישירות</li>
     ${d.contactName ? `<li>איש קשר: ${escapeHtml(d.contactName)}</li>` : ""}
     ${d.contactPhone ? `<li>טלפון: ${escapeHtml(d.contactPhone)}</li>` : ""}

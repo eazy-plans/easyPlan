@@ -9,7 +9,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, AlertTriangle } from "lucide-react";
 import type { EventRow, VenueRow } from "@/types/database";
-import { calculateRefund, getPolicyDescription } from "@/lib/cancellation/refundCalculator";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface CancellationDialogProps {
@@ -31,8 +30,7 @@ export function CancellationDialog({
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refundCalc = calculateRefund(event, event.venue);
-  const policyDesc = getPolicyDescription(event.venue.cancellation_policy_type, event.venue);
+  const policyDesc = event.venue.cancellation_policy?.trim() || "לא הוגדרה מדיניות ביטול לאולם זה. לפרטים יש לפנות לאולם.";
 
   const handleConfirm = async () => {
     if (!reason.trim()) {
@@ -92,21 +90,7 @@ export function CancellationDialog({
           {/* Policy Info */}
           <div className="rounded-lg bg-blue-50 p-3 space-y-2 border border-blue-200">
             <p className="text-sm font-medium text-blue-900">מדיניות ביטול:</p>
-            <p className="text-xs text-blue-800">{policyDesc}</p>
-          </div>
-
-          {/* Refund Calculation */}
-          <div className="rounded-lg bg-green-50 p-3 space-y-2 border border-green-200">
-            <p className="text-sm font-medium text-green-900">💰 חישוב החזר:</p>
-            <div className="space-y-1 text-xs text-green-800">
-              <p>
-                <strong>סכום החזר:</strong> {formatCurrency(refundCalc.refundAmount)}
-              </p>
-              <p>
-                <strong>אחוז החזר:</strong> {refundCalc.refundPercent}%
-              </p>
-              <p className="italic">{refundCalc.message}</p>
-            </div>
+            <p className="text-xs text-blue-800 whitespace-pre-wrap">{policyDesc}</p>
           </div>
 
           {/* Cancellation Reason */}
@@ -133,8 +117,7 @@ export function CancellationDialog({
               className="mt-1"
             />
             <label htmlFor="agree" className="text-xs text-gray-700 cursor-pointer">
-              אני מאשר/מאשרת שאני מודע/מודעת להחזר בסכום של{" "}
-              <strong>{formatCurrency(refundCalc.refundAmount)}</strong> ומבין/מבינה את מדיניות הביטול
+              אני מאשר/מאשרת שקראתי ואני מבין/מבינה את מדיניות הביטול של האולם
             </label>
           </div>
 

@@ -1,39 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Calendar, dateFnsLocalizer, type View } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay } from "date-fns";
-import { he } from "date-fns/locale";
+import { useCallback, useMemo } from "react";
+import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
+import { toLocalDateStr } from "@/lib/utils";
 import type { EventRow } from "@/types/database";
 import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS } from "@/types/booking";
-import "react-big-calendar/lib/css/react-big-calendar.css";
-import "@/components/calendar/calendar.css";
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 0 }),
-  getDay,
-  locales: { he },
-});
-
-const MESSAGES = {
-  next: "הבא",
-  previous: "הקודם",
-  today: "היום",
-  month: "חודש",
-  week: "שבוע",
-  day: "יום",
-  showMore: (n: number) => `+${n} נוספים`,
-};
-
-interface CalEvent {
-  id: string;
-  title: string;
-  start: Date;
-  end: Date;
-  resource: EventRow;
-}
 
 interface Props {
   venueId: string;
@@ -45,33 +16,51 @@ interface Props {
 }
 
 export function VenueCalendarView({ events, onEventClick, onSlotClick }: Props) {
-  const [view, setView]   = useState<View>("month");
-  const [date, setDate]   = useState(new Date());
-
-  const calEvents = useMemo<CalEvent[]>(() =>
-    events.map((e) => {
-      const d = new Date(e.date);
-      return { id: e.id, title: e.client_name, start: d, end: d, resource: e };
-    }),
-  [events]);
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, EventRow[]>();
+    for (const event of events) {
+      const bucket = map.get(event.date);
+      if (bucket) bucket.push(event);
+      else map.set(event.date, [event]);
+    }
+    return map;
+  }, [events]);
 
   const bookedDates = useMemo(() => {
     const set = new Set<string>();
     events.forEach((e) => {
-      if (e.status === "approved") {
-        set.add(e.date);
-      }
+      if (e.status === "approved") set.add(e.date);
     });
     return set;
   }, [events]);
 
-  const dayPropGetter = (date: Date) => {
-    const dateStr = format(date, "yyyy-MM-dd");
-    if (bookedDates.has(dateStr)) {
-      return { className: "rbc-day-booked" };
-    }
-    return {};
-  };
+  const renderDay = useCallback((date: Date) => {
+    const dayEvents = eventsByDay.get(toLocalDateStr(date));
+    if (!dayEvents?.length) return null;
+    return (
+      <div className="space-y-1">
+        {dayEvents.map((event) => (
+          <div
+            key={event.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEventClick(event);
+            }}
+            className="truncate rounded px-1.5 py-0.5 text-right text-[11px] font-medium leading-tight hover:opacity-80"
+            style={{ backgroundColor: EVENT_TYPE_COLORS[event.event_type], color: "#fff" }}
+            title={`${event.client_name} · ${EVENT_TYPE_LABELS[event.event_type]}`}
+          >
+            {event.client_name}
+          </div>
+        ))}
+      </div>
+    );
+  }, [eventsByDay, onEventClick]);
+
+  const dayClassName = useCallback(
+    (date: Date) => (bookedDates.has(toLocalDateStr(date)) ? "bg-slate-200" : undefined),
+    [bookedDates]
+  );
 
   return (
     <>
@@ -84,26 +73,13 @@ export function VenueCalendarView({ events, onEventClick, onSlotClick }: Props) 
           </span>
         ))}
       </div>
-      <Calendar
-        localizer={localizer}
-        events={calEvents}
-        view={view}
-        date={date}
-        onView={setView}
-        onNavigate={setDate}
-        onSelectSlot={({ start }) => onSlotClick(start as Date)}
-        onSelectEvent={(ce: CalEvent) => onEventClick(ce.resource)}
-        selectable
-        style={{ height: 520 }}
-        views={["month", "week"]}
-        messages={MESSAGES}
-        culture="he"
-        eventPropGetter={(ce: CalEvent) => ({
-          className: `event-${ce.resource.event_type}`,
-        })}
-        dayPropGetter={dayPropGetter}
-        popup
-      />
+      <div className="overflow-x-auto">
+        <HebrewCalendar
+          onSelect={(date) => onSlotClick(date)}
+          renderDay={renderDay}
+          dayClassName={dayClassName}
+        />
+      </div>
     </>
   );
 }

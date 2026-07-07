@@ -4,7 +4,6 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWaitlistNotifyEmail, sendCancellationEmail } from "@/lib/email/sendEventEmails";
-import { calculateRefund } from "@/lib/cancellation/refundCalculator";
 
 // POST /api/events/cancel
 // body: { eventId: string, cancellationReason?: string }
@@ -28,46 +27,30 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Fetch full event details with venue for refund calculation
+  // Fetch full event details with venue for the cancellation email
   const { data: event, error: fetchErr } = await (supabase.from("events") as any)
-    .select("id, venue_id, date, status, client_name, client_phone, client_email, price_final, booking_date, original_price_final, notes, venues(id, name, city, owner_user_id, cancellation_policy_type, cancellation_deadline_days, cancellation_fee_percent, refund_details, owner:users(full_name, phone))")
+    .select("id, venue_id, date, status, client_name, client_phone, client_email, price_final, booking_date, original_price_final, notes, venues(id, name, city, owner_user_id, cancellation_policy, owner:users(full_name, phone))")
     .eq("id", eventId)
     .single();
 
   if (fetchErr || !event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
   if (event.status === "cancelled") return NextResponse.json({ ok: true, notified: 0 });
 
-  // Prepare event and venue for refund calculation
   const venue = event.venues;
   if (!venue) return NextResponse.json({ error: "Venue not found" }, { status: 404 });
 
-  // Store original price if not already set
+  // Store original price if not already set. Refunds are no longer computed
+  // automatically - the venue's free-text cancellation policy governs them and
+  // they are settled manually between the venue and the client.
   const originalPrice = event.original_price_final || event.price_final;
 
-  // Prepare full event object for refund calculation
-  const eventForRefund = {
-    ...event,
-    booking_date: event.booking_date || new Date().toISOString(),
-    original_price_final: originalPrice,
-  };
-
-  // Calculate refund
-  const refundCalc = calculateRefund(eventForRefund, venue);
-
-  // Calculate refund date (7-10 business days from now)
-  const refundDate = new Date();
-  refundDate.setDate(refundDate.getDate() + 7);
-
-  // Update event with cancellation details
   const { error: updateErr } = await (supabase.from("events") as any)
     .update({
       status: "cancelled",
       cancelled_at: new Date().toISOString(),
       cancelled_by: user.id,
       cancellation_reason: cancellationReason || null,
-      refund_amount: refundCalc.refundAmount,
       original_price_final: originalPrice,
-      refund_date: refundDate.toISOString(),
     })
     .eq("id", eventId);
 
@@ -78,7 +61,7 @@ export async function POST(request: Request) {
 
   // Send cancellation email to client
   try {
-    await sendCancellationEmail(event, venue, refundCalc.refundAmount, cancellationReason);
+    await sendCancellationEmail(event, venue, cancellationReason);
 
     await (admin.from("email_logs") as any).insert({
       event_id: eventId,

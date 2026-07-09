@@ -1,13 +1,19 @@
-﻿"use client";
+"use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import { format } from "date-fns";
+import { he } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
+import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, TrendingUp, Users, Building2 } from "lucide-react";
+import {
+  CalendarDays, TrendingUp, Users, Building2, ChevronLeft, CalendarClock, BellRing,
+} from "lucide-react";
 
 const MONTH_NAMES = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 
@@ -47,7 +53,9 @@ type EventRow = {
   id: string;
   date: string;
   event_type: string;
+  event_purpose: string;
   status: string;
+  client_name: string;
   price_final: number;
   venue_id: string;
   venue: { name: string; city?: string } | null;
@@ -55,7 +63,19 @@ type EventRow = {
 
 type LeadRow = { id: string; status: string };
 type VenueRow = { id: string; name: string };
-type PendingInquiry = { id: string; status: string };
+type PendingInquiry = {
+  id: string;
+  lead_id: string;
+  status: string;
+  leads?: { client_name: string } | { client_name: string }[] | null;
+  venues?: { name: string } | { name: string }[] | null;
+};
+
+// Supabase serializes to-one joins as an object but the loose typing allows
+// arrays; normalize so render code doesn't care.
+function one<T>(v: T | T[] | null | undefined): T | null {
+  return Array.isArray(v) ? v[0] ?? null : v ?? null;
+}
 
 interface DashboardStatsProps {
   events: EventRow[];
@@ -65,39 +85,86 @@ interface DashboardStatsProps {
   hideLeads?: boolean;
 }
 
+function useCountUp(target: number, duration = 900) {
+  const [value, setValue] = useState(0);
+  // Mirrors the rendered value so an interrupted animation (year change,
+  // StrictMode re-run) resumes from where it stopped instead of resetting.
+  const displayed = useRef(0);
+  useEffect(() => {
+    const from = displayed.current;
+    if (from === target) {
+      setValue(target);
+      return;
+    }
+    let raf: number;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const v = Math.round(from + (target - from) * eased);
+      displayed.current = v;
+      setValue(v);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
+}
+
 function KpiCard({
   label,
   value,
   sub,
   icon: Icon,
   gradient,
+  href,
+  pulse,
 }: {
   label: string;
-  value: string | number;
+  value: number;
   sub?: string;
   icon: React.ElementType;
   gradient: string;
+  href: string;
+  pulse?: boolean;
 }) {
+  const animated = useCountUp(value);
   return (
-    <div className={`rounded-2xl p-5 ${gradient} text-white shadow-lg relative overflow-hidden`}>
-      <div className="absolute -top-5 -right-5 w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
+    <Link
+      href={href}
+      className={`group rounded-2xl p-5 ${gradient} text-white shadow-lg relative overflow-hidden block transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60`}
+    >
+      <div className="absolute -top-5 -right-5 w-28 h-28 rounded-full bg-white/10 pointer-events-none transition-transform duration-500 group-hover:scale-125" />
       <div className="absolute -bottom-6 -left-4 w-24 h-24 rounded-full bg-black/10 pointer-events-none" />
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-white/80 mb-2 truncate">{label}</p>
-          <p className="text-3xl font-bold leading-none">{value}</p>
+          <p className="text-sm font-medium text-white/80 mb-2 truncate flex items-center gap-1.5">
+            {pulse && (
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/80 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+              </span>
+            )}
+            {label}
+          </p>
+          <p className="text-3xl font-bold leading-none tabular-nums">{animated}</p>
           {sub && <p className="text-sm text-white/75 mt-2">{sub}</p>}
         </div>
         <div className="bg-white/20 backdrop-blur-sm p-3 rounded-2xl shrink-0">
           <Icon size={20} className="text-white" />
         </div>
       </div>
-    </div>
+      <ChevronLeft
+        size={16}
+        className="absolute bottom-3 left-3 text-white/0 group-hover:text-white/80 transition-all duration-300 translate-x-1 group-hover:translate-x-0"
+      />
+    </Link>
   );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function MonthTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-background border rounded-xl shadow-xl p-3 text-sm space-y-1.5 min-w-[110px]">
@@ -112,6 +179,32 @@ function MonthTooltip({ active, payload, label }: any) {
         </div>
       ))}
     </div>
+  );
+}
+
+function daysUntilChip(diff: number) {
+  if (diff === 0) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-100 rounded-full px-2.5 py-1 shrink-0">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-600" />
+        </span>
+        היום
+      </span>
+    );
+  }
+  if (diff === 1) {
+    return (
+      <span className="text-[11px] font-semibold text-blue-700 bg-blue-100 rounded-full px-2.5 py-1 shrink-0">
+        מחר
+      </span>
+    );
+  }
+  return (
+    <span className="text-[11px] font-medium text-muted-foreground bg-muted rounded-full px-2.5 py-1 shrink-0">
+      בעוד {diff} ימים
+    </span>
   );
 }
 
@@ -131,6 +224,16 @@ export function DashboardStats({ events, leads, venues, pendingInquiries = [], h
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [events]
   );
+
+  // Live feed: next events from today onward; when viewing a past year fall
+  // back to the latest events so the panel is never dead.
+  const { feedEvents, feedIsUpcoming } = useMemo(() => {
+    const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
+    const upcoming = sorted.filter((e) => e.date >= todayStr).slice(0, 6);
+    if (upcoming.length > 0) return { feedEvents: upcoming, feedIsUpcoming: true };
+    return { feedEvents: sorted.slice(-6).reverse(), feedIsUpcoming: false };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events]);
 
   const byMonth = useMemo(() => {
     const counts = Array(12).fill(0);
@@ -183,6 +286,10 @@ export function DashboardStats({ events, leads, venues, pendingInquiries = [], h
   const conversionRate = leads.length > 0 ? Math.round((bookedLeads / leads.length) * 100) : 0;
   const maxVenueCount = topVenues[0]?.count ?? 1;
 
+  const todayMs = Date.parse(todayStr);
+  const eventsHref = hideLeads ? "/calendar" : "/events";
+  const showPending = !hideLeads && pendingInquiries.length > 0;
+
   return (
     <div className="space-y-5">
       {/* KPI row */}
@@ -192,6 +299,8 @@ export function DashboardStats({ events, leads, venues, pendingInquiries = [], h
           value={eventsToday}
           icon={CalendarDays}
           gradient="bg-gradient-to-br from-blue-500 to-blue-700"
+          href={eventsHref}
+          pulse={eventsToday > 0}
         />
         <KpiCard
           label="אירועים החודש"
@@ -199,32 +308,141 @@ export function DashboardStats({ events, leads, venues, pendingInquiries = [], h
           sub={`${events.length} השנה`}
           icon={TrendingUp}
           gradient="bg-gradient-to-br from-emerald-500 to-emerald-700"
+          href={eventsHref}
         />
         {!hideLeads && (
-          <>
-            <KpiCard
-              label="לידים"
-              value={leads.length}
-              sub={`שיעור המרה ${conversionRate}%`}
-              icon={Users}
-              gradient="bg-gradient-to-br from-orange-400 to-orange-600"
-            />
-            {pendingInquiries.length > 0 && (
-              <KpiCard
-                label="ממתינים לאישור"
-                value={pendingInquiries.length}
-                icon={CalendarDays}
-                gradient="bg-gradient-to-br from-amber-500 to-amber-700"
-              />
-            )}
-          </>
+          <KpiCard
+            label="לידים"
+            value={leads.length}
+            sub={`שיעור המרה ${conversionRate}%`}
+            icon={Users}
+            gradient="bg-gradient-to-br from-orange-400 to-orange-600"
+            href="/leads"
+          />
         )}
         <KpiCard
           label="אולמות פעילים"
           value={venues.length}
           icon={Building2}
           gradient="bg-gradient-to-br from-violet-500 to-violet-700"
+          href="/venues"
         />
+      </div>
+
+      {/* Live feed: upcoming events + inquiries waiting for action */}
+      <div className={showPending ? "grid lg:grid-cols-2 gap-5" : ""}>
+        <Card className="shadow-md rounded-2xl border-0 ring-1 ring-black/5">
+          <CardHeader className="pb-2 pt-5 px-5 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+              <CalendarClock size={17} className="text-blue-600" />
+              {feedIsUpcoming ? "אירועים קרובים" : "אירועים אחרונים"}
+            </CardTitle>
+            <Link
+              href={eventsHref}
+              className="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
+            >
+              לכל האירועים
+              <ChevronLeft size={13} />
+            </Link>
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            {feedEvents.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-10">לא נמצאו אירועים לשנה זו</p>
+            ) : (
+              <div className="divide-y divide-border/60">
+                {feedEvents.map((ev) => {
+                  const d = new Date(ev.date);
+                  const diff = Math.round((Date.parse(ev.date) - todayMs) / 86_400_000);
+                  return (
+                    <Link
+                      key={ev.id}
+                      href={hideLeads ? "/calendar" : `/events/${ev.id}`}
+                      className="group flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-muted/60 transition-colors"
+                    >
+                      <div className="w-11 shrink-0 rounded-xl bg-muted/70 py-1.5 text-center">
+                        <div className="text-base font-bold leading-tight tabular-nums">{format(d, "d")}</div>
+                        <div className="text-[10px] text-muted-foreground leading-tight">{format(d, "LLL", { locale: he })}</div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold truncate">
+                          {EVENT_PURPOSE_LABELS[ev.event_purpose as keyof typeof EVENT_PURPOSE_LABELS] ?? ev.event_purpose}
+                          {ev.client_name ? ` · ${ev.client_name}` : ""}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5 mt-0.5">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: EVENT_TYPE_COLORS[ev.event_type as keyof typeof EVENT_TYPE_COLORS] ?? "#94a3b8" }}
+                          />
+                          {EVENT_TYPE_LABELS[ev.event_type as keyof typeof EVENT_TYPE_LABELS] ?? ev.event_type}
+                          {ev.venue?.name ? ` · ${ev.venue.name}` : ""}
+                        </p>
+                      </div>
+                      {feedIsUpcoming ? (
+                        daysUntilChip(diff)
+                      ) : (
+                        <span className="text-[11px] font-medium text-muted-foreground bg-muted rounded-full px-2.5 py-1 shrink-0">
+                          {format(d, "EEEE", { locale: he })}
+                        </span>
+                      )}
+                      <ChevronLeft size={15} className="text-muted-foreground/0 group-hover:text-muted-foreground transition-colors shrink-0" />
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {showPending && (
+          <Card className="shadow-md rounded-2xl border-0 ring-1 ring-amber-200/70 bg-gradient-to-b from-amber-50/60 to-transparent">
+            <CardHeader className="pb-2 pt-5 px-5 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                <BellRing size={17} className="text-amber-600" />
+                ממתינים לטיפול
+                <span className="text-[11px] font-bold bg-amber-500 text-white rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+                  {pendingInquiries.length}
+                </span>
+              </CardTitle>
+              <Link
+                href="/leads"
+                className="text-xs font-medium text-amber-700 hover:text-amber-900 flex items-center gap-0.5"
+              >
+                לכל הלידים
+                <ChevronLeft size={13} />
+              </Link>
+            </CardHeader>
+            <CardContent className="px-3 pb-3">
+              <div className="divide-y divide-border/60">
+                {pendingInquiries.slice(0, 6).map((inq) => {
+                  const lead = one(inq.leads);
+                  const venue = one(inq.venues);
+                  return (
+                    <Link
+                      key={inq.id}
+                      href={`/leads/${inq.lead_id}`}
+                      className="group flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-amber-100/40 transition-colors"
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: LEAD_STATUS_COLORS[inq.status] ?? "#94a3b8" }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold truncate">{lead?.client_name ?? "-"}</p>
+                        {venue?.name && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{venue.name}</p>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-medium text-muted-foreground bg-muted rounded-full px-2.5 py-1 shrink-0">
+                        {LEAD_STATUS_LABELS[inq.status] ?? inq.status}
+                      </span>
+                      <ChevronLeft size={15} className="text-muted-foreground/0 group-hover:text-muted-foreground transition-colors shrink-0" />
+                    </Link>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Events by month */}
@@ -246,7 +464,7 @@ export function DashboardStats({ events, leads, venues, pendingInquiries = [], h
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
-              <Tooltip content={<MonthTooltip />} cursor={{ fill: "hsl(var(--muted))", radius: 4 }} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(var(--muted))", radius: 4 }} />
               <Bar dataKey="count" name="אירועים" fill="url(#eventGrad)" radius={[5, 5, 0, 0]} maxBarSize={26} />
             </BarChart>
           </ResponsiveContainer>
@@ -265,21 +483,27 @@ export function DashboardStats({ events, leads, venues, pendingInquiries = [], h
             {byCity.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-12">לא נמצאו אירועים לשנה זו</p>
             ) : (
-              <ResponsiveContainer width="100%" height={210}>
-                <BarChart data={byCity} layout="vertical" margin={{ top: 0, right: 20, bottom: 0, left: 0 }}>
-                  <defs>
-                    <linearGradient id="cityGrad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
-                      <stop offset="100%" stopColor="#6d28d9" stopOpacity={0.85} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={64} />
-                  <Tooltip formatter={(v) => [`${v} אירועים`, "עיר"]} />
-                  <Bar dataKey="count" name="אירועים" fill="url(#cityGrad)" radius={[0, 5, 5, 0]} maxBarSize={18} />
-                </BarChart>
-              </ResponsiveContainer>
+              // recharts lays out ticks assuming LTR coordinates; under the
+              // page's RTL direction the Y-axis label anchor flips and text
+              // overflows past the card edge instead of staying inside the
+              // reserved axis width. Force LTR just for the chart subtree.
+              <div dir="ltr">
+                <ResponsiveContainer width="100%" height={210}>
+                  <BarChart data={byCity} layout="vertical" margin={{ top: 0, right: 12, bottom: 0, left: 0 }}>
+                    <defs>
+                      <linearGradient id="cityGrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#6d28d9" stopOpacity={0.85} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={96} interval={0} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(var(--muted))", radius: 4 }} />
+                    <Bar dataKey="count" name="אירועים" fill="url(#cityGrad)" radius={[0, 5, 5, 0]} maxBarSize={18} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>

@@ -21,6 +21,10 @@ const DashboardStatsLazy = dynamic(
             </div>
           ))}
         </div>
+        <div className="grid lg:grid-cols-2 gap-5">
+          <div className="rounded-lg border bg-card p-5 h-56 bg-muted/20 animate-pulse" />
+          <div className="rounded-lg border bg-card p-5 h-56 bg-muted/20 animate-pulse" />
+        </div>
         <div className="rounded-lg border bg-card p-5 h-64 bg-muted/20 animate-pulse" />
         <div className="grid md:grid-cols-2 gap-5">
           <div className="rounded-lg border bg-card p-5 h-56 bg-muted/20 animate-pulse" />

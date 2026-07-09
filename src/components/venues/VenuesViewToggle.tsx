@@ -39,7 +39,6 @@ export function VenuesViewToggle({
   return (
     <>
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{venues.length} אולמות במערכת</p>
         <div className="flex items-center gap-2">
           <Button
             variant={viewMode === "table" ? "default" : "outline"}
@@ -61,6 +60,7 @@ export function VenuesViewToggle({
           </Button>
           {actions}
         </div>
+        <p className="text-sm text-muted-foreground">{venues.length} אולמות במערכת</p>
       </div>
 
       <div className="flex-1 overflow-hidden min-h-0">

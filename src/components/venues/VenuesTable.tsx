@@ -24,7 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { VenueEditModal } from "./VenueEditModal";
@@ -109,7 +108,6 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
               <TableHead>שם האולם</TableHead>
               <TableHead>עיר</TableHead>
               <TableHead>קיבולת</TableHead>
-              <TableHead>מחיר ערב</TableHead>
               <TableHead>סטטוס</TableHead>
               {canEdit && <TableHead />}
             </TableRow>
@@ -135,9 +133,6 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
                 </TableCell>
                 <TableCell>{venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}</TableCell>
                 <TableCell>{venue.max_capacity} אורחים</TableCell>
-                <TableCell>
-                  {venue.price_evening ? formatCurrency(Number(venue.price_evening)) : "-"}
-                </TableCell>
                 <TableCell>
                   <Badge variant={venue.is_active ? "default" : "secondary"}>
                     {venue.is_active ? "פעיל" : "לא פעיל"}
@@ -194,10 +189,6 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">קיבולת</span>
               <span>{venue.max_capacity} אורחים</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">מחיר ערב</span>
-              <span>{venue.price_evening ? formatCurrency(Number(venue.price_evening)) : "-"}</span>
             </div>
             {canEdit && (
               <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>

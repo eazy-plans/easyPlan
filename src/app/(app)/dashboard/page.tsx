@@ -15,9 +15,10 @@ export default async function DashboardPage({
 
   const { year: yearParam } = await searchParams;
   const currentYear = new Date().getFullYear();
+  const parsedYear = parseInt(yearParam ?? "", 10);
   const year = Math.min(
     currentYear,
-    Math.max(2000, yearParam ? parseInt(yearParam, 10) : currentYear)
+    Math.max(2000, Number.isNaN(parsedYear) ? currentYear : parsedYear)
   );
 
   return (

@@ -74,7 +74,8 @@ export async function POST(request: Request) {
     let emailFailed = false;
     try {
       await sendOwnerEventCreatedEmail(event, venue, ownerEmail);
-    } catch {
+    } catch (err) {
+      console.error(`Owner email failed for event ${eventId}:`, err);
       emailFailed = true;
     }
 
@@ -95,7 +96,8 @@ export async function POST(request: Request) {
   let emailFailed = false;
   try {
     await sendClientConfirmEmail(event, venue);
-  } catch {
+  } catch (err) {
+    console.error(`Client confirm email failed for event ${eventId}:`, err);
     emailFailed = true;
   }
 

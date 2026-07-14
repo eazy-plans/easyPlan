@@ -59,25 +59,28 @@ export async function POST(request: Request) {
   // Use admin client for email logs and other admin-only operations
   const admin = createAdminClient();
 
-  // Send cancellation email to client
-  try {
-    await sendCancellationEmail(event, venue, cancellationReason);
+  // Send cancellation email to client. Skip logging when there is no client
+  // email - email_logs.recipient_email is NOT NULL.
+  if (event.client_email) {
+    try {
+      await sendCancellationEmail(event, venue, cancellationReason);
 
-    await (admin.from("email_logs") as any).insert({
-      event_id: eventId,
-      recipient_email: event.client_email,
-      email_type: "event_cancelled",
-      status: "sent",
-    });
-  } catch (emailErr) {
-    console.error("Failed to send cancellation email:", emailErr);
+      await (admin.from("email_logs") as any).insert({
+        event_id: eventId,
+        recipient_email: event.client_email,
+        email_type: "event_cancelled",
+        status: "sent",
+      });
+    } catch (emailErr) {
+      console.error("Failed to send cancellation email:", emailErr);
 
-    await (admin.from("email_logs") as any).insert({
-      event_id: eventId,
-      recipient_email: event.client_email,
-      email_type: "event_cancelled",
-      status: "failed",
-    });
+      await (admin.from("email_logs") as any).insert({
+        event_id: eventId,
+        recipient_email: event.client_email,
+        email_type: "event_cancelled",
+        status: "failed",
+      });
+    }
   }
 
   // Update the linked lead_inquiry status to cancelled (if it exists). The
@@ -124,7 +127,8 @@ export async function POST(request: Request) {
         email_type: "waitlist_notify",
         status: "sent",
       });
-    } catch {
+    } catch (emailErr) {
+      console.error("Failed to send waitlist notify email:", emailErr);
       await (admin.from("email_logs") as any).insert({
         event_id: eventId,
         recipient_email: lead.client_email,

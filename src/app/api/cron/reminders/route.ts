@@ -1,7 +1,8 @@
 ﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resend } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/resend";
+import { formatDateHe } from "@/lib/email/sendEventEmails";
 import { reminderHtml } from "@/lib/email/templates/reminder";
 import { EVENT_TYPE_LABELS } from "@/types/booking";
 import { toLocalDateStr } from "@/lib/utils";
@@ -56,9 +57,7 @@ export async function GET(request: Request) {
     const hoursStart = startKey ? String(venue[startKey] ?? "").slice(0, 5) : undefined;
     const hoursEnd = endKey ? String(venue[endKey] ?? "").slice(0, 5) : undefined;
 
-    const dateFormatted = new Date(ev.date).toLocaleDateString("he-IL", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-    });
+    const dateFormatted = formatDateHe(ev.date);
 
     const html = reminderHtml({
       clientName: ev.client_name,
@@ -73,22 +72,26 @@ export async function GET(request: Request) {
       publicTransportInfo: venue?.public_transport_info,
     });
 
-    const { error: emailError } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL ?? "noreply@eazyplans.co.il",
-      to: ev.client_email,
-      subject: `תזכורת לאירוע מחר - ${venue?.name ?? ""}`,
-      html,
-    });
+    let emailFailed = false;
+    try {
+      await sendEmail({
+        to: ev.client_email,
+        subject: `תזכורת לאירוע מחר - ${venue?.name ?? ""}`,
+        html,
+      });
+    } catch (err) {
+      console.error(`Reminder email failed for event ${ev.id}:`, err);
+      emailFailed = true;
+    }
 
-  
     await (supabase.from("email_logs") as any).insert({
       event_id: ev.id,
       recipient_email: ev.client_email,
       email_type: "reminder",
-      status: emailError ? "failed" : "sent",
+      status: emailFailed ? "failed" : "sent",
     });
 
-    if (emailError) { failed++; } else { sent++; }
+    if (emailFailed) { failed++; } else { sent++; }
   }
 
   return NextResponse.json({ sent, failed, date: tomorrowStr });

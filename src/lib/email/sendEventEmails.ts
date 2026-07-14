@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { resend } from "./resend";
+import { sendEmail } from "./resend";
 import { ownerEventCreatedHtml } from "./templates/ownerEventCreated";
 import { clientConfirmHtml } from "./templates/clientConfirm";
 import { waitlistNotifyHtml } from "./templates/waitlistNotify";
@@ -7,18 +7,22 @@ import { eventCancelledHtml } from "./templates/eventCancelled";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 import { formatCurrency } from "@/lib/utils";
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
-const REPLY_TO = process.env.RESEND_REPLY_TO;
+// event.date is a date-only string ("YYYY-MM-DD"). Parse the components
+// instead of new Date(dateStr): the latter parses as UTC midnight, which
+// formats as the previous day on servers west of UTC.
+function parseDateOnly(dateStr: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
 
-function formatDateHe(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("he-IL", {
+export function formatDateHe(dateStr: string) {
+  return parseDateOnly(dateStr).toLocaleDateString("he-IL", {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
 }
 
 function formatDayOfWeekHe(dateStr: string) {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString("he-IL", { weekday: "long" });
+  return parseDateOnly(dateStr).toLocaleDateString("he-IL", { weekday: "long" });
 }
 
 const HOURS_MAP: Record<string, [string, string]> = {
@@ -34,13 +38,9 @@ export async function sendWaitlistNotifyEmail(
   venueName: string,
   dateStr: string,
 ) {
-  const date = new Date(dateStr).toLocaleDateString("he-IL", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
+  const date = formatDateHe(dateStr);
   const html = waitlistNotifyHtml({ clientName, venueName, date });
-  return resend.emails.send({
-    from: FROM,
-    replyTo: REPLY_TO,
+  return sendEmail({
     to: clientEmail,
     subject: `תאריך התפנה - ${venueName} - ${date}`,
     html,
@@ -63,9 +63,7 @@ export async function sendOwnerEventCreatedEmail(event: any, venue: any, ownerEm
     notes: event.notes,
   });
 
-  return resend.emails.send({
-    from: FROM,
-    replyTo: REPLY_TO,
+  return sendEmail({
     to: ownerEmail,
     subject: `אירוע חדש נרשם - ${venue.name} - ${formatDateHe(event.date)}`,
     html,
@@ -92,9 +90,7 @@ export async function sendClientConfirmEmail(event: any, venue: any) {
     notes: event.notes,
   });
 
-  return resend.emails.send({
-    from: FROM,
-    replyTo: REPLY_TO,
+  return sendEmail({
     to: event.client_email,
     subject: `אישור הזמנה - אולם ${venue.name}`,
     html,
@@ -121,9 +117,7 @@ export async function sendCancellationEmail(
     contactPhone: venue.owner?.phone,
   });
 
-  return resend.emails.send({
-    from: FROM,
-    replyTo: REPLY_TO,
+  return sendEmail({
     to: event.client_email,
     subject: `הודעת ביטול הזמנה - אולם ${venue.name}`,
     html,

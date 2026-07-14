@@ -29,11 +29,16 @@ export async function POST(request: Request) {
 
   // Fetch full event details with venue for the cancellation email
   const { data: event, error: fetchErr } = await (supabase.from("events") as any)
-    .select("id, venue_id, date, status, client_name, client_phone, client_email, price_final, booking_date, original_price_final, notes, venues(id, name, city, owner_user_id, cancellation_policy, owner:users(full_name, phone))")
+    // users must be disambiguated (venues also references users via approved_by),
+    // and the contact phone lives on venues, not users.
+    .select("id, venue_id, date, status, client_name, client_phone, client_email, price_final, booking_date, original_price_final, notes, venues(id, name, city, owner_user_id, cancellation_policy, contact_name, contact_phone, owner:users!owner_user_id(full_name))")
     .eq("id", eventId)
     .single();
 
-  if (fetchErr || !event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  if (fetchErr || !event) {
+    if (fetchErr) console.error(`Cancel: event fetch failed for ${eventId}:`, fetchErr);
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
   if (event.status === "cancelled") return NextResponse.json({ ok: true, notified: 0 });
 
   const venue = event.venues;

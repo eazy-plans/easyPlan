@@ -85,8 +85,8 @@ export async function sendClientConfirmEmail(event: any, venue: any) {
     dayOfWeek: formatDayOfWeekHe(event.date),
     hoursLabel,
     eventType: EVENT_TYPE_LABELS[event.event_type as keyof typeof EVENT_TYPE_LABELS] ?? event.event_type,
-    contactName: venue.owner?.full_name,
-    contactPhone: venue.owner?.phone,
+    contactName: venue.contact_name ?? venue.owner?.full_name,
+    contactPhone: venue.contact_phone ?? undefined,
     notes: event.notes,
   });
 
@@ -113,8 +113,8 @@ export async function sendCancellationEmail(
     originalPrice: formatCurrency(event.original_price_final ?? event.price_final),
     policyDescription: venue.cancellation_policy || undefined,
     cancellationReason,
-    contactName: venue.owner?.full_name,
-    contactPhone: venue.owner?.phone,
+    contactName: venue.contact_name ?? venue.owner?.full_name,
+    contactPhone: venue.contact_phone ?? undefined,
   });
 
   return sendEmail({

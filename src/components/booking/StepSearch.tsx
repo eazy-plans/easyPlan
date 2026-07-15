@@ -1,18 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
-import { Building2, Search, CalendarDays, X, ChevronDown, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus } from "lucide-react";
+import { Building2, CalendarDays, X, ChevronDown, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus } from "lucide-react";
 import Image from "next/image";
 import { formatDate, formatCurrency, toLocalDateStr } from "@/lib/utils";
 import type { EventType, VenueRow, VenueImageRow } from "@/types/database";
-import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, PRICE_KEY } from "@/types/booking";
+import { EVENT_TYPE_LABELS, PRICE_KEY } from "@/types/booking";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -62,7 +61,7 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
 
   const fetchLocks = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await (supabase.from("booking_locks") as any)
+    const { data } = await supabase.from("booking_locks")
       .select("venue_id, date, event_type, locked_until")
       .gt("locked_until", new Date().toISOString());
     setActiveLocks(data ?? []);
@@ -98,11 +97,11 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
 
     const [{ data: evts }, { data: locks }] = await Promise.all([
       isShabbat
-        ? (supabase.from("events") as any).select("venue_id,event_type,date").in("date", [dateStr, prevStr]).neq("status", "cancelled")
-        : (supabase.from("events") as any).select("venue_id,event_type,date").eq("date", dateStr).neq("status", "cancelled"),
+        ? supabase.from("events").select("venue_id,event_type,date").in("date", [dateStr, prevStr]).neq("status", "cancelled")
+        : supabase.from("events").select("venue_id,event_type,date").eq("date", dateStr).neq("status", "cancelled"),
       isShabbat
-        ? (supabase.from("booking_locks") as any).select("venue_id,event_type,date").in("date", [dateStr, prevStr]).gt("locked_until", nowIso).neq("locked_by_user_id", userId)
-        : (supabase.from("booking_locks") as any).select("venue_id,event_type,date").eq("date", dateStr).gt("locked_until", nowIso).neq("locked_by_user_id", userId),
+        ? supabase.from("booking_locks").select("venue_id,event_type,date").in("date", [dateStr, prevStr]).gt("locked_until", nowIso).neq("locked_by_user_id", userId)
+        : supabase.from("booking_locks").select("venue_id,event_type,date").eq("date", dateStr).gt("locked_until", nowIso).neq("locked_by_user_id", userId),
     ]);
 
     const blocked = new Set<string>();
@@ -161,28 +160,9 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
     setSelectedVenueId("");
   }
 
-  const filtered = allVenues.filter((v) => {
-    if (selectedVenueId && v.id !== selectedVenueId) return false;
-    if (selectedCity && v.city !== selectedCity) return false;
-    if (date && eventType && bookedSet.has(`${v.id}:${eventType}`)) return false;
-
-    // Hall parameter filters
-    if (minCapacity && v.max_capacity < parseInt(minCapacity)) return false;
-
-    if (maxPrice && eventType) {
-      const venuePrice = v[PRICE_KEY[eventType]];
-      if (typeof venuePrice === "number" && venuePrice > parseInt(maxPrice)) return false;
-    }
-
-    if (amenities.hasElevator && !v.has_elevator) return false;
-    if (amenities.hasParking && !v.has_parking) return false;
-    if (amenities.isAccessible && !v.is_accessible) return false;
-    if (amenities.hasPublicTransport && !v.has_public_transport) return false;
-
-    return true;
-  });
-
-  const filteredWithoutDate = allVenues.filter((v) => {
+  // Everything except date availability - shared so "all taken on this date"
+  // can compare against the same venue set minus the availability cut.
+  const matchesStaticFilters = (v: VenueWithImages) => {
     if (selectedVenueId && v.id !== selectedVenueId) return false;
     if (selectedCity && v.city !== selectedCity) return false;
 
@@ -200,7 +180,12 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
     if (amenities.hasPublicTransport && !v.has_public_transport) return false;
 
     return true;
-  });
+  };
+
+  const filteredWithoutDate = allVenues.filter(matchesStaticFilters);
+  const filtered = filteredWithoutDate.filter(
+    (v) => !(date && eventType && bookedSet.has(`${v.id}:${eventType}`))
+  );
 
   const hasDateFilter = !!date && !!eventType;
   const anyAmenityFilter = amenities.hasElevator || amenities.hasParking || amenities.isAccessible || amenities.hasPublicTransport;

@@ -35,13 +35,13 @@ export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProp
     const nowIso = new Date().toISOString();
 
     const [{ data: bookedEvents }, { data: locks }] = await Promise.all([
-      (supabase.from("events") as any)
+      supabase.from("events")
         .select("date, event_type")
         .eq("venue_id", venue.id)
         .gte("date", today)
         .lte("date", endDate)
         .neq("status", "cancelled"),
-      (supabase.from("booking_locks") as any)
+      supabase.from("booking_locks")
         .select("date, event_type")
         .eq("venue_id", venue.id)
         .gte("date", today)

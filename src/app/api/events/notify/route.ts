@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -28,7 +27,7 @@ export async function POST(request: Request) {
   // Authorization: the caller must be able to see this event under their own
   // RLS policies. Without this, any signed-in user could trigger emails for
   // events belonging to other venues.
-  const { data: visibleEvent } = await (authClient.from("events") as any)
+  const { data: visibleEvent } = await authClient.from("events")
     .select("id")
     .eq("id", eventId)
     .maybeSingle();
@@ -43,7 +42,7 @@ export async function POST(request: Request) {
 
   // Idempotency: each notification type is sent at most once per event, so a
   // replayed request can't spam the recipient with duplicate emails.
-  const { data: alreadySent } = await (supabase.from("email_logs") as any)
+  const { data: alreadySent } = await supabase.from("email_logs")
     .select("id")
     .eq("event_id", eventId)
     .eq("email_type", type)
@@ -56,7 +55,7 @@ export async function POST(request: Request) {
 
   // Fetch event + venue + owner
 
-  const { data: event, error } = await (supabase.from("events") as any)
+  const { data: event, error } = await supabase.from("events")
     .select("*, venue:venues(*, owner:users!owner_user_id(email, full_name))")
     .eq("id", eventId)
     .single();
@@ -79,7 +78,7 @@ export async function POST(request: Request) {
       emailFailed = true;
     }
 
-    await (supabase.from("email_logs") as any).insert({
+    await supabase.from("email_logs").insert({
       event_id: eventId,
       recipient_email: ownerEmail,
       email_type: "owner_event_created",
@@ -101,7 +100,7 @@ export async function POST(request: Request) {
     emailFailed = true;
   }
 
-  await (supabase.from("email_logs") as any).insert({
+  await supabase.from("email_logs").insert({
     event_id: eventId,
     recipient_email: event.client_email,
     email_type: "client_confirm",

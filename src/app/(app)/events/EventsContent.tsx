@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getUserProfile } from "@/lib/supabase/queries";
 import { EventsTable } from "@/components/events/EventsTable";
 import { eventsHistoryCutoffStr } from "@/lib/utils";
@@ -9,13 +8,13 @@ export async function EventsContent() {
 
   // The embedded venue must include cancellation_policy - CancellationDialog
   // displays it - and address, which EventDetailModal displays.
-  let query = (supabase.from("events") as any)
+  let query = supabase.from("events")
     .select("*, venue:venues(id, name, city, address, cancellation_policy), creator:users!created_by(full_name), cancelled_by_user:users!cancelled_by(full_name)")
     .gte("date", eventsHistoryCutoffStr())
     .order("date", { ascending: true });
 
   if (role === "venue_owner") {
-    const { data: myVenues, error: venuesError } = await (supabase.from("venues") as any)
+    const { data: myVenues, error: venuesError } = await supabase.from("venues")
       .select("id")
       .eq("owner_user_id", user.id);
     if (venuesError) throw new Error(`Failed to load venues: ${venuesError.message}`);

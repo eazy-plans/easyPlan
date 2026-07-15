@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -32,7 +31,7 @@ export function PendingVenuesPanel() {
   async function loadPendingVenues() {
     setLoading(true);
     try {
-      const { data, error } = await (supabase.from("venues") as any)
+      const { data, error } = await supabase.from("venues")
         .select("*")
         .eq("approval_status", "pending")
         .order("created_at", { ascending: false });
@@ -41,7 +40,7 @@ export function PendingVenuesPanel() {
       setVenues(data ?? []);
     } catch (err) {
       const message = err instanceof Error ? err.message :
-                      (typeof err === 'object' && err !== null && 'message' in err) ? (err as any).message :
+                      (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
                       'Unknown error';
       toast.error("שגיאה בטעינת אולמות: " + message);
     } finally {
@@ -52,7 +51,7 @@ export function PendingVenuesPanel() {
   async function approveVenue(venueId: string) {
     setActionLoading(true);
     try {
-      const { error } = await (supabase.from("venues") as any)
+      const { error } = await supabase.from("venues")
         .update({
           approval_status: "approved",
           approved_at: new Date().toISOString(),
@@ -65,7 +64,7 @@ export function PendingVenuesPanel() {
       await loadPendingVenues();
     } catch (err) {
       const message = err instanceof Error ? err.message :
-                      (typeof err === 'object' && err !== null && 'message' in err) ? (err as any).message :
+                      (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
                       'Unknown error';
       toast.error("שגיאה באישור האולם: " + message);
     } finally {
@@ -81,7 +80,7 @@ export function PendingVenuesPanel() {
 
     setActionLoading(true);
     try {
-      const { error } = await (supabase.from("venues") as any)
+      const { error } = await supabase.from("venues")
         .update({
           approval_status: "rejected",
           rejection_reason: rejectionReason,
@@ -95,7 +94,7 @@ export function PendingVenuesPanel() {
       await loadPendingVenues();
     } catch (err) {
       const message = err instanceof Error ? err.message :
-                      (typeof err === 'object' && err !== null && 'message' in err) ? (err as any).message :
+                      (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
                       'Unknown error';
       toast.error("שגיאה בדחיית האולם: " + message);
     } finally {

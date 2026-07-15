@@ -31,7 +31,7 @@ export function clientConfirmHtml(d: ClientConfirmData): string {
 </style></head>
 <body>
 <div class="container">
-  <h2>אישור הזמנה - אולם ${escapeHtml(d.venueName)}</h2>
+  <h2>אישור הזמנה - באולם ${escapeHtml(d.venueName)}</h2>
   <p>שלום ${escapeHtml(d.clientName)},</p>
   <p>תודה שבחרתם לקיים את האירוע שלכם באולם ${escapeHtml(d.venueName)}.</p>
   <p>הזמנתכם התקבלה בהצלחה ונשמרה במערכת.</p>

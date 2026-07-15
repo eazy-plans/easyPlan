@@ -1,4 +1,3 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -106,7 +105,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
   }, []);
 
   async function loadImages(venueId: string) {
-    const { data } = await (supabase.from("venue_images") as any)
+    const { data } = await supabase.from("venue_images")
       .select("*")
       .eq("venue_id", venueId)
       .order("created_at");
@@ -160,7 +159,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
       [...deletedIds].map(async (imgId) => {
         const img = existingImages.find((i) => i.id === imgId);
         if (!img) return;
-        await deleteVenueImage(img.id, img.storage_path, img.is_primary, venueId);
+        await deleteVenueImage(img.id, img.is_primary, venueId);
       })
     );
 
@@ -284,15 +283,19 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
       const updatePayload = addressChanged
         ? { ...payload, lat: null, lng: null, coords_approximate: false }
         : payload;
-      ({ error } = await (supabase.from("venues") as any).update(updatePayload).eq("id", venue.id));
+      ({ error } = await supabase.from("venues").update(updatePayload).eq("id", venue.id));
       venueId = venue.id;
     } else {
-      const { data: inserted, error: insertError } = await (supabase.from("venues") as any)
+      const { data: inserted, error: insertError } = await supabase.from("venues")
         .insert(payload)
         .select("id")
         .single();
-      error = insertError;
-      venueId = inserted?.id;
+      if (insertError || !inserted) {
+        setLoading(false);
+        toast.error("שגיאה בשמירת האולם: " + (insertError?.message ?? ""));
+        return;
+      }
+      venueId = inserted.id;
     }
 
     if (error) {

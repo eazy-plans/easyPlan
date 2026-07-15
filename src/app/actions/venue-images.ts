@@ -1,19 +1,12 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const BUCKET = "venue-images";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8MB
 const ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "webp", "gif", "avif"]);
-
-function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
 
 /**
  * Ensures the caller is signed in and may manage images for `venueId`
@@ -28,16 +21,14 @@ async function authorizeVenueAccess(venueId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (supabase.from("users") as any)
+  const { data: profile } = await supabase.from("users")
     .select("role")
     .eq("id", user.id)
     .single();
 
   if (profile?.role === "admin") return;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: venue } = await (supabase.from("venues") as any)
+  const { data: venue } = await supabase.from("venues")
     .select("owner_user_id")
     .eq("id", venueId)
     .single();
@@ -60,7 +51,7 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
   const ext = ALLOWED_EXT.has(rawExt) ? rawExt : "jpg";
   const path = `${venueId}/${crypto.randomUUID()}.${ext}`;
 
-  const supabase = adminClient();
+  const supabase = createAdminClient();
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
@@ -68,8 +59,7 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
 
   if (uploadError) throw new Error(uploadError.message);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: dbError } = await (supabase.from("venue_images") as any).insert({
+  const { error: dbError } = await supabase.from("venue_images").insert({
     venue_id: venueId,
     storage_path: path,
     is_primary: isPrimary,
@@ -82,17 +72,15 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
 
 export async function deleteVenueImage(
   imageId: string,
-  storagePath: string,
   wasprimary: boolean,
   venueId: string
 ): Promise<void> {
   await authorizeVenueAccess(venueId);
 
-  const supabase = adminClient();
+  const supabase = createAdminClient();
 
   // Confirm the image actually belongs to this venue before touching storage.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: image } = await (supabase.from("venue_images") as any)
+  const { data: image } = await supabase.from("venue_images")
     .select("id, storage_path")
     .eq("id", imageId)
     .eq("venue_id", venueId)
@@ -101,20 +89,17 @@ export async function deleteVenueImage(
   if (!image) throw new Error("Image not found");
 
   await supabase.storage.from(BUCKET).remove([image.storage_path]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from("venue_images") as any).delete().eq("id", imageId);
+  await supabase.from("venue_images").delete().eq("id", imageId);
 
   if (wasprimary) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase.from("venue_images") as any)
+    const { data } = await supabase.from("venue_images")
       .select("id")
       .eq("venue_id", venueId)
       .order("created_at")
       .limit(1)
       .single();
     if (data?.id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("venue_images") as any)
+      await supabase.from("venue_images")
         .update({ is_primary: true })
         .eq("id", data.id);
     }
@@ -127,13 +112,11 @@ export async function updateVenueImagePrimary(
 ): Promise<void> {
   await authorizeVenueAccess(venueId);
 
-  const supabase = adminClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from("venue_images") as any)
+  const supabase = createAdminClient();
+  await supabase.from("venue_images")
     .update({ is_primary: false })
     .eq("venue_id", venueId);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from("venue_images") as any)
+  await supabase.from("venue_images")
     .update({ is_primary: true })
     .eq("id", primaryId)
     .eq("venue_id", venueId);

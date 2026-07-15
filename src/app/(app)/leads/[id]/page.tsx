@@ -12,7 +12,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     redirect("/");
   }
 
-  const { data: lead, error } = await (supabase.from("leads") as any)
+  const { data: lead, error } = await supabase.from("leads")
     .select("*")
     .eq("id", id)
     .single();
@@ -21,14 +21,14 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     notFound();
   }
 
-  const { data: inquiries } = await (supabase.from("lead_inquiries") as any)
+  const { data: inquiries } = await supabase.from("lead_inquiries")
     .select("*, venue:venues(id, name)")
     .eq("lead_id", id)
     .order("created_at", { ascending: false });
 
   let eventsData: any[] = [];
   if (lead.client_email) {
-    const { data } = await (supabase.from("events") as any)
+    const { data } = await supabase.from("events")
       .select("*, venue:venues(id, name)")
       .eq("client_email", lead.client_email)
       .neq("status", "cancelled")

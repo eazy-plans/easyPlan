@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@supabase/supabase-js";
 import { getUserProfile } from "@/lib/supabase/queries";
 import { UsersManager } from "@/components/settings/UsersManager";
@@ -6,7 +5,7 @@ import { UsersManager } from "@/components/settings/UsersManager";
 export async function SettingsContent() {
   const { supabase, user } = await getUserProfile();
 
-  const { data: users } = await (supabase.from("users") as any)
+  const { data: users } = await supabase.from("users")
     .select("id, email, full_name, role, created_at")
     .order("created_at", { ascending: false });
 
@@ -25,7 +24,7 @@ export async function SettingsContent() {
       .map((u) => u.id)
   );
 
-  const rows = (users ?? []).map((u: any) => ({ ...u, blocked: blockedIds.has(u.id) }));
+  const rows = (users ?? []).map((u) => ({ ...u, blocked: blockedIds.has(u.id) }));
 
   return <UsersManager users={rows} currentUserId={user.id} />;
 }

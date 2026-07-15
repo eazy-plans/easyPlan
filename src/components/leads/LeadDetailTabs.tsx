@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import type { LeadRow, LeadInquiryStatus, EventRow, LeadStatus, VenueRow } from "@/types/database";
+import type { LeadRow, LeadInquiryStatus, EventRow, VenueRow } from "@/types/database";
 import { EVENT_PURPOSE_LABELS } from "@/types/booking";
 
 interface LeadInquiry {
@@ -78,7 +78,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
   });
   const [saving, setSaving] = useState(false);
   const [addInquiryOpen, setAddInquiryOpen] = useState(false);
-  const [venues, setVenues] = useState<VenueRow[]>([]);
+  const [venues, setVenues] = useState<Pick<VenueRow, "id" | "name">[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(false);
   const [inquiryForm, setInquiryForm] = useState({
     venue_id: "",
@@ -90,7 +90,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
   async function handleSave() {
     setSaving(true);
     const supabase = createClient();
-    const { error } = await (supabase.from("leads") as any)
+    const { error } = await supabase.from("leads")
       .update({
         client_name: editForm.client_name,
         client_phone: editForm.client_phone || null,
@@ -117,7 +117,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     if (venues.length > 0) return;
     setLoadingVenues(true);
     const supabase = createClient();
-    const { data } = await (supabase.from("venues") as any).select("id, name").order("name");
+    const { data } = await supabase.from("venues").select("id, name").order("name");
     if (data) setVenues(data);
     setLoadingVenues(false);
   }
@@ -128,7 +128,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     const supabase = createClient();
 
     try {
-      const { data, error } = await (supabase.from("lead_inquiries") as any)
+      const { error } = await supabase.from("lead_inquiries")
         .upsert({
           lead_id: lead.id,
           venue_id: inquiryForm.venue_id,
@@ -143,7 +143,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
         return;
       }
 
-      const { data: newData } = await (supabase.from("lead_inquiries") as any)
+      const { data: newData } = await supabase.from("lead_inquiries")
         .select("*")
         .eq("lead_id", lead.id)
         .eq("venue_id", inquiryForm.venue_id)

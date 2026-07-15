@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -65,7 +64,7 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
         event_purpose: event.event_purpose,
         client_name: event.client_name,
         client_phone: event.client_phone,
-        client_email: event.client_email,
+        client_email: event.client_email ?? "",
         price_listed: String(event.price_listed),
         discount_amount: String(event.discount_amount),
         notes: event.notes ?? "",
@@ -102,12 +101,6 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
       clientPhoneRef.current?.focus();
       return;
     }
-    if (!form.client_email.trim()) {
-      toast.error("יש להזין כתובת מייל");
-      clientEmailRef.current?.focus();
-      return;
-    }
-
     const listed = parseFloat(form.price_listed) || 0;
     const discount = parseFloat(form.discount_amount) || 0;
 
@@ -119,7 +112,7 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
       event_purpose: form.event_purpose,
       client_name: form.client_name,
       client_phone: form.client_phone,
-      client_email: form.client_email,
+      client_email: form.client_email.trim() || null,
       price_listed: listed,
       discount_amount: isAdmin ? discount : 0,
       price_final: listed - (isAdmin ? discount : 0),
@@ -135,9 +128,9 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
           date: toLocalDateStr(selectedDate),
         }),
       };
-      ({ error } = await (supabase.from("events") as any).update(updatePayload).eq("id", event.id));
+      ({ error } = await supabase.from("events").update(updatePayload).eq("id", event.id));
     } else {
-      ({ error } = await (supabase.from("events") as any).insert({
+      ({ error } = await supabase.from("events").insert({
         ...payload,
         venue_id: venueId,
         date: toLocalDateStr(selectedDate),
@@ -246,7 +239,7 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
               {phoneError && <p className="text-xs text-destructive">{phoneError}</p>}
             </div>
             <div className="space-y-1">
-              <Label>מייל *</Label>
+              <Label>מייל</Label>
               <Input ref={clientEmailRef} type="email" dir="ltr" value={form.client_email} onChange={(e) => set("client_email", e.target.value)} />
             </div>
           </div>

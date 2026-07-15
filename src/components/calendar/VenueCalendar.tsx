@@ -33,13 +33,13 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
   // CalendarContent (history cutoff, no cancelled) so switching venues and
   // closing modals doesn't change what the calendar shows.
   const loadEvents = useCallback(async (venueId: string) => {
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from("events")
       .select("*, creator:users!created_by(full_name), cancelled_by_user:users!cancelled_by(full_name)")
       .eq("venue_id", venueId)
       .gte("date", eventsHistoryCutoffStr())
       .neq("status", "cancelled")
-      .order("date") as { data: (EventRow & { creator?: { full_name: string } | null; cancelled_by_user?: { full_name: string } | null })[] | null };
+      .order("date");
     setEvents(data ?? []);
   }, [supabase]);
 

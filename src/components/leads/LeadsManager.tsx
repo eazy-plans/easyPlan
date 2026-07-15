@@ -1,4 +1,3 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useMemo } from "react";
@@ -7,38 +6,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { isValidPhone } from "@/lib/utils";
 import type { LeadStatus } from "@/types/database";
 import { useRouter } from "next/navigation";
 
-const STATUS_LABELS: Record<LeadStatus, string> = {
-  new: "חדש",
-  considering: "שוקל/ת",
-  waiting_for_date: "ממתין/ה לתאריך",
-  date_taken: "תאריך תפוס",
-  booked: "הוזמן",
-  cancelled: "בוטל",
-  too_expensive: "יקר מדי",
-  not_relevant: "לא רלוונטי",
-};
-
-const STATUS_VARIANT: Record<LeadStatus, "default" | "secondary" | "outline" | "destructive"> = {
-  new: "default",
-  considering: "secondary",
-  waiting_for_date: "secondary",
-  date_taken: "outline",
-  booked: "default",
-  cancelled: "destructive",
-  too_expensive: "outline",
-  not_relevant: "outline",
-};
-
 type LeadRow = {
   id: string;
   client_name: string;
-  client_phone: string;
+  client_phone: string | null;
   client_email: string | null;
   status: LeadStatus;
   notes: string | null;
@@ -57,22 +33,20 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
   const router = useRouter();
   const [leads, setLeads] = useState(initialLeads);
   const [searchFilter, setSearchFilter] = useState(initialSearch);
-  const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [phoneError, setPhoneError] = useState("");
   const [saving, setSaving] = useState(false);
   const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
+  const [duplicateLeadId, setDuplicateLeadId] = useState<string | null>(null);
 
   const filtered = useMemo(() => leads.filter((l) => {
-    const matchStatus = statusFilter === "all" || l.status === statusFilter;
     const searchLower = searchFilter.toLowerCase();
-    const matchSearch = !searchFilter ||
+    return !searchFilter ||
       l.client_name.toLowerCase().includes(searchLower) ||
-      l.client_phone.includes(searchFilter) ||
+      (l.client_phone ?? "").includes(searchFilter) ||
       (l.client_email ?? "").toLowerCase().includes(searchLower);
-    return matchStatus && matchSearch;
-  }), [leads, searchFilter, statusFilter]);
+  }), [leads, searchFilter]);
 
   function setF(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -88,10 +62,10 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
     setSaving(true);
     const supabase = createClient();
 
-    const { data, error } = await (supabase.from("leads") as any)
+    const { data, error } = await supabase.from("leads")
       .insert({
         client_name: form.client_name,
-        client_phone: form.client_phone,
+        client_phone: form.client_phone || null,
         client_email: form.client_email || null,
         status: "new",
       })
@@ -99,7 +73,21 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
       .single();
 
     setSaving(false);
-    if (error) { toast.error("שגיאה בשמירת ליד"); return; }
+    if (error) {
+      // Unique violation on client_phone - surface the existing lead instead
+      // of a dead-end error.
+      if (error.code === "23505") {
+        const { data: existing } = await supabase.from("leads")
+          .select("id")
+          .eq("client_phone", form.client_phone)
+          .maybeSingle();
+        setDuplicateLeadId(existing?.id ?? null);
+        if (!existing) toast.error("ליד עם מספר טלפון זה כבר קיים");
+        return;
+      }
+      toast.error("שגיאה בשמירת ליד");
+      return;
+    }
     setLeads((prev) => [data, ...prev]);
     setForm(EMPTY_FORM);
     setCreatedLeadId(data.id);
@@ -124,6 +112,7 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
           if (!open) {
             setAddOpen(false);
             setCreatedLeadId(null);
+            setDuplicateLeadId(null);
             setForm(EMPTY_FORM);
             setPhoneError("");
           } else {
@@ -131,14 +120,31 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
           }
         }}>
           <DialogTrigger asChild>
-            <Button size="sm" className="w-fit">+</Button>
+            <Button size="sm" className="w-fit">+ ליד חדש</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{createdLeadId ? "הליד נוסף בהצלחה" : "הוספת ליד חדש"}</DialogTitle>
+              <DialogTitle>{duplicateLeadId ? "הליד כבר קיים" : createdLeadId ? "הליד נוסף בהצלחה" : "הוספת ליד חדש"}</DialogTitle>
             </DialogHeader>
             <DialogBody>
-            {!createdLeadId ? (
+            {duplicateLeadId ? (
+              <div className="space-y-4 py-4">
+                <p className="text-center text-muted-foreground">
+                  ליד עם המספר <span dir="ltr">{form.client_phone}</span> כבר קיים במערכת
+                </p>
+                <div className="flex flex-col gap-3">
+                  <Button onClick={() => {
+                    setAddOpen(false);
+                    router.push(`/leads/${duplicateLeadId}`);
+                  }} className="w-full">
+                    פתח את הליד הקיים
+                  </Button>
+                  <Button variant="outline" onClick={() => setDuplicateLeadId(null)} className="w-full">
+                    חזרה לטופס
+                  </Button>
+                </div>
+              </div>
+            ) : !createdLeadId ? (
               <form onSubmit={handleAdd} className="space-y-4">
                 <div className="space-y-1">
                   <Label>שם לקוח *</Label>

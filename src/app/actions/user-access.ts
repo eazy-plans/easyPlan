@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
@@ -18,7 +17,7 @@ export async function setUserAccess(userId: string, blocked: boolean) {
   if (!user) return { error: "Unauthorized" };
   if (blocked && user.id === userId) return { error: "לא ניתן לחסום את הגישה של עצמך" };
 
-  const { data: profile } = await (supabase.from("users") as any)
+  const { data: profile } = await supabase.from("users")
     .select("role")
     .eq("id", user.id)
     .single();

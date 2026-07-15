@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -28,10 +27,12 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Fetch full event details with venue for the cancellation email
-  const { data: event, error: fetchErr } = await (supabase.from("events") as any)
+  const { data: event, error: fetchErr } = await supabase.from("events")
     // users must be disambiguated (venues also references users via approved_by),
     // and the contact phone lives on venues, not users.
-    .select("id, venue_id, date, status, client_name, client_phone, client_email, price_final, booking_date, original_price_final, notes, venues(id, name, city, owner_user_id, cancellation_policy, contact_name, contact_phone, owner:users!owner_user_id(full_name))")
+    // event_type feeds the cancellation email - without it the email's
+    // event-type line rendered empty.
+    .select("id, venue_id, date, event_type, status, client_name, client_phone, client_email, price_final, booking_date, original_price_final, notes, venues(id, name, city, owner_user_id, cancellation_policy, contact_name, contact_phone, owner:users!owner_user_id(full_name))")
     .eq("id", eventId)
     .single();
 
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
   // they are settled manually between the venue and the client.
   const originalPrice = event.original_price_final || event.price_final;
 
-  const { error: updateErr } = await (supabase.from("events") as any)
+  const { error: updateErr } = await supabase.from("events")
     .update({
       status: "cancelled",
       cancelled_at: new Date().toISOString(),
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     try {
       await sendCancellationEmail(event, venue, cancellationReason);
 
-      await (admin.from("email_logs") as any).insert({
+      await admin.from("email_logs").insert({
         event_id: eventId,
         recipient_email: event.client_email,
         email_type: "event_cancelled",
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
     } catch (emailErr) {
       console.error("Failed to send cancellation email:", emailErr);
 
-      await (admin.from("email_logs") as any).insert({
+      await admin.from("email_logs").insert({
         event_id: eventId,
         recipient_email: event.client_email,
         email_type: "event_cancelled",
@@ -93,13 +94,13 @@ export async function POST(request: Request) {
   // lead the same way - matching any "booked" inquiry for the venue could
   // cancel a different client's inquiry.
   if (event.client_phone) {
-    const { data: lead } = await (admin.from("leads") as any)
+    const { data: lead } = await admin.from("leads")
       .select("id")
       .eq("client_phone", event.client_phone)
       .maybeSingle();
 
     if (lead) {
-      await (admin.from("lead_inquiries") as any)
+      await admin.from("lead_inquiries")
         .update({ status: "cancelled" })
         .eq("lead_id", lead.id)
         .eq("venue_id", venue.id)
@@ -107,34 +108,37 @@ export async function POST(request: Request) {
     }
   }
 
-  // Handle waitlist notifications
-  const { data: waitlistEntries } = await (admin.from("waitlist") as any)
+  // Handle waitlist notifications. notified counts actual successful sends -
+  // entries without an email or with a failed send don't inflate the toast.
+  const { data: waitlistEntries } = await admin.from("waitlist")
     .select("id, lead_id, leads(client_name, client_email), venues(name)")
     .eq("venue_id", event.venue_id)
     .eq("requested_date", event.date);
 
+  let notified = 0;
   for (const entry of waitlistEntries ?? []) {
     const lead = entry.leads;
-    const venue = entry.venues;
+    const waitlistVenue = entry.venues;
     if (!lead?.client_email) continue;
 
     try {
       await sendWaitlistNotifyEmail(
         lead.client_email,
         lead.client_name,
-        venue?.name ?? "",
+        waitlistVenue?.name ?? "",
         event.date,
       );
 
-      await (admin.from("email_logs") as any).insert({
+      await admin.from("email_logs").insert({
         event_id: eventId,
         recipient_email: lead.client_email,
         email_type: "waitlist_notify",
         status: "sent",
       });
+      notified++;
     } catch (emailErr) {
       console.error("Failed to send waitlist notify email:", emailErr);
-      await (admin.from("email_logs") as any).insert({
+      await admin.from("email_logs").insert({
         event_id: eventId,
         recipient_email: lead.client_email,
         email_type: "waitlist_notify",
@@ -143,5 +147,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, notified: (waitlistEntries ?? []).length });
+  return NextResponse.json({ ok: true, notified });
 }

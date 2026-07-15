@@ -2,11 +2,13 @@
 
 import { useState, useTransition, useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { Loader2, Pencil } from "lucide-react";
+import { CalendarDays, Pencil, X } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
@@ -49,8 +51,8 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("");
+  const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [timeFilter, setTimeFilter] = useState<"upcoming" | "past" | "all">("upcoming");
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [leadDialogEvent, setLeadDialogEvent] = useState<EventWithMetadata | null>(null);
   const [editingEvent, setEditingEvent] = useState<EventWithMetadata | null>(null);
@@ -108,13 +110,15 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "שגיאה בביטול האירוע");
+        // The cancel route reports failures as { error }, and the rethrow is
+        // caught by CancellationDialog which renders it inline.
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "שגיאה בביטול האירוע");
       }
 
       const { notified } = await res.json();
       setEvents((prev) => prev.map((e) => e.id === eventToCancelWithVenue.id ? { ...e, status: "cancelled" } : e));
-      toast.success(notified > 0 ? `האירוע בוטל - ${notified} לידים עודכנו` : "האירוע בוטל");
+      toast.success(notified > 0 ? `האירוע בוטל - ${notified} ממתינים עודכנו` : "האירוע בוטל");
 
       setCancellationDialogOpen(false);
       setEventToCancelWithVenue(null);
@@ -161,13 +165,38 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
             ))}
           </SelectContent>
         </Select>
-        <Input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="w-full sm:w-44"
-          dir="rtl"
-        />
+        {/* Hebrew calendar picker like the rest of the app - the native date
+            input was the only Gregorian-first control on this screen */}
+        <div className="flex gap-1 w-full sm:w-auto">
+          <Dialog open={dateDialogOpen} onOpenChange={setDateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 flex-1 sm:flex-initial sm:w-44 justify-between font-normal">
+                {dateFilter ? formatDate(new Date(dateFilter + "T12:00:00")) : "סינון לפי תאריך"}
+                <CalendarDays size={16} className="text-muted-foreground" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-[660px]" dir="rtl">
+              <DialogHeader>
+                <DialogTitle>סינון לפי תאריך</DialogTitle>
+              </DialogHeader>
+              <DialogBody>
+                <HebrewCalendar
+                  compact
+                  selected={dateFilter ? new Date(dateFilter + "T12:00:00") : undefined}
+                  onSelect={(d) => {
+                    setDateFilter(d ? toLocalDateStr(d) : "");
+                    setDateDialogOpen(false);
+                  }}
+                />
+              </DialogBody>
+            </DialogContent>
+          </Dialog>
+          {dateFilter && (
+            <Button variant="ghost" size="sm" className="px-2 self-center" onClick={() => setDateFilter("")} aria-label="נקה סינון תאריך">
+              <X size={16} />
+            </Button>
+          )}
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground">{filtered.length} אירועים</p>
@@ -373,7 +402,6 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
       )}
 
       {editingEvent && (
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         <EventFormModal
           open={!!editingEvent}
           onClose={() => setEditingEvent(null)}
@@ -381,7 +409,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
           venueId={editingEvent.venue?.id ?? ""}
           userId={userId}
           isAdmin={role === "admin"}
-          event={editingEvent as any}
+          event={editingEvent}
           onSaved={() => startTransition(() => router.refresh())}
         />
       )}

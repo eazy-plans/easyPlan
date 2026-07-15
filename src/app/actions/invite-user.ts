@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { randomUUID } from "crypto";
@@ -11,7 +10,7 @@ export async function inviteUser(email: string, full_name: string, role: UserRol
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Unauthorized" };
 
-  const { data: profile } = await (supabase.from("users") as any)
+  const { data: profile } = await supabase.from("users")
     .select("role")
     .eq("id", user.id)
     .single();

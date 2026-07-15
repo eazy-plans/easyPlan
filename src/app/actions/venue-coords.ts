@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
@@ -89,7 +88,7 @@ export async function geocodeVenue(venueId: string): Promise<VenueCoords | null>
   if (!user) throw new Error("Unauthorized");
 
   // The caller must be able to see the venue under their own RLS policies.
-  const { data: venue } = await (supabase.from("venues") as any)
+  const { data: venue } = await supabase.from("venues")
     .select("*")
     .eq("id", venueId)
     .maybeSingle();
@@ -139,7 +138,7 @@ export async function geocodeVenue(venueId: string): Promise<VenueCoords | null>
   // drag-fix) already saved. Persist failures are non-fatal - before migration
   // 020 the lat/lng columns don't exist yet and the map should still work.
   const admin = createAdminClient();
-  await (admin.from("venues") as any)
+  await admin.from("venues")
     .update({ lat: coords.lat, lng: coords.lng, coords_approximate: approximate })
     .eq("id", venueId)
     .is("lat", null)
@@ -162,7 +161,7 @@ export async function setVenueCoords(venueId: string, lat: number, lng: number):
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const { data, error } = await (supabase.from("venues") as any)
+  const { data, error } = await supabase.from("venues")
     .update({ lat, lng, coords_approximate: false })
     .eq("id", venueId)
     .select("id");

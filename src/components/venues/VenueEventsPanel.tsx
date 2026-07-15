@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -39,7 +38,7 @@ export function VenueEventsPanel({ venueId, initialEvents, userId, isAdmin }: Pr
 
   const loadEvents = useCallback(async () => {
     // Same rolling history window as the server fetch in VenueDetailContent.
-    const { data } = await (supabase.from("events") as any)
+    const { data } = await supabase.from("events")
       .select("*")
       .eq("venue_id", venueId)
       .gte("date", eventsHistoryCutoffStr())

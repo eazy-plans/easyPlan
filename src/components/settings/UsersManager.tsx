@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -109,7 +108,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
     setEditLoading(true);
     const supabase = createClient();
 
-    const { error } = await (supabase.from("users") as any)
+    const { error } = await supabase.from("users")
       .update({ full_name: editForm.full_name, role: editForm.role })
       .eq("id", editUser.id);
     setEditLoading(false);

@@ -74,6 +74,12 @@ from (values
     exists (select 1 from col where table_name = 'venues' and column_name = 'contact_name')),
   ('025_drop_refund_date_constraint',
     not exists (select 1 from pg_constraint
-                where conname = 'check_refund_date_with_cancellation'))
+                where conname = 'check_refund_date_with_cancellation')),
+  ('026_leads_unique_phone',
+    exists (select 1 from pg_indexes where schemaname = 'public'
+            and indexname = 'leads_client_phone_unique')),
+  ('027_events_optional_client_email',
+    coalesce((select is_nullable = 'YES' from col
+              where table_name = 'events' and column_name = 'client_email'), false))
 ) as m(migration, applied)
 order by migration;

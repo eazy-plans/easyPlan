@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/queries";
 import { BookingWizard } from "@/components/booking/BookingWizard";
@@ -13,7 +12,7 @@ export default async function BookingPage() {
   // instead of client-side in StepSearch removes a post-hydration round trip
   // (page painted, then a "loading venues" spinner). RLS scopes visibility
   // the same way it did for the client fetch.
-  const { data: venues, error } = await (supabase.from("venues") as any)
+  const { data: venues, error } = await supabase.from("venues")
     .select("*, images:venue_images(*)")
     .eq("is_active", true)
     .order("name") as { data: (VenueRow & { images: VenueImageRow[] })[] | null; error: { message: string } | null };

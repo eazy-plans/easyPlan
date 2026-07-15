@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -11,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { EventFormModal } from "./EventFormModal";
-import type { EventRow, EventStatus } from "@/types/database";
+import { CancellationDialog } from "@/components/events/CancellationDialog";
+import type { EventRow, EventStatus, VenueRow } from "@/types/database";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
@@ -48,31 +48,57 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
   const [leadState, setLeadState] = useState<"loading" | "found" | "not_found">("loading");
   const [lead, setLead] = useState<LeadCard | null>(null);
   const [creatingLead, setCreatingLead] = useState(false);
+  const [cancelVenue, setCancelVenue] = useState<VenueRow | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     if (open) fetchLead();
   }, [open]);
 
-  async function cancelEvent() {
+  // Cancellation goes through /api/events/cancel like the events table - a
+  // bare status update here used to skip the client email, waitlist
+  // notifications, lead-inquiry update and cancelled_by/reason tracking.
+  async function openCancelDialog() {
     setLoading(true);
     const supabase = createClient();
-
-    const { error } = await (supabase.from("events") as any)
-      .update({ status: "cancelled" })
-      .eq("id", event.id);
+    const { data: venue, error } = await supabase.from("venues")
+      .select("*")
+      .eq("id", event.venue_id)
+      .single();
     setLoading(false);
 
-    if (error) { toast.error("שגיאה בעדכון הסטטוס"); return; }
-    toast.success("האירוע בוטל");
-    onClose();
+    if (error || !venue) { toast.error("שגיאה בטעינת פרטי האולם"); return; }
+    setCancelVenue(venue);
+  }
+
+  async function confirmCancel(reason: string) {
+    setCancelLoading(true);
+    try {
+      const res = await fetch("/api/events/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: event.id, cancellationReason: reason }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "שגיאה בביטול האירוע");
+      }
+      const { notified } = await res.json();
+      toast.success(notified > 0 ? `האירוע בוטל - ${notified} ממתינים עודכנו` : "האירוע בוטל");
+      setCancelVenue(null);
+      router.refresh();
+      onClose();
+    } finally {
+      setCancelLoading(false);
+    }
   }
 
   async function deleteEvent() {
     setLoading(true);
     const supabase = createClient();
 
-    const { error } = await (supabase.from("events") as any).delete().eq("id", event.id);
+    const { error } = await supabase.from("events").delete().eq("id", event.id);
     setLoading(false);
 
     if (error) {
@@ -86,7 +112,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
   async function fetchLead() {
     setLeadState("loading");
     const supabase = createClient();
-    const { data } = await (supabase.from("leads") as any)
+    const { data } = await supabase.from("leads")
       .select("id")
       .eq("client_phone", event.client_phone)
       .maybeSingle();
@@ -102,20 +128,27 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
   async function createLeadFromEvent() {
     setCreatingLead(true);
     const supabase = createClient();
-    const { data, error } = await (supabase.from("leads") as any)
+    const { data, error } = await supabase.from("leads")
       .insert({
         client_name: event.client_name,
-        client_phone: event.client_phone,
-        client_email: event.client_email,
+        client_phone: event.client_phone || null,
+        client_email: event.client_email || null,
         status: "booked",
       })
       .select("id")
       .single();
-    if (error) { toast.error("שגיאה ביצירת ליד"); setCreatingLead(false); return; }
+    if (error) {
+      setCreatingLead(false);
+      // Unique violation on phone: the lead appeared since we checked - just
+      // re-fetch and show it.
+      if (error.code === "23505") { fetchLead(); return; }
+      toast.error("שגיאה ביצירת ליד");
+      return;
+    }
     // Add venue interest
-    await (supabase.from("lead_venue_interests") as any)
+    await supabase.from("lead_venue_interests")
       .insert({ lead_id: data.id, venue_id: event.venue_id })
-      .then(() => null).catch(() => null);
+      .then(() => null, () => null);
     setCreatingLead(false);
     // Re-fetch to get venue name in interests
     fetchLead();
@@ -297,8 +330,8 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
             <Button
               size="sm"
               variant="outline"
-              onClick={cancelEvent}
-              disabled={loading}
+              onClick={openCancelDialog}
+              disabled={loading || cancelLoading}
             >
               בטל אירוע
             </Button>
@@ -340,6 +373,16 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
         isAdmin={isAdmin}
         event={event}
       />
+
+      {cancelVenue && (
+        <CancellationDialog
+          event={{ ...event, venue: cancelVenue }}
+          open={!!cancelVenue}
+          onClose={() => setCancelVenue(null)}
+          onConfirm={confirmCancel}
+          isLoading={cancelLoading}
+        />
+      )}
     </Dialog>
   );
 }

@@ -84,7 +84,7 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
   async function deleteVenue(venue: VenueRow) {
     setDeleting(venue.id);
     const supabase = createClient();
-    const { error } = await (supabase.from("venues") as any).delete().eq("id", venue.id);
+    const { error } = await supabase.from("venues").delete().eq("id", venue.id);
     setDeleting(null);
     if (error) {
       if (error.code === "23503") {

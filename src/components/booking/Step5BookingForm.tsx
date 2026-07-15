@@ -1,4 +1,3 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -14,7 +13,7 @@ import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS, PRICE_KEY } from "@/types/booking";
 import type { EventType, EventPurpose, VenueRow } from "@/types/database";
 
-type ClientSuggestion = { client_name: string; client_phone: string; client_email: string };
+type ClientSuggestion = { client_name: string; client_phone: string | null; client_email: string | null };
 
 function SuggestionDropdown({ suggestions, onSelect }: { suggestions: ClientSuggestion[]; onSelect: (s: ClientSuggestion) => void }) {
   return (
@@ -58,8 +57,9 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
   const [loading, setLoading] = useState(false);
   const [lockError, setLockError] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(600);
+  const [renewing, setRenewing] = useState(false);
 
-  const [suggestions, setSuggestions] = useState<{ client_name: string; client_phone: string; client_email: string }[]>([]);
+  const [suggestions, setSuggestions] = useState<ClientSuggestion[]>([]);
   const [activeField, setActiveField] = useState<string | null>(null);
   const clientRef = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,7 +69,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
     if (value.length < 1) { setSuggestions([]); setActiveField(null); return; }
     searchTimer.current = setTimeout(async () => {
       const supabase = createClient();
-      const { data } = await (supabase.from("leads") as any)
+      const { data } = await supabase.from("leads")
         .select("client_name, client_phone, client_email")
         .ilike(field, `%${value}%`)
         .limit(5);
@@ -78,8 +78,8 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
     }, 300);
   }
 
-  function applySuggestion(s: { client_name: string; client_phone: string; client_email: string }) {
-    setForm((f) => ({ ...f, client_name: s.client_name, client_phone: s.client_phone, client_email: s.client_email ?? f.client_email }));
+  function applySuggestion(s: ClientSuggestion) {
+    setForm((f) => ({ ...f, client_name: s.client_name, client_phone: s.client_phone ?? f.client_phone, client_email: s.client_email ?? f.client_email }));
     setSuggestions([]);
     setActiveField(null);
     setPhoneError("");
@@ -96,51 +96,61 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
   const discount = parseFloat(form.discount_amount) || 0;
   const finalPrice = Math.max(0, listedPrice - (isAdmin ? discount : 0));
 
+  // Atomic acquire via the acquire_booking_lock RPC - the old client-side
+  // check-then-upsert let two users pass the check simultaneously and the
+  // second one silently stole the lock. Errors are ignored (the lock is
+  // best-effort; events_slot_unique is the real double-booking guard).
+  // Returns false only when someone else verifiably holds the lock.
+  async function acquireLock(): Promise<boolean> {
+    const supabase = createClient();
+    const { data: acquired, error } = await supabase.rpc("acquire_booking_lock", {
+      p_venue_id: venue.id,
+      p_date: toLocalDateStr(date),
+      p_event_type: eventType,
+    });
+    return !(!error && acquired === false);
+  }
+
+  // Expiry keeps the form (and everything typed) - the secretary can renew
+  // the hold in place instead of redoing the wizard mid-phone-call.
+  async function renewLock() {
+    setRenewing(true);
+    const acquired = await acquireLock();
+    setRenewing(false);
+    if (acquired) {
+      setSecondsLeft(600);
+      toast.success("השמירה חודשה ל-10 דקות");
+    } else {
+      setLockError("התאריך נעול כרגע על ידי מזכירה אחרת. נסה שוב בעוד כמה דקות.");
+    }
+  }
+
   // Acquire booking lock on mount
   useEffect(() => {
     const supabase = createClient();
 
-    async function acquireLock() {
-      // Atomic acquire via the acquire_booking_lock RPC - the old client-side
-      // check-then-upsert let two users pass the check simultaneously and the
-      // second one silently stole the lock. Errors are ignored (the lock is
-      // best-effort; events_slot_unique is the real double-booking guard).
-      const { data: acquired, error } = await (supabase.rpc as any)("acquire_booking_lock", {
-        p_venue_id: venue.id,
-        p_date: toLocalDateStr(date),
-        p_event_type: eventType,
-      });
-
-      if (!error && acquired === false) {
+    acquireLock().then((acquired) => {
+      if (!acquired) {
         setLockError("התאריך נעול כרגע על ידי מזכירה אחרת. נסה שוב בעוד כמה דקות.");
       }
-    }
-    acquireLock();
+    });
 
-    // Countdown timer
+    // Countdown timer; at 0 the form stays up and offers renewal.
     const interval = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) {
-          clearInterval(interval);
-          setLockError("הנעילה פגה. חזור ובחר אולם מחדש.");
-          return 0;
-        }
-        return s - 1;
-      });
+      setSecondsLeft((s) => (s > 0 ? s - 1 : 0));
     }, 1000);
 
     // Release lock on unmount
     return () => {
       clearInterval(interval);
 
-      (supabase.from("booking_locks") as any)
+      supabase.from("booking_locks")
         .delete()
         .eq("venue_id", venue.id)
         .eq("date", toLocalDateStr(date))
         .eq("event_type", eventType)
         .eq("locked_by_user_id", userId)
-        .then(() => null)
-        .catch(() => null);
+        .then(() => null, () => null);
     };
   // Empty deps: lock must be acquired once for the slot chosen in earlier steps and
   // released on unmount. Props are frozen by the wizard - they never change while this
@@ -166,12 +176,12 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       setPhoneError("מספר טלפון לא תקין (לדוגמה: 052-1234567)");
       return;
     }
-    if (secondsLeft === 0) { toast.error("הנעילה פגה, חזור ובחר אולם"); return; }
+    if (secondsLeft === 0) { toast.error("השמירה פגה - חדש אותה כדי לשמור"); return; }
 
     setLoading(true);
     const supabase = createClient();
 
-    const { data, error } = await (supabase.from("events") as any).insert({
+    const { data, error } = await supabase.from("events").insert({
       venue_id: venue.id,
       date: toLocalDateStr(date),
       event_type: eventType,
@@ -179,7 +189,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       status: "approved",
       client_name: form.client_name,
       client_phone: form.client_phone,
-      client_email: form.client_email,
+      client_email: form.client_email || null,
       price_listed: listedPrice,
       discount_amount: isAdmin ? discount : 0,
       price_final: finalPrice,
@@ -205,37 +215,52 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ eventId: data.id, type: "owner_event_created" }),
     }).catch(() => null);
-    fetch("/api/events/notify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventId: data.id, type: "client_confirm" }),
-    }).catch(() => null);
+    if (form.client_email) {
+      fetch("/api/events/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: data.id, type: "client_confirm" }),
+      }).catch(() => null);
+    }
 
     // Upsert lead by phone - fire-and-forget
     (async () => {
-      const { data: existing } = await (supabase.from("leads") as any)
+      const { data: existing } = await supabase.from("leads")
         .select("id")
         .eq("client_phone", form.client_phone)
         .maybeSingle();
 
       let leadId: string;
       if (existing) {
-        await (supabase.from("leads") as any).update({ status: "booked" }).eq("id", existing.id);
+        await supabase.from("leads").update({ status: "booked" }).eq("id", existing.id);
         leadId = existing.id;
       } else {
-        const { data: newLead } = await (supabase.from("leads") as any)
+        const { data: newLead, error: insertErr } = await supabase.from("leads")
           .insert({ client_name: form.client_name, client_phone: form.client_phone, client_email: form.client_email || null, status: "booked" })
           .select("id").single();
-        if (!newLead) return;
-        leadId = newLead.id;
+        if (newLead) {
+          leadId = newLead.id;
+        } else if (insertErr?.code === "23505") {
+          // Lost the select-then-insert race: another session created the lead
+          // for this phone in between. Re-select and mark it booked.
+          const { data: raced } = await supabase.from("leads")
+            .select("id")
+            .eq("client_phone", form.client_phone)
+            .maybeSingle();
+          if (!raced) return;
+          await supabase.from("leads").update({ status: "booked" }).eq("id", raced.id);
+          leadId = raced.id;
+        } else {
+          return;
+        }
       }
-      await (supabase.from("lead_venue_interests") as any)
+      await supabase.from("lead_venue_interests")
         .upsert({ lead_id: leadId, venue_id: venue.id }, { onConflict: "lead_id,venue_id" })
-        .then(() => null).catch(() => null);
+        .then(() => null, () => null);
 
-      await (supabase.from("lead_inquiries") as any)
+      await supabase.from("lead_inquiries")
         .upsert({ lead_id: leadId, venue_id: venue.id, status: "booked" }, { onConflict: "lead_id,venue_id" })
-        .then(() => null).catch(() => null);
+        .then(() => null, () => null);
     })().catch(() => null);
 
     onSuccess(data.id);
@@ -257,10 +282,19 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
     <form onSubmit={handleSubmit} className="flex flex-col min-h-full">
       <div className="flex-1 space-y-5">
         {/* Lock timer */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-800 flex justify-between items-center">
-          <span>האולם שמור לך עוד</span>
-          <span className="font-mono font-bold" dir="ltr">{minutes}:{seconds}</span>
-        </div>
+        {secondsLeft > 0 ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-800 flex justify-between items-center">
+            <span>האולם שמור לך עוד</span>
+            <span className="font-mono font-bold" dir="ltr">{minutes}:{seconds}</span>
+          </div>
+        ) : (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-2 text-sm text-destructive flex justify-between items-center gap-3">
+            <span>השמירה פגה - האולם עשוי להיתפס על ידי אחרים</span>
+            <Button type="button" size="sm" variant="outline" onClick={renewLock} disabled={renewing} className="shrink-0">
+              {renewing ? "מחדש..." : "חדש שמירה"}
+            </Button>
+          </div>
+        )}
 
         {/* Summary */}
         <div className="bg-muted rounded-lg p-3 text-sm space-y-1">
@@ -316,16 +350,16 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
               <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
             )}
           </div>
-          {/* Email */}
+          {/* Email - optional (migration 027): clients without email get no
+              confirmation mail; forcing a made-up address just bounced. */}
           <div className="space-y-1 relative">
-            <Label>מייל *</Label>
+            <Label>מייל</Label>
             <Input
               type="email"
               dir="ltr"
               value={form.client_email}
               onChange={(e) => set("client_email", e.target.value)}
               onFocus={() => activeField !== "client_email" && suggestions.length > 0 && setActiveField("client_email")}
-              required
             />
             {activeField === "client_email" && suggestions.length > 0 && (
               <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />

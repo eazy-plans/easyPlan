@@ -4,7 +4,6 @@ import { formatDate } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { Badge } from "@/components/ui/badge";
 import { BackButton } from "./BackButton";
-import type { EventRow } from "@/types/database";
 import { EVENT_PURPOSE_LABELS } from "@/types/booking";
 
 export const metadata = { title: "פרטי הזמנה" };
@@ -29,7 +28,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     redirect("/");
   }
 
-  const { data: event, error } = await (supabase.from("events") as any)
+  const { data: event, error } = await supabase.from("events")
     .select("*, venue:venues(id, name, address, city)")
     .eq("id", id)
     .single();

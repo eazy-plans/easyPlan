@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -25,7 +24,7 @@ type LeadCard = { id: string };
 interface LeadCardDialogProps {
   clientPhone: string;
   clientName: string;
-  clientEmail: string;
+  clientEmail: string | null;
   venueId: string;
   open: boolean;
   onClose: () => void;
@@ -51,7 +50,7 @@ export function LeadCardDialog({ clientPhone, clientName, clientEmail, venueId, 
     setState("loading");
     setLead(null);
     const supabase = createClient();
-    (supabase.from("leads") as any)
+    supabase.from("leads")
       .select("id")
       .eq("client_phone", clientPhone)
       .maybeSingle()
@@ -64,17 +63,17 @@ export function LeadCardDialog({ clientPhone, clientName, clientEmail, venueId, 
   async function createLead() {
     setCreating(true);
     const supabase = createClient();
-    const { data, error } = await (supabase.from("leads") as any)
+    const { data, error } = await supabase.from("leads")
       .insert({ client_name: clientName, client_phone: clientPhone, client_email: clientEmail || null, status: "booked" })
       .select("id")
       .single();
     if (error) { toast.error("שגיאה ביצירת ליד"); setCreating(false); return; }
-    await (supabase.from("lead_venue_interests") as any)
+    await supabase.from("lead_venue_interests")
       .upsert({ lead_id: data.id, venue_id: venueId }, { onConflict: "lead_id,venue_id" })
-      .then(() => null).catch(() => null);
+      .then(() => null, () => null);
     setCreating(false);
     setState("loading");
-    const { data: refreshed } = await (supabase.from("leads") as any)
+    const { data: refreshed } = await supabase.from("leads")
       .select("id")
       .eq("client_phone", clientPhone)
       .maybeSingle();

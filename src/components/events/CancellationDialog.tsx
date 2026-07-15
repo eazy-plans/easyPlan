@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -62,12 +62,9 @@ export function CancellationDialog({
             <AlertTriangle size={20} />
             ביטול הזמנה
           </DialogTitle>
-          <DialogDescription>
-            ודא את פרטי הביטול וההחזר לפני המשך
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 max-h-96 overflow-y-auto">
+        <DialogBody className="space-y-4">
           {/* Event Summary */}
           <div className="rounded-lg bg-gray-50 p-3 space-y-2">
             <p className="text-sm font-medium">פרטי ההזמנה:</p>
@@ -100,7 +97,6 @@ export function CancellationDialog({
             </Label>
             <Textarea
               id="reason"
-              placeholder="הזן סיבה לביטול ההזמנה (תשלח ללקוח בדוא״ל)"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               className="text-sm"
@@ -117,7 +113,7 @@ export function CancellationDialog({
               className="mt-1"
             />
             <label htmlFor="agree" className="text-xs text-gray-700 cursor-pointer">
-              אני מאשר/מאשרת שקראתי ואני מבין/מבינה את מדיניות הביטול של האולם
+              אני מאשר/ת שקראתי ואני מבין/ה את מדיניות הביטול של האולם
             </label>
           </div>
 
@@ -128,34 +124,31 @@ export function CancellationDialog({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-        </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={isLoading}
-            className="flex-1"
-          >
-            ביטול
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleConfirm}
-            disabled={isLoading || !agreed || !reason.trim()}
-            className="flex-1"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 size={16} className="mr-2 animate-spin" />
-                בטיול בתהליך...
-              </>
-            ) : (
-              "אישור ביטול"
-            )}
-          </Button>
-        </div>
+          {/* Actions */}
+          <div className="flex gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1"
+            >
+              חזרה
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirm}
+              disabled={isLoading || !agreed || !reason.trim()}
+              className="flex-1"
+            >
+              {isLoading ? (
+                  <Loader2 size={16} className="ml-2 animate-spin" />
+              ) : (
+                "אישור"
+              )}
+            </Button>
+          </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

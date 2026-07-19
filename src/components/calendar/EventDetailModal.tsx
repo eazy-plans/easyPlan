@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -12,11 +13,12 @@ import { Separator } from "@/components/ui/separator";
 import { EventFormModal } from "./EventFormModal";
 import { CancellationDialog } from "@/components/events/CancellationDialog";
 import type { EventRow, EventStatus, VenueRow } from "@/types/database";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate, formatDateTime, formatCurrency } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 
 interface EventWithCreator extends EventRow {
+  venue?: { id: string; name: string } | null;
   creator?: { full_name: string } | null;
   cancelled_by_user?: { full_name: string } | null;
 }
@@ -92,6 +94,22 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
     } finally {
       setCancelLoading(false);
     }
+  }
+
+  // Flags/unflags the event as awaiting cancellation. The event keeps its
+  // slot - actual cancellation happens only when a replacement client books.
+  async function toggleCancellationRequest() {
+    setLoading(true);
+    const supabase = createClient();
+    const value = event.cancellation_requested_at ? null : new Date().toISOString();
+    const { error } = await supabase.from("events")
+      .update({ cancellation_requested_at: value })
+      .eq("id", event.id);
+    setLoading(false);
+    if (error) { toast.error("שגיאה בעדכון בקשת הביטול"); return; }
+    toast.success(value ? "האירוע סומן כממתין לביטול" : "סימון הביטול הוסר");
+    router.refresh();
+    onClose();
   }
 
   async function deleteEvent() {
@@ -170,6 +188,11 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
             <Badge variant={STATUS_VARIANTS[event.status]}>
               {STATUS_LABELS[event.status]}
             </Badge>
+            {event.cancellation_requested_at && event.status !== "cancelled" && (
+              <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                ממתין לביטול
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
         <DialogBody>
@@ -188,6 +211,19 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
               <span className="text-xs text-muted-foreground">{toHebrewDateShort(event.date)}</span>
             </div>
           </div>
+
+          {event.venue?.name && (
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-24 shrink-0">אולם</span>
+              <Link
+                href={`/venues/${event.venue.id}`}
+                className="text-primary hover:underline font-medium"
+                onClick={handleClose}
+              >
+                {event.venue.name}
+              </Link>
+            </div>
+          )}
 
           {(venueAddress || venueCity) && (
             <div className="flex gap-2">
@@ -233,8 +269,8 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
             )}
             {leadState === "found" && lead && (
               <Button size="sm" variant="link" className="h-auto p-0 text-xs"
-                onClick={() => { handleClose(); router.push(`/leads?q=${encodeURIComponent(event.client_phone)}`); }}>
-                פתח ברשימת לידים ←
+                onClick={() => { handleClose(); router.push(`/leads/${lead.id}`); }}>
+                פתח את כרטיס הליד ←
               </Button>
             )}
             {leadState === "not_found" && (
@@ -275,8 +311,17 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
 
           <div className="flex gap-2">
             <span className="text-muted-foreground w-24 shrink-0">נוצר ב</span>
-            <span>{formatDate(new Date(event.created_at))}</span>
+            <span dir="ltr">{formatDateTime(event.created_at)}</span>
           </div>
+
+          {event.cancellation_requested_at && event.status !== "cancelled" && (
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-24 shrink-0">בקשת ביטול</span>
+              <span className="text-amber-600 dark:text-amber-400" dir="ltr">
+                {formatDateTime(event.cancellation_requested_at)}
+              </span>
+            </div>
+          )}
 
           {event.creator?.full_name && (
             <div className="flex gap-2">
@@ -288,7 +333,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
           {event.updated_at && event.created_at !== event.updated_at && (
             <div className="flex gap-2">
               <span className="text-muted-foreground w-24 shrink-0">עודכן ב</span>
-              <span>{formatDate(new Date(event.updated_at))}</span>
+              <span dir="ltr">{formatDateTime(event.updated_at)}</span>
             </div>
           )}
 
@@ -334,6 +379,17 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
               disabled={loading || cancelLoading}
             >
               בטל אירוע
+            </Button>
+          )}
+          {(isAdmin || canCancel) && event.status !== "cancelled" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-amber-500 text-amber-600 hover:text-amber-700 dark:text-amber-400"
+              onClick={toggleCancellationRequest}
+              disabled={loading || cancelLoading}
+            >
+              {event.cancellation_requested_at ? "הסר סימון ביטול" : "סמן כממתין לביטול"}
             </Button>
           )}
 

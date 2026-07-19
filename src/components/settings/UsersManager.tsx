@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -166,18 +166,14 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
             </div>
             <div className="space-y-1">
               <Label>תפקיד *</Label>
-              <Select
+              <Combobox
+                options={(Object.entries(ROLE_LABELS) as [UserRole, string][]).map(([v, l]) => ({ value: v, label: l }))}
                 value={editForm.role}
                 onValueChange={(v) => setEditForm((f) => ({ ...f, role: v as UserRole }))}
+                placeholder="בחר תפקיד"
+                clearable={false}
                 disabled={editUser?.id === currentUserId}
-              >
-                <SelectTrigger dir="rtl"><SelectValue /></SelectTrigger>
-                <SelectContent dir="rtl">
-                  {(Object.entries(ROLE_LABELS) as [UserRole, string][]).map(([v, l]) => (
-                    <SelectItem key={v} value={v}>{l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
               {editUser?.id === currentUserId && (
                 <p className="text-xs text-muted-foreground">לא ניתן לשנות את התפקיד שלך</p>
               )}
@@ -226,14 +222,13 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
               </div>
               <div className="space-y-1">
                 <Label>תפקיד *</Label>
-                <Select value={inviteForm.role} onValueChange={(v) => setInviteForm((f) => ({ ...f, role: v as UserRole }))}>
-                  <SelectTrigger dir="rtl"><SelectValue /></SelectTrigger>
-                  <SelectContent dir="rtl">
-                    {(Object.entries(ROLE_LABELS) as [UserRole, string][]).map(([v, l]) => (
-                      <SelectItem key={v} value={v}>{l}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={(Object.entries(ROLE_LABELS) as [UserRole, string][]).map(([v, l]) => ({ value: v, label: l }))}
+                  value={inviteForm.role}
+                  onValueChange={(v) => setInviteForm((f) => ({ ...f, role: v as UserRole }))}
+                  placeholder="בחר תפקיד"
+                  clearable={false}
+                />
               </div>
               <div className="space-y-1">
                 <Label>סיסמה *</Label>

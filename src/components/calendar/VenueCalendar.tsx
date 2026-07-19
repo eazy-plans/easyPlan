@@ -6,7 +6,7 @@ import { eventsHistoryCutoffStr, toLocalDateStr } from "@/lib/utils";
 import { EventFormModal } from "./EventFormModal";
 import { EventDetailModal } from "./EventDetailModal";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import type { EventRow, VenueRow, UserRole } from "@/types/database";
 import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS } from "@/types/booking";
 
@@ -132,16 +132,15 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
       {venues.length > 1 && (
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">אולם:</span>
-          <Select value={selectedVenueId} onValueChange={setSelectedVenueId}>
-            <SelectTrigger dir="rtl" className="w-56">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              {venues.map((v) => (
-                <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Combobox
+            options={venues.map((v) => ({ value: v.id, label: v.name }))}
+            value={selectedVenueId}
+            onValueChange={setSelectedVenueId}
+            placeholder="בחר אולם"
+            searchPlaceholder="הקלד שם אולם..."
+            clearable={false}
+            className="w-56"
+          />
         </div>
       )}
 

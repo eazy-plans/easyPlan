@@ -1,32 +1,26 @@
-﻿import { escapeHtml } from "../escapeHtml";
+import { escapeHtml } from "../escapeHtml";
+import { contactTarget, emailShell, eventDetailsCard, heading, p, signoff } from "./layout";
 
 interface WaitlistNotifyData {
   clientName: string;
   venueName: string;
   date: string;
+  dayOfWeek: string;
+  contactName?: string;
+  contactPhone?: string;
 }
 
 export function waitlistNotifyHtml(d: WaitlistNotifyData): string {
-  return `
-<!DOCTYPE html>
-<html dir="rtl" lang="he">
-<head><meta charset="UTF-8"><style>
-  body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 0; direction: rtl; text-align: right; }
-  .container { max-width: 560px; margin: 32px auto; background: #fff; border-radius: 8px; padding: 32px; border: 1px solid #e5e7eb; direction: rtl; text-align: right; }
-  h1 { font-size: 20px; color: #111; margin-bottom: 16px; }
-  .highlight { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 16px; margin: 20px 0; font-size: 15px; color: #166534; }
-  .footer { font-size: 12px; color: #9ca3af; margin-top: 24px; }
-</style></head>
-<body>
-<div class="container">
-  <h1>תאריך התפנה - ${escapeHtml(d.venueName)}</h1>
-  <p style="font-size:14px;">שלום ${escapeHtml(d.clientName)},</p>
-  <p style="font-size:14px;">בשורות טובות! תאריך שהמתנת לו התפנה:</p>
-  <div class="highlight">
-    <strong>${escapeHtml(d.venueName)}</strong> - ${escapeHtml(d.date)}
-  </div>
-  <p style="font-size:14px;">צור/י קשר בהקדם כדי לשריין את התאריך לפני שיתפס.</p>
-  <div class="footer">Eazyplans - מערכת ניהול אולמות</div>
-</div>
-</body></html>`;
+  return emailShell(`
+${heading(`תאריך התפנה באולם ${d.venueName}`)}
+${p(`שלום ${escapeHtml(d.clientName)},`)}
+${p(`בשורות טובות! התאריך שהמתנתם לו באולם ${escapeHtml(d.venueName)} התפנה:`)}
+${eventDetailsCard({
+  venueName: d.venueName,
+  dayOfWeek: d.dayOfWeek,
+  date: d.date,
+})}
+${p(`כדי לשריין את התאריך לפני שייתפס, פנו בהקדם ${contactTarget(d.contactName, d.contactPhone)}.`)}
+${p("נשמח לחגוג איתכם!")}
+${signoff(d.venueName)}`);
 }

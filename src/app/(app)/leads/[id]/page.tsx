@@ -26,15 +26,22 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     .eq("lead_id", id)
     .order("created_at", { ascending: false });
 
-  let eventsData: any[] = [];
-  if (lead.client_email) {
-    const { data } = await supabase.from("events")
+  // Leads are keyed by phone (client_email is optional on both sides), so
+  // match bookings by phone first. Cancelled events are included - the
+  // statistics tab breaks them out, and the card shows a "בוטל" badge.
+  let eventsQuery = null;
+  if (lead.client_phone) {
+    eventsQuery = supabase.from("events")
+      .select("*, venue:venues(id, name)")
+      .eq("client_phone", lead.client_phone)
+      .order("date", { ascending: false });
+  } else if (lead.client_email) {
+    eventsQuery = supabase.from("events")
       .select("*, venue:venues(id, name)")
       .eq("client_email", lead.client_email)
-      .neq("status", "cancelled")
       .order("date", { ascending: false });
-    eventsData = data ?? [];
   }
+  const eventsData = eventsQuery ? (await eventsQuery).data ?? [] : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -43,6 +50,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           lead={lead}
           inquiries={inquiries ?? []}
           events={eventsData}
+          isAdmin={profile.role === "admin"}
         />
       </div>
     </div>

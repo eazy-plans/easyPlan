@@ -15,13 +15,17 @@ type VenueWithImages = VenueRow & { images: VenueImageRow[] };
 interface StepPickDateProps {
   venue: VenueWithImages;
   userId: string;
+  /** Carried over from the search screen so the calendar opens on the
+      requested date instead of resetting to today */
+  initialDate?: Date | null;
+  initialEventType?: EventType | null;
   onNext: (date: Date, eventType: EventType) => void;
   onBack: () => void;
 }
 
-export function StepPickDate({ venue, userId, onNext, onBack }: StepPickDateProps) {
-  const [eventType, setEventType] = useState<EventType | null>(null);
-  const [date, setDate] = useState<Date | null>(null);
+export function StepPickDate({ venue, userId, initialDate, initialEventType, onNext, onBack }: StepPickDateProps) {
+  const [eventType, setEventType] = useState<EventType | null>(initialEventType ?? null);
+  const [date, setDate] = useState<Date | null>(initialDate ?? null);
   const [blockedSet, setBlockedSet] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(true);
 

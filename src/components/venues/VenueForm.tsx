@@ -9,13 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import Image from "next/image";
 import { X, Star, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
 import type { VenueRow, UserRow, VenueImageRow, VenueApprovalStatus } from "@/types/database";
@@ -381,18 +375,15 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
           {isAdmin && (
             <div className="space-y-1">
               <Label>בעל האולם *</Label>
-              <Select value={form.owner_user_id} onValueChange={(v) => set("owner_user_id", v)}>
-                <SelectTrigger dir="rtl" className={errors.owner_user_id ? "border-destructive" : ""}>
-                  <SelectValue placeholder="בחר בעל אולם" />
-                </SelectTrigger>
-                <SelectContent dir="rtl">
-                  {owners.map((o) => (
-                    <SelectItem key={o.id} value={o.id}>
-                      {o.full_name} ({o.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={owners.map((o) => ({ value: o.id, label: `${o.full_name} (${o.email})` }))}
+                value={form.owner_user_id}
+                onValueChange={(v) => set("owner_user_id", v)}
+                placeholder="בחר בעל אולם"
+                searchPlaceholder="הקלד שם או מייל..."
+                clearable={false}
+                className={errors.owner_user_id ? "border-destructive" : ""}
+              />
               {errors.owner_user_id && <p className="text-xs text-destructive">{errors.owner_user_id}</p>}
             </div>
           )}
@@ -584,16 +575,17 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
           <div className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="approval_status">סטטוס אישור</Label>
-              <Select value={form.approval_status} onValueChange={(v) => set("approval_status", v as VenueApprovalStatus)}>
-                <SelectTrigger dir="rtl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent dir="rtl">
-                  <SelectItem value="pending">בהמתנה</SelectItem>
-                  <SelectItem value="approved">אושר</SelectItem>
-                  <SelectItem value="rejected">דחוי</SelectItem>
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={[
+                  { value: "pending", label: "בהמתנה" },
+                  { value: "approved", label: "אושר" },
+                  { value: "rejected", label: "דחוי" },
+                ]}
+                value={form.approval_status}
+                onValueChange={(v) => set("approval_status", v as VenueApprovalStatus)}
+                placeholder="סטטוס אישור"
+                clearable={false}
+              />
             </div>
             {form.approval_status === "rejected" && (
               <div className="space-y-1">

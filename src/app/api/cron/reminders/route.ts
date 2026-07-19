@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/resend";
-import { formatDateHe } from "@/lib/email/sendEventEmails";
+import { formatDateHe, formatDayOfWeekHe } from "@/lib/email/sendEventEmails";
 import { reminderHtml } from "@/lib/email/templates/reminder";
 import { EVENT_TYPE_LABELS } from "@/types/booking";
 import { toLocalDateStr } from "@/lib/utils";
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
 
   const { data: events, error } = await supabase.from("events")
-    .select("*, venue:venues(name, address, city, parking_info, public_transport_info, hours_morning_start, hours_morning_end, hours_evening_start, hours_evening_end, hours_full_start, hours_full_end, hours_shabbat_start, hours_shabbat_end)")
+    .select("*, venue:venues(name, address, city, contact_name, contact_phone, parking_info, public_transport_info, hours_morning_start, hours_morning_end, hours_evening_start, hours_evening_end, hours_full_start, hours_full_end, hours_shabbat_start, hours_shabbat_end)")
     .eq("date", tomorrowStr)
     .eq("status", "approved");
 
@@ -64,9 +64,12 @@ export async function GET(request: Request) {
       venueAddress: venue?.address ?? "",
       venueCity: venue?.city ?? "",
       date: dateFormatted,
+      dayOfWeek: formatDayOfWeekHe(ev.date),
       eventType: EVENT_TYPE_LABELS[ev.event_type] ?? ev.event_type,
       hoursStart,
       hoursEnd,
+      contactName: venue?.contact_name ?? undefined,
+      contactPhone: venue?.contact_phone ?? undefined,
       parkingInfo: venue?.parking_info ?? undefined,
       publicTransportInfo: venue?.public_transport_info ?? undefined,
     });

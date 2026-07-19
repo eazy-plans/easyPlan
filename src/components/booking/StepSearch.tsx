@@ -14,13 +14,7 @@ import type { EventType, VenueRow, VenueImageRow } from "@/types/database";
 import { EVENT_TYPE_LABELS, PRICE_KEY } from "@/types/booking";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 
 type VenueWithImages = VenueRow & { images: VenueImageRow[] };
 
@@ -231,26 +225,21 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
             <Label htmlFor="venue-select" className="text-xs font-semibold text-muted-foreground text-right block">
               שם אולם
             </Label>
-            <Select dir="rtl" value={selectedVenueId || "all"} onValueChange={(value) => {
-              if (value === "all") {
-                clearVenue();
-              } else {
-                const venue = allVenues.find((v) => v.id === value);
-                if (venue) selectVenue(venue);
-              }
-            }}>
-              <SelectTrigger id="venue-select" className="w-full text-right">
-                <SelectValue placeholder="כל האולמות" />
-              </SelectTrigger>
-              <SelectContent align="end">
-                <SelectItem value="all">כל האולמות</SelectItem>
-                {allVenues.map((venue) => (
-                  <SelectItem key={venue.id} value={venue.id}>
-                    {venue.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              id="venue-select"
+              options={allVenues.map((v) => ({ value: v.id, label: v.name }))}
+              value={selectedVenueId}
+              onValueChange={(value) => {
+                if (!value) {
+                  clearVenue();
+                } else {
+                  const venue = allVenues.find((v) => v.id === value);
+                  if (venue) selectVenue(venue);
+                }
+              }}
+              placeholder="כל האולמות"
+              searchPlaceholder="הקלד שם אולם..."
+            />
           </div>
 
           {/* City Dropdown */}
@@ -258,21 +247,14 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
             <Label htmlFor="city-select" className="text-xs font-semibold text-muted-foreground text-right block">
               עיר
             </Label>
-            <Select dir="rtl" value={selectedCity || "all"} onValueChange={(value) => {
-              setSelectedCity(value === "all" ? "" : value);
-            }}>
-              <SelectTrigger id="city-select" className="w-full text-right">
-                <SelectValue placeholder="כל הערים" />
-              </SelectTrigger>
-              <SelectContent align="end">
-                <SelectItem value="all">כל הערים</SelectItem>
-                {uniqueCities.map((city) => (
-                  <SelectItem key={city} value={city}>
-                    {city}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              id="city-select"
+              options={uniqueCities.map((city) => ({ value: city, label: city }))}
+              value={selectedCity}
+              onValueChange={setSelectedCity}
+              placeholder="כל הערים"
+              searchPlaceholder="הקלד שם עיר..."
+            />
           </div>
         </div>
       </div>

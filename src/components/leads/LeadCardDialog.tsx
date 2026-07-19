@@ -123,10 +123,10 @@ export function LeadCardDialog({ clientPhone, clientName, clientEmail, venueId, 
           {state === "found" && lead && (
             <Button
               className="w-full gap-2"
-              onClick={() => { onClose(); router.push(`/leads?q=${encodeURIComponent(clientPhone)}`); }}
+              onClick={() => { onClose(); router.push(`/leads/${lead.id}`); }}
             >
               <ArrowLeft className="h-4 w-4" />
-              פתח ברשימת לידים
+              פתח את כרטיס הליד
             </Button>
           )}
 

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { formatDate, formatCurrency, toLocalDateStr } from "@/lib/utils";
@@ -53,6 +53,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
   const [dateFilter, setDateFilter] = useState<string>("");
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [timeFilter, setTimeFilter] = useState<"upcoming" | "past" | "all">("upcoming");
+  const [viewTab, setViewTab] = useState<"all" | "pending_cancellation">("all");
   const [isPending, startTransition] = useTransition();
   const [leadDialogEvent, setLeadDialogEvent] = useState<EventWithMetadata | null>(null);
   const [editingEvent, setEditingEvent] = useState<EventWithMetadata | null>(null);
@@ -70,14 +71,24 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
     [events]
   );
 
+  const pendingCancellationCount = useMemo(
+    () => events.filter((e) => e.cancellation_requested_at && e.status !== "cancelled").length,
+    [events]
+  );
+
   const filtered = useMemo(() => {
     const today = toLocalDateStr(new Date());
     const list = events.filter((ev) => {
+      // The pending-cancellation tab is a watchlist - show every flagged
+      // event regardless of the upcoming/past range.
+      if (viewTab === "pending_cancellation" &&
+          !(ev.cancellation_requested_at && ev.status !== "cancelled")) return false;
       const matchVenue = venueFilter === "all" || ev.venue?.id === venueFilter;
       const matchDate = !dateFilter || ev.date === dateFilter;
       // An explicit date wins over the upcoming/past range, otherwise picking
       // a past date while on "upcoming" silently shows nothing.
-      const matchTime = !!dateFilter || timeFilter === "all" ||
+      const matchTime = viewTab === "pending_cancellation" ||
+        !!dateFilter || timeFilter === "all" ||
         (timeFilter === "upcoming" ? ev.date >= today : ev.date < today);
       const q = search.toLowerCase();
       const matchSearch = !q ||
@@ -87,8 +98,8 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
       return matchVenue && matchDate && matchTime && matchSearch;
     });
     // Server order is date-ascending; history reads best newest-first
-    return timeFilter === "past" && !dateFilter ? list.reverse() : list;
-  }, [events, search, venueFilter, dateFilter, timeFilter]);
+    return timeFilter === "past" && !dateFilter && viewTab === "all" ? list.reverse() : list;
+  }, [events, search, venueFilter, dateFilter, timeFilter, viewTab]);
 
   async function openCancellationDialog(event: EventWithMetadata) {
     setEventToCancelWithVenue(event as EventWithMetadata & { venue: VenueRow });
@@ -134,6 +145,36 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
+      {/* Tabs: all events / pending-cancellation watchlist */}
+      <div className="flex gap-2 border-b">
+        <button
+          onClick={() => setViewTab("all")}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+            viewTab === "all"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          כל האירועים
+        </button>
+        <button
+          onClick={() => setViewTab("pending_cancellation")}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+            viewTab === "pending_cancellation"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          ממתינים לביטול ({pendingCancellationCount})
+        </button>
+      </div>
+
+      {viewTab === "pending_cancellation" && (
+        <p className="text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+          אירועים שהלקוח ביקש לבטל. אין לבטל אותם בפועל אלא אם נמצא לקוח אחר לתאריך.
+        </p>
+      )}
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Input
@@ -142,36 +183,40 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1"
         />
-        <Select value={timeFilter} onValueChange={(v) => setTimeFilter(v as "upcoming" | "past" | "all")}>
-          <SelectTrigger dir="rtl" className="w-full sm:w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent dir="rtl">
-            <SelectItem value="upcoming">אירועים קרובים</SelectItem>
-            <SelectItem value="past">אירועי עבר</SelectItem>
-            <SelectItem value="all">כל האירועים</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger dir="rtl" className="w-full sm:w-44">
-            <SelectValue placeholder="כל האולמות" />
-          </SelectTrigger>
-          <SelectContent dir="rtl">
-            <SelectItem value="all">כל האולמות</SelectItem>
-            {venues.map((venue) => (
-              <SelectItem key={venue?.id} value={venue?.id || ""}>
-                {venue?.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Combobox
+          options={[
+            { value: "upcoming", label: "אירועים קרובים" },
+            { value: "past", label: "אירועי עבר" },
+            { value: "all", label: "כל האירועים" },
+          ]}
+          value={timeFilter}
+          onValueChange={(v) => setTimeFilter(v as "upcoming" | "past" | "all")}
+          placeholder="טווח זמן"
+          clearable={false}
+          className="w-full sm:w-44"
+        />
+        <Combobox
+          options={venues.flatMap((v) => (v ? [{ value: v.id, label: v.name }] : []))}
+          value={venueFilter === "all" ? "" : venueFilter}
+          onValueChange={(v) => setVenueFilter(v || "all")}
+          placeholder="כל האולמות"
+          searchPlaceholder="הקלד שם אולם..."
+          className="w-full sm:w-44"
+        />
         {/* Hebrew calendar picker like the rest of the app - the native date
             input was the only Gregorian-first control on this screen */}
         <div className="flex gap-1 w-full sm:w-auto">
           <Dialog open={dateDialogOpen} onOpenChange={setDateDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2 flex-1 sm:flex-initial sm:w-44 justify-between font-normal">
-                {dateFilter ? formatDate(new Date(dateFilter + "T12:00:00")) : "סינון לפי תאריך"}
+              <Button variant="outline" className="gap-2 flex-1 sm:flex-initial sm:w-56 justify-between font-normal">
+                {dateFilter ? (
+                  <span className="truncate">
+                    {formatDate(new Date(dateFilter + "T12:00:00"))}
+                    <span className="text-muted-foreground text-xs"> · {toHebrewDateShort(dateFilter)}</span>
+                  </span>
+                ) : (
+                  "סינון לפי תאריך"
+                )}
                 <CalendarDays size={16} className="text-muted-foreground" />
               </Button>
             </DialogTrigger>
@@ -267,7 +312,14 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">{formatCurrency(ev.price_final)}</td>
                 <td className="px-4 py-3">
-                  <Badge variant={STATUS_VARIANT[ev.status]}>{STATUS_LABELS[ev.status]}</Badge>
+                  <div className="flex flex-col items-start gap-1">
+                    <Badge variant={STATUS_VARIANT[ev.status]}>{STATUS_LABELS[ev.status]}</Badge>
+                    {ev.cancellation_requested_at && ev.status !== "cancelled" && (
+                      <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                        ממתין לביטול
+                      </Badge>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 max-w-xs">
                   {ev.notes ? (
@@ -319,7 +371,14 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                 <p className="font-semibold">{ev.client_name}</p>
                 <p className="text-sm text-muted-foreground" dir="ltr">{ev.client_phone}</p>
               </button>
-              <Badge variant={STATUS_VARIANT[ev.status]}>{STATUS_LABELS[ev.status]}</Badge>
+              <div className="flex flex-col items-end gap-1">
+                <Badge variant={STATUS_VARIANT[ev.status]}>{STATUS_LABELS[ev.status]}</Badge>
+                {ev.cancellation_requested_at && ev.status !== "cancelled" && (
+                  <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                    ממתין לביטול
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="text-sm space-y-1">
               <div className="flex justify-between">

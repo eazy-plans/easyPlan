@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     // and the contact phone lives on venues, not users.
     // event_type feeds the cancellation email - without it the email's
     // event-type line rendered empty.
-    .select("id, venue_id, date, event_type, status, client_name, client_phone, client_email, price_final, booking_date, original_price_final, notes, venues(id, name, city, owner_user_id, cancellation_policy, contact_name, contact_phone, owner:users!owner_user_id(full_name))")
+    .select("id, venue_id, date, event_type, event_purpose, status, client_name, client_phone, client_email, price_final, booking_date, original_price_final, notes, venues(id, name, city, owner_user_id, cancellation_policy, contact_name, contact_phone, owner:users!owner_user_id(full_name))")
     .eq("id", eventId)
     .single();
 
@@ -122,11 +122,14 @@ export async function POST(request: Request) {
     if (!lead?.client_email) continue;
 
     try {
+      // Waitlist entries are filtered to event.venue_id, so the outer venue
+      // fetch already holds this venue's contact details.
       await sendWaitlistNotifyEmail(
         lead.client_email,
         lead.client_name,
         waitlistVenue?.name ?? "",
         event.date,
+        { name: venue.contact_name, phone: venue.contact_phone },
       );
 
       await admin.from("email_logs").insert({

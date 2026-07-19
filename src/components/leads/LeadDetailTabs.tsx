@@ -1,22 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { formatDate } from "@/lib/utils";
+import Link from "next/link";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Pencil } from "lucide-react";
+import { ArrowRight, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { LeadRow, LeadInquiryStatus, EventRow, VenueRow } from "@/types/database";
 import { EVENT_PURPOSE_LABELS } from "@/types/booking";
+import { INQUIRY_STATUS_LABELS, INQUIRY_STATUSES, INQUIRY_STATUS_VARIANT, REJECTION_STATUSES } from "@/types/leads";
 
 interface LeadInquiry {
   id: string;
@@ -35,27 +48,9 @@ interface LeadDetailTabsProps {
   lead: LeadRow;
   inquiries: LeadInquiry[];
   events: Event[];
+  /** events RLS only lets admins delete - hide the button for everyone else */
+  isAdmin: boolean;
 }
-
-const INQUIRY_STATUS_LABELS: Record<LeadInquiryStatus, string> = {
-  considering: "בשיקול",
-  too_expensive: "יקר מדי",
-  not_relevant: "לא רלוונטי",
-  not_interested: "לא מעוניין",
-  booked: "הוזמן",
-  cancelled: "בוטל",
-};
-
-const INQUIRY_STATUSES: LeadInquiryStatus[] = ["considering", "too_expensive", "not_relevant", "not_interested", "booked", "cancelled"];
-
-const INQUIRY_STATUS_VARIANT: Record<LeadInquiryStatus, "default" | "secondary" | "outline" | "destructive"> = {
-  considering: "secondary",
-  too_expensive: "outline",
-  not_relevant: "outline",
-  not_interested: "outline",
-  booked: "default",
-  cancelled: "destructive",
-};
 
 const EVENT_STATUS_LABELS: Record<string, string> = {
   morning: "בוקר",
@@ -64,10 +59,12 @@ const EVENT_STATUS_LABELS: Record<string, string> = {
   shabbat: "שבת",
 };
 
-export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries, events }: LeadDetailTabsProps) {
+export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries, events: initialEvents, isAdmin }: LeadDetailTabsProps) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
   const [inquiries, setInquiries] = useState(initialInquiries);
+  const [events, setEvents] = useState(initialEvents);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [tab, setTab] = useState<"inquiries" | "events" | "statistics">("inquiries");
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -171,6 +168,28 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     } finally {
       setSavingInquiry(false);
     }
+  }
+
+  async function handleDeleteInquiry(inquiryId: string) {
+    setDeletingId(inquiryId);
+    const supabase = createClient();
+    const { error } = await supabase.from("lead_inquiries").delete().eq("id", inquiryId);
+    setDeletingId(null);
+    if (error) { toast.error("שגיאה במחיקת הפנייה"); return; }
+    setInquiries((prev) => prev.filter((i) => i.id !== inquiryId));
+    toast.success("הפנייה נמחקה");
+    router.refresh();
+  }
+
+  async function handleDeleteEvent(eventId: string) {
+    setDeletingId(eventId);
+    const supabase = createClient();
+    const { error } = await supabase.from("events").delete().eq("id", eventId);
+    setDeletingId(null);
+    if (error) { toast.error("שגיאה במחיקת ההזמנה"); return; }
+    setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    toast.success("ההזמנה נמחקה");
+    router.refresh();
   }
 
   return (
@@ -279,14 +298,55 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
                   <div key={inquiry.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div className="flex-1">
-                        <p className="font-semibold text-base">{inquiry.venue?.name || "-"}</p>
+                        {inquiry.venue ? (
+                          <Link
+                            href={`/venues/${inquiry.venue.id}`}
+                            className="font-semibold text-base text-primary hover:underline"
+                          >
+                            {inquiry.venue.name}
+                          </Link>
+                        ) : (
+                          <p className="font-semibold text-base">-</p>
+                        )}
                         <p className="text-sm text-muted-foreground mt-1">
                           {formatDate(new Date(inquiry.created_at))} • {toHebrewDateShort(inquiry.created_at)}
                         </p>
                       </div>
-                      <Badge variant={INQUIRY_STATUS_VARIANT[inquiry.status]}>
-                        {INQUIRY_STATUS_LABELS[inquiry.status]}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={INQUIRY_STATUS_VARIANT[inquiry.status]}>
+                          {INQUIRY_STATUS_LABELS[inquiry.status]}
+                        </Badge>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive h-8 w-8 p-0"
+                              disabled={deletingId === inquiry.id}
+                              aria-label="מחק פנייה"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>מחיקת פנייה</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                הפנייה לאולם {inquiry.venue?.name || ""} תימחק לצמיתות. לא ניתן לבטל פעולה זו.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>ביטול</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteInquiry(inquiry.id)}
+                                className="bg-destructive text-white hover:bg-destructive/90"
+                              >
+                                מחק
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
 
                     <div className="space-y-2 text-sm">
@@ -297,8 +357,10 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
 
                       {inquiry.rejection_reason && (
                         <div>
-                          <p className="text-muted-foreground">סיבת דחייה</p>
-                          <p>{inquiry.rejection_reason}</p>
+                          <p className="text-muted-foreground">
+                            {REJECTION_STATUSES.includes(inquiry.status) ? "סיבת דחייה" : "הערה"}
+                          </p>
+                          <p className="whitespace-pre-wrap">{inquiry.rejection_reason}</p>
                         </div>
                       )}
 
@@ -326,18 +388,77 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
                 {events.map((event) => (
                   <div
                     key={event.id}
-                    className="border rounded-lg p-4"
+                    role="button"
+                    tabIndex={0}
+                    className="border rounded-lg p-4 cursor-pointer hover:bg-muted/50 transition-colors focus-visible:bg-muted/50 focus-visible:outline-none"
+                    onClick={() => router.push(`/events/${event.id}`)}
+                    onKeyDown={(e) => { if (e.key === "Enter") router.push(`/events/${event.id}`); }}
                   >
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div className="flex-1">
-                        <p className="font-semibold text-base">{event.venue?.name || "-"}</p>
+                        {event.venue ? (
+                          <Link
+                            href={`/venues/${event.venue.id}`}
+                            className="font-semibold text-base text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {event.venue.name}
+                          </Link>
+                        ) : (
+                          <p className="font-semibold text-base">-</p>
+                        )}
                         <p className="text-sm text-muted-foreground mt-1">
                           {formatDate(new Date(event.date))} • {toHebrewDateShort(event.date)}
                         </p>
                       </div>
-                      <Badge variant="default">
-                        {EVENT_STATUS_LABELS[event.event_type] || event.event_type}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        {event.status === "cancelled" && (
+                          <Badge variant="destructive">בוטל</Badge>
+                        )}
+                        {event.cancellation_requested_at && event.status !== "cancelled" && (
+                          <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                            ממתין לביטול
+                          </Badge>
+                        )}
+                        <Badge variant="default">
+                          {EVENT_STATUS_LABELS[event.event_type] || event.event_type}
+                        </Badge>
+                        {isAdmin && (
+                          <span onClick={(e) => e.stopPropagation()}>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive h-8 w-8 p-0"
+                                  disabled={deletingId === event.id}
+                                  aria-label="מחק הזמנה"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>מחיקת הזמנה</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    ההזמנה ב{event.venue?.name || "אולם"} בתאריך {formatDate(new Date(event.date))} תימחק לצמיתות.
+                                    שים לב: מחיקה עוקפת את תהליך הביטול המסודר (מיילים, רשימת המתנה). לא ניתן לבטל פעולה זו.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>ביטול</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteEvent(event.id)}
+                                    className="bg-destructive text-white hover:bg-destructive/90"
+                                  >
+                                    מחק
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
@@ -366,7 +487,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
 
                     <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t">
                       {event.booking_date && <span>הוזמן: {formatDate(new Date(event.booking_date))}</span>}
-                      <span>נוצר: {formatDate(new Date(event.created_at))}</span>
+                      <span>נוצר: <span dir="ltr">{formatDateTime(event.created_at)}</span></span>
                       {event.cancelled_at && (
                         <span className="text-destructive">בוטל: {formatDate(new Date(event.cancelled_at))}</span>
                       )}
@@ -530,39 +651,35 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
             <form onSubmit={(e) => { e.preventDefault(); handleAddInquiry(); }} className="space-y-4">
               <div className="space-y-1">
                 <Label>אולם *</Label>
-                <Select value={inquiryForm.venue_id} onValueChange={(v) => setInquiryForm({ ...inquiryForm, venue_id: v })}>
-                  <SelectTrigger dir="rtl" disabled={loadingVenues}>
-                    <SelectValue placeholder={loadingVenues ? "טוען..." : "בחר אולם"} />
-                  </SelectTrigger>
-                  <SelectContent dir="rtl">
-                    {venues.map((venue) => (
-                      <SelectItem key={venue.id} value={venue.id}>{venue.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={venues.map((venue) => ({ value: venue.id, label: venue.name }))}
+                  value={inquiryForm.venue_id}
+                  onValueChange={(v) => setInquiryForm({ ...inquiryForm, venue_id: v })}
+                  placeholder={loadingVenues ? "טוען..." : "בחר אולם"}
+                  searchPlaceholder="הקלד שם אולם..."
+                  disabled={loadingVenues}
+                  clearable={false}
+                />
               </div>
               <div className="space-y-1">
                 <Label>סטטוס</Label>
-                <Select value={inquiryForm.status} onValueChange={(v) => setInquiryForm({ ...inquiryForm, status: v as LeadInquiryStatus })}>
-                  <SelectTrigger dir="rtl"><SelectValue /></SelectTrigger>
-                  <SelectContent dir="rtl">
-                    {INQUIRY_STATUSES.map((status) => (
-                      <SelectItem key={status} value={status}>{INQUIRY_STATUS_LABELS[status]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={INQUIRY_STATUSES.map((status) => ({ value: status, label: INQUIRY_STATUS_LABELS[status] }))}
+                  value={inquiryForm.status}
+                  onValueChange={(v) => setInquiryForm({ ...inquiryForm, status: v as LeadInquiryStatus })}
+                  placeholder="בחר סטטוס"
+                  clearable={false}
+                />
               </div>
-              {(inquiryForm.status === "too_expensive" || inquiryForm.status === "not_relevant" || inquiryForm.status === "not_interested" || inquiryForm.status === "cancelled") && (
-                <div className="space-y-1">
-                  <Label>סיבת דחייה</Label>
-                  <Textarea
-                    rows={2}
-                    value={inquiryForm.rejection_reason}
-                    onChange={(e) => setInquiryForm({ ...inquiryForm, rejection_reason: e.target.value })}
-                    placeholder="הסבר את סיבת הדחייה (אופציונלי)"
-                  />
-                </div>
-              )}
+              <div className="space-y-1">
+                <Label>{REJECTION_STATUSES.includes(inquiryForm.status) ? "סיבת דחייה" : "הערה"}</Label>
+                <Textarea
+                  rows={2}
+                  value={inquiryForm.rejection_reason}
+                  onChange={(e) => setInquiryForm({ ...inquiryForm, rejection_reason: e.target.value })}
+                  placeholder={REJECTION_STATUSES.includes(inquiryForm.status) ? "הסבר את סיבת הדחייה" : "הערות"}
+                />
+              </div>
               <div className="flex gap-3">
                 <Button type="submit" disabled={savingInquiry} className="flex-1">
                   {savingInquiry ? "שומר..." : "שמור"}

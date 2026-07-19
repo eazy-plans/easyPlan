@@ -80,6 +80,13 @@ from (values
             and indexname = 'leads_client_phone_unique')),
   ('027_events_optional_client_email',
     coalesce((select is_nullable = 'YES' from col
-              where table_name = 'events' and column_name = 'client_email'), false))
+              where table_name = 'events' and column_name = 'client_email'), false)),
+  ('028_realtime_booking_locks',
+    exists (select 1 from pg_publication_tables
+            where pubname = 'supabase_realtime'
+            and schemaname = 'public' and tablename = 'booking_locks')),
+  ('029_event_cancellation_request',
+    exists (select 1 from col where table_name = 'events'
+            and column_name = 'cancellation_requested_at'))
 ) as m(migration, applied)
 order by migration;

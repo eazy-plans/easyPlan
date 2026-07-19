@@ -86,6 +86,8 @@ export function BookingWizard({ isAdmin, userId, venues }: BookingWizardProps) {
           <StepPickDate
             venue={selectedVenue}
             userId={userId}
+            initialDate={date}
+            initialEventType={eventType}
             onNext={(d, et) => { setDate(d); setEventType(et); setScreen("venue-detail"); }}
             onBack={() => setScreen("search")}
           />
@@ -96,7 +98,10 @@ export function BookingWizard({ isAdmin, userId, venues }: BookingWizardProps) {
             venue={selectedVenue}
             eventType={eventType}
             onBook={() => setScreen("booking")}
-            onBack={() => setScreen(date ? "search" : "pick-date")}
+            // date is always set by this screen, so it can't decide where
+            // "back" leads - usedPickDate tracks whether this flow actually
+            // went through pick-date, keeping back navigation step-by-step.
+            onBack={() => setScreen(usedPickDate ? "pick-date" : "search")}
           />
         )}
 

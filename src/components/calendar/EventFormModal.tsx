@@ -3,14 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon } from "lucide-react";
 import type { EventType, EventPurpose, EventRow } from "@/types/database";
 import { formatDate, isValidPhone, toLocalDateStr } from "@/lib/utils";
@@ -160,7 +159,8 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            <div className="flex flex-col items-end gap-0.5">
+            {/* items-start = the right edge in RTL; items-end pinned the title to the left */}
+            <div className="flex flex-col items-start gap-0.5">
               <span>{isEdit ? `עריכת אירוע` : `הוספת אירוע`}</span>
               <span className="text-xs text-muted-foreground font-normal">
                 {isEdit ? formatDate(new Date(event!.date)) : formatDate(selectedDate)}
@@ -175,35 +175,38 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>סוג אירוע *</Label>
-              <Select value={form.event_type} onValueChange={(v) => set("event_type", v)}>
-                <SelectTrigger ref={eventTypeRef} dir="rtl"><SelectValue placeholder="בחר" /></SelectTrigger>
-                <SelectContent dir="rtl">
-                  {(Object.entries(EVENT_TYPE_LABELS) as [EventType, string][]).map(([v, l]) => (
-                    <SelectItem key={v} value={v}>{l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                ref={eventTypeRef}
+                options={(Object.entries(EVENT_TYPE_LABELS) as [EventType, string][]).map(([v, l]) => ({ value: v, label: l }))}
+                value={form.event_type}
+                onValueChange={(v) => set("event_type", v)}
+                placeholder="בחר"
+                clearable={false}
+              />
             </div>
             <div className="space-y-1">
               <Label>מהות האירוע *</Label>
-              <Select value={form.event_purpose} onValueChange={(v) => set("event_purpose", v)}>
-                <SelectTrigger ref={eventPurposeRef} dir="rtl"><SelectValue placeholder="בחר" /></SelectTrigger>
-                <SelectContent dir="rtl">
-                  {(Object.entries(EVENT_PURPOSE_LABELS) as [EventPurpose, string][]).map(([v, l]) => (
-                    <SelectItem key={v} value={v}>{l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                ref={eventPurposeRef}
+                options={(Object.entries(EVENT_PURPOSE_LABELS) as [EventPurpose, string][]).map(([v, l]) => ({ value: v, label: l }))}
+                value={form.event_purpose}
+                onValueChange={(v) => set("event_purpose", v)}
+                placeholder="בחר"
+                clearable={false}
+              />
             </div>
           </div>
 
           <div className="space-y-1 col-span-2">
             <Label>תאריך אירוע *</Label>
-            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-              <PopoverTrigger asChild>
+            {/* Nested dialog so the Hebrew calendar opens centered on screen,
+                like the events-table date filter, instead of a popover glued
+                to the trigger */}
+            <Dialog open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="w-full justify-between"
+                  className="w-full justify-between h-auto py-2"
                   type="button"
                 >
                   <div className="text-right">
@@ -212,20 +215,25 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
                   </div>
                   <CalendarIcon className="h-4 w-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[620px] max-w-[95vw] overflow-x-auto p-3" align="end">
-                <HebrewCalendar
-                  compact
-                  selected={selectedDate}
-                  onSelect={(d: Date | undefined) => {
-                    if (d) {
-                      setSelectedDate(d);
-                      setDatePickerOpen(false);
-                    }
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
+              </DialogTrigger>
+              <DialogContent className="max-w-[660px]" dir="rtl">
+                <DialogHeader>
+                  <DialogTitle>בחירת תאריך אירוע</DialogTitle>
+                </DialogHeader>
+                <DialogBody>
+                  <HebrewCalendar
+                    compact
+                    selected={selectedDate}
+                    onSelect={(d: Date | undefined) => {
+                      if (d) {
+                        setSelectedDate(d);
+                        setDatePickerOpen(false);
+                      }
+                    }}
+                  />
+                </DialogBody>
+              </DialogContent>
+            </Dialog>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

@@ -105,7 +105,7 @@ export function PendingVenuesPanel() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">אולמות בהמתנה</h2>
+        <h2 className="text-xl font-semibold">אולמות ממתינים לאישור</h2>
         <p className="text-muted-foreground">טוען...</p>
       </div>
     );
@@ -114,8 +114,8 @@ export function PendingVenuesPanel() {
   if (venues.length === 0) {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">אולמות בהמתנה</h2>
-        <p className="text-muted-foreground">אין אולמות בהמתנה לאישור</p>
+        <h2 className="text-xl font-semibold">אולמות ממתינים לאישור</h2>
+        <p className="text-muted-foreground">אין אולמות הממתינים לאישור</p>
       </div>
     );
   }
@@ -123,7 +123,7 @@ export function PendingVenuesPanel() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">אולמות בהמתנה ({venues.length})</h2>
+        <h2 className="text-xl font-semibold">אולמות ממתינים לאישור ({venues.length})</h2>
         <Button onClick={loadPendingVenues} variant="outline" size="sm">
           רענן
         </Button>

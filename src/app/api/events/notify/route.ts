@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
     let emailFailed = false;
     try {
-      await sendOwnerEventCreatedEmail(event, venue, ownerEmail);
+      await sendOwnerEventCreatedEmail(event, venue, ownerEmail, venue?.owner?.full_name);
     } catch (err) {
       console.error(`Owner email failed for event ${eventId}:`, err);
       emailFailed = true;

@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/queries";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { Badge } from "@/components/ui/badge";
 import { BackButton } from "./BackButton";
@@ -37,6 +38,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     notFound();
   }
 
+  // Leads are keyed by phone - link the client straight to their lead card
+  // when one exists.
+  const { data: lead } = await supabase.from("leads")
+    .select("id")
+    .eq("client_phone", event.client_phone)
+    .maybeSingle();
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -49,12 +57,27 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         <div className="bg-card border rounded-lg p-6 mb-6">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-3xl font-bold">{event.venue?.name || "-"}</h1>
+              <h1 className="text-3xl font-bold">
+                {event.venue?.id ? (
+                  <Link href={`/venues/${event.venue.id}`} className="hover:underline hover:text-primary transition-colors">
+                    {event.venue.name}
+                  </Link>
+                ) : (
+                  event.venue?.name || "-"
+                )}
+              </h1>
               <p className="text-sm text-muted-foreground mt-1">סוג: הזמנה</p>
             </div>
-            <Badge variant={event.status === "approved" ? "default" : "destructive"}>
-              {EVENT_STATUS_LABELS_FULL[event.status] || event.status}
-            </Badge>
+            <div className="flex flex-col items-end gap-1">
+              <Badge variant={event.status === "approved" ? "default" : "destructive"}>
+                {EVENT_STATUS_LABELS_FULL[event.status] || event.status}
+              </Badge>
+              {event.cancellation_requested_at && event.status !== "cancelled" && (
+                <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                  ממתין לביטול
+                </Badge>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -70,6 +93,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             <div>
               <p className="text-sm text-muted-foreground mb-1">שם הלקוח</p>
               <p className="font-medium">{event.client_name || "-"}</p>
+              {lead && (
+                <Link href={`/leads/${lead.id}`} className="text-xs text-primary hover:underline">
+                  פתח את כרטיס הליד ←
+                </Link>
+              )}
             </div>
             <div>
               <p className="text-sm text-muted-foreground mb-1">טלפון</p>
@@ -125,8 +153,16 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               </div>
               <div>
                 <p className="text-muted-foreground mb-1">נוצר ב</p>
-                <p>{formatDate(new Date(event.created_at))}</p>
+                <p dir="ltr" className="text-right">{formatDateTime(event.created_at)}</p>
               </div>
+              {event.cancellation_requested_at && event.status !== "cancelled" && (
+                <div>
+                  <p className="text-muted-foreground mb-1">בקשת ביטול</p>
+                  <p dir="ltr" className="text-right text-amber-600 dark:text-amber-400">
+                    {formatDateTime(event.cancellation_requested_at)}
+                  </p>
+                </div>
+              )}
               {event.cancelled_at && (
                 <>
                   <div>

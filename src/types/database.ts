@@ -39,7 +39,8 @@ export type LeadInquiryStatus =
   | "not_relevant"
   | "not_interested"
   | "booked"
-  | "cancelled";
+  | "cancelled"
+  | "other";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Row types (what you get back from SELECT queries)
@@ -129,6 +130,7 @@ export type EventRow = {
   refund_amount: number | null;
   refund_date: string | null;
   original_price_final: number | null;
+  cancellation_requested_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -316,6 +318,7 @@ export type Database = {
           refund_amount?: number | null;
           refund_date?: string | null;
           original_price_final?: number | null;
+          cancellation_requested_at?: string | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;

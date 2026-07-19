@@ -33,6 +33,23 @@ export function eventsHistoryCutoffStr(years = 2): string {
   return toLocalDateStr(cutoff);
 }
 
+/**
+ * "dd/MM/yyyy, HH:mm" in Israel time. Timestamps must not be formatted with
+ * date-fns directly - on Vercel the server runs in UTC, so the rendered hour
+ * would be off by 2-3 hours from what the user expects.
+ */
+export function formatDateTime(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jerusalem",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
+
 export function formatCurrency(amount: number): string {
   return `₪${amount.toLocaleString("he-IL")}`;
 }

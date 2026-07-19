@@ -2,7 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { VenueForm } from "./VenueForm";
 import { VenueEventsPanel } from "./VenueEventsPanel";
 import { VenueStatsPanel } from "./VenueStatsPanel";
@@ -29,6 +44,28 @@ const TABS: { id: Tab; label: string }[] = [
 
 export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, userId, isAdmin }: Props) {
   const [tab, setTab] = useState<Tab>("events");
+  const [deleting, setDeleting] = useState(false);
+  const router = useRouter();
+
+  async function deleteVenue() {
+    setDeleting(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("venues").delete().eq("id", venue.id);
+    setDeleting(false);
+    if (error) {
+      // events.venue_id is ON DELETE RESTRICT - a venue with bookings can't
+      // be removed, only deactivated.
+      if (error.code === "23503") {
+        toast.error("לא ניתן למחוק אולם שיש לו אירועים. ניתן לסמן אותו כלא פעיל בעריכה.");
+      } else {
+        toast.error("שגיאה במחיקת האולם");
+      }
+      return;
+    }
+    toast.success(`האולם "${venue.name}" נמחק`);
+    router.push("/venues");
+    router.refresh();
+  }
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -43,7 +80,7 @@ export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, u
           >
             <ArrowRight size={16} className="text-muted-foreground" />
           </Link>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold leading-tight truncate">{venue.name}</h1>
             <p className="text-xs text-muted-foreground mt-0.5 truncate">
               {venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}
@@ -61,6 +98,39 @@ export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, u
               </p>
             )}
           </div>
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive shrink-0 gap-1.5"
+                  disabled={deleting}
+                >
+                  <Trash2 size={15} />
+                  מחק אולם
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>מחיקת אולם</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    האולם &quot;{venue.name}&quot; יימחק לצמיתות מהמערכת, כולל התמונות והפניות שלו.
+                    לא ניתן לבטל פעולה זו.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>ביטול</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={deleteVenue}
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                  >
+                    מחק
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
         {/* Tab bar */}
         <div className="flex">

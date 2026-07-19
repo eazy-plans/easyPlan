@@ -1,7 +1,6 @@
 import { Building2 } from "lucide-react";
 import type { VenueRow, UserRow } from "@/types/database";
 import { AddVenueModal } from "@/components/venues/AddVenueModal";
-import { PendingVenuesPanel } from "@/components/venues/PendingVenuesPanel";
 import { VenuesViewToggle } from "@/components/venues/VenuesViewToggle";
 import { getUserProfile } from "@/lib/supabase/queries";
 
@@ -33,10 +32,9 @@ export async function VenuesContent() {
     : { data: [] as Pick<UserRow, "id" | "full_name" | "email">[], error: null };
   if (ownersError) throw new Error(`Failed to load owners: ${ownersError.message}`);
 
+  // Pending-approval venues are handled on the notifications page.
   return (
     <>
-      {isAdmin && <PendingVenuesPanel />}
-
       {!venues?.length ? (
         <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground gap-3">
           <Building2 size={48} strokeWidth={1} />

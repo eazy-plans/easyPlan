@@ -63,7 +63,7 @@ export function VenuesViewToggle({
         <p className="text-sm text-muted-foreground">{venues.length} אולמות במערכת</p>
       </div>
 
-      <div className="flex-1 overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         {viewMode === "table" ? (
           <div className="flex-1 overflow-y-auto min-h-0">
             <VenuesTable venues={venues} owners={owners} isAdmin={isAdmin} isVenueOwner={isVenueOwner} />

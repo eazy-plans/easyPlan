@@ -12,6 +12,7 @@ import {
   ListOrdered,
   Building2,
   Users,
+  Bell,
   Settings,
   LogOut,
   Menu,
@@ -66,6 +67,12 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["admin", "secretary"],
   },
   {
+    label: "התראות",
+    href: "/notifications",
+    icon: <Bell size={18} />,
+    roles: ["admin"],
+  },
+  {
     label: "הגדרות",
     href: "/settings",
     icon: <Settings size={18} />,
@@ -76,9 +83,11 @@ const NAV_ITEMS: NavItem[] = [
 interface SidebarProps {
   role: UserRole;
   fullName: string;
+  /** Open admin notifications (pending venues + cancellation requests). */
+  notificationCount?: number;
 }
 
-export function Sidebar({ role, fullName }: SidebarProps) {
+export function Sidebar({ role, fullName, notificationCount = 0 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -108,6 +117,11 @@ export function Sidebar({ role, fullName }: SidebarProps) {
         >
           {item.icon}
           {item.label}
+          {item.href === "/notifications" && notificationCount > 0 && (
+            <span className="mr-auto min-w-5 h-5 px-1.5 rounded-full bg-destructive text-white text-xs font-semibold flex items-center justify-center">
+              {notificationCount}
+            </span>
+          )}
         </Link>
       ))}
     </nav>

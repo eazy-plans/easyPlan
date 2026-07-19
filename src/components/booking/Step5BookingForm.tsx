@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { formatCurrency, formatDate, isValidPhone, toLocalDateStr } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS, PRICE_KEY } from "@/types/booking";
@@ -308,14 +308,13 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
 
         <div className="space-y-1">
           <Label>מהות האירוע *</Label>
-          <Select value={form.event_purpose} onValueChange={(v) => set("event_purpose", v)}>
-            <SelectTrigger dir="rtl"><SelectValue placeholder="בחר מהות" /></SelectTrigger>
-            <SelectContent dir="rtl">
-              {(Object.entries(EVENT_PURPOSE_LABELS) as [EventPurpose, string][]).map(([v, l]) => (
-                <SelectItem key={v} value={v}>{l}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Combobox
+            options={(Object.entries(EVENT_PURPOSE_LABELS) as [EventPurpose, string][]).map(([v, l]) => ({ value: v, label: l }))}
+            value={form.event_purpose}
+            onValueChange={(v) => set("event_purpose", v)}
+            placeholder="בחר מהות"
+            clearable={false}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4" ref={clientRef} dir="rtl">

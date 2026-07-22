@@ -39,7 +39,7 @@ export function Combobox({
   value,
   onValueChange,
   placeholder,
-  searchPlaceholder = "הקלד לחיפוש...",
+  searchPlaceholder = "חיפוש",
   emptyText = "לא נמצאו תוצאות",
   className,
   clearable = true,
@@ -115,7 +115,7 @@ export function Combobox({
       <PopoverContent
         dir="rtl"
         align="start"
-        className="w-[var(--radix-popover-trigger-width)] p-0"
+        className="w-max min-w-[var(--radix-popover-trigger-width)] max-w-[min(24rem,90vw)] p-0"
         onOpenAutoFocus={(e) => {
           e.preventDefault()
           inputRef.current?.focus()

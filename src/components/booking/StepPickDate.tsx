@@ -139,40 +139,49 @@ export function StepPickDate({ venue, userId, initialDate, initialEventType, onN
   const canContinue = !!date && !!eventType;
 
   return (
-    <div className="flex flex-col min-h-full">
-      <div className="flex-1 space-y-4">
-        <div className="bg-muted rounded-lg p-3 text-sm">
-          <span className="text-muted-foreground">אולם: </span>
-          <span className="font-medium">{venue.name}</span>
-          <span className="text-muted-foreground"> · </span>
-          <span className="font-medium">{venue.city}</span>
-          <span className="text-muted-foreground"> · </span>
-          <span className="font-medium">{venue.max_capacity} אורחים</span>
-        </div>
+    <div className="max-w-5xl w-full flex flex-col min-h-full">
+      <div className="flex-1 flex flex-col lg:flex-row gap-6">
 
-        <div>
-          <Label className="text-base font-semibold">סוג האירוע</Label>
-          <div className="grid grid-cols-4 gap-2 mt-2">
-            {(Object.entries(EVENT_TYPE_LABELS) as [EventType, string][]).map(([type, label]) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => handleEventTypeChange(type)}
-                disabled={isTypeDisabled(type)}
-                className="border-2 rounded-lg py-2.5 px-2 text-sm font-medium transition-all hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: EVENT_TYPE_COLORS[type],
-                  backgroundColor: eventType === type ? EVENT_TYPE_COLORS[type] : undefined,
-                  color: eventType === type ? "#fff" : undefined,
-                }}
-              >
-                {label}
-              </button>
-            ))}
+        {/* Info column - venue summary + event type */}
+        <div className="lg:w-64 shrink-0 space-y-4">
+          <div className="bg-muted rounded-lg p-3 text-sm space-y-1">
+            <p className="font-medium">{venue.name}</p>
+            <p className="text-muted-foreground text-xs">{venue.city} · {venue.max_capacity} אורחים</p>
           </div>
+
+          <div>
+            <Label className="text-base font-semibold">סוג האירוע</Label>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {(Object.entries(EVENT_TYPE_LABELS) as [EventType, string][]).map(([type, label]) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => handleEventTypeChange(type)}
+                  disabled={isTypeDisabled(type)}
+                  className="border-2 rounded-lg py-2.5 px-2 text-sm font-medium transition-all hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{
+                    borderColor: EVENT_TYPE_COLORS[type],
+                    backgroundColor: eventType === type ? EVENT_TYPE_COLORS[type] : undefined,
+                    color: eventType === type ? "#fff" : undefined,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {date && (
+            <div className="p-2 bg-muted rounded text-sm text-right space-y-0.5">
+              <p className="text-muted-foreground text-xs">התאריך שנבחר</p>
+              <p className="font-medium">{date.toLocaleDateString("he-IL")}</p>
+              <p className="text-xs text-muted-foreground">{toHebrewDateShort(date)}</p>
+            </div>
+          )}
         </div>
 
-        <div>
+        {/* Calendar column */}
+        <div className="flex-1 min-w-0">
           <Label className="text-base font-semibold">בחר תאריך פנוי</Label>
           {loadingAvailability ? (
             <p className="text-sm text-muted-foreground mt-4">טוען זמינות...</p>
@@ -183,48 +192,39 @@ export function StepPickDate({ venue, userId, initialDate, initialEventType, onN
                 selected={date ?? undefined}
                 onSelect={handleDateSelect}
                 disabled={calendarDisabled}
-                dayClassName={(d) => (isBooked(d) ? "bg-red-100 opacity-100" : undefined)}
+                dayClassName={(d) => (isBooked(d) ? "bg-destructive/10 opacity-100" : undefined)}
                 renderDay={(d) =>
                   isBooked(d) ? (
-                    <span className="inline-block rounded bg-red-200/70 px-1 text-[10px] font-semibold text-red-800">תפוס</span>
+                    <span className="inline-block rounded bg-destructive/15 px-1 text-[10px] font-semibold text-destructive">תפוס</span>
                   ) : null
                 }
                 className="w-full"
               />
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded-sm border border-red-200 bg-red-100" /> תפוס
+                  <span className="h-3 w-3 rounded-sm border border-destructive/30 bg-destructive/10" /> תפוס
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded-sm border border-gray-200 bg-gray-100" /> לא זמין
+                  <span className="h-3 w-3 rounded-sm border border-border bg-muted" /> לא זמין
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded-sm border border-amber-200 bg-amber-100" /> היום
+                  <span className="h-3 w-3 rounded-sm border border-warning/30 bg-warning/15" /> היום
                 </span>
               </div>
-            </div>
-          )}
-          {date && (
-            <div className="mt-3 p-2 bg-muted rounded text-sm text-right flex items-center gap-2">
-              <span className="text-muted-foreground">התאריך שנבחר:</span>
-              <span className="font-medium">{date.toLocaleDateString("he-IL")}</span>
-              <span className="text-xs text-muted-foreground">({toHebrewDateShort(date)})</span>
             </div>
           )}
         </div>
       </div>
 
-      <div className="sticky bottom-0 bg-background pt-3 pb-1">
-        <div className="flex gap-3">
-          <Button
-            onClick={() => canContinue && onNext(date!, eventType!)}
-            disabled={!canContinue}
-            className="flex-1"
-          >
-            המשך לפרטי האולם
-          </Button>
-          <Button variant="outline" onClick={onBack}>חזור</Button>
-        </div>
+      <div className="sticky bottom-0 bg-background pt-3 pb-1 mt-6 flex gap-3">
+        <Button
+          onClick={() => canContinue && onNext(date!, eventType!)}
+          disabled={!canContinue}
+          className="w-32"
+        >
+          המשך
+        </Button>
+        <Button variant="outline" onClick={onBack}>חזור</Button>
       </div>
     </div>
   );

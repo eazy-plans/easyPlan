@@ -81,18 +81,18 @@ async function cityAnchor(city: string): Promise<Point | null> {
  * actions are public HTTP endpoints: keep the auth check.
  */
 export async function geocodeVenue(venueId: string): Promise<VenueCoords | null> {
-  if (!venueId) throw new Error("Missing venueId");
+  if (!venueId) throw new Error("חסר מזהה אולם");
 
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new Error("אין הרשאה");
 
   // The caller must be able to see the venue under their own RLS policies.
   const { data: venue } = await supabase.from("venues")
     .select("*")
     .eq("id", venueId)
     .maybeSingle();
-  if (!venue) throw new Error("Venue not found");
+  if (!venue) throw new Error("האולם לא נמצא");
 
   if (venue.lat != null && venue.lng != null) {
     return { lat: venue.lat, lng: venue.lng, approximate: venue.coords_approximate ?? false };
@@ -153,13 +153,13 @@ export async function geocodeVenue(venueId: string): Promise<VenueCoords | null>
  * admins for any venue, owners for their own, secretaries not at all.
  */
 export async function setVenueCoords(venueId: string, lat: number, lng: number): Promise<void> {
-  if (!venueId) throw new Error("Missing venueId");
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error("Invalid coordinates");
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) throw new Error("Invalid coordinates");
+  if (!venueId) throw new Error("חסר מזהה אולם");
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error("קואורדינטות לא תקינות");
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) throw new Error("קואורדינטות לא תקינות");
 
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new Error("אין הרשאה");
 
   const { data, error } = await supabase.from("venues")
     .update({ lat, lng, coords_approximate: false })

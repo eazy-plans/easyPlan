@@ -137,7 +137,6 @@ export function VenueCalendar({ venues, initialEvents, userId, role }: VenueCale
             value={selectedVenueId}
             onValueChange={setSelectedVenueId}
             placeholder="בחר אולם"
-            searchPlaceholder="הקלד שם אולם..."
             clearable={false}
             className="w-56"
           />

@@ -8,7 +8,7 @@ export async function VenuesContent() {
   const { supabase, user, profile } = await getUserProfile();
   const isAdmin = profile.role === "admin";
 
-  let venueQuery = supabase.from("venues").select("*").order("created_at", { ascending: false });
+  let venueQuery = supabase.from("venues").select("*").order("name", { ascending: true });
 
   if (profile.role === "venue_owner") {
     venueQuery = venueQuery.eq("owner_user_id", user.id) as typeof venueQuery;

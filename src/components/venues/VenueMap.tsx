@@ -288,17 +288,17 @@ export function VenueMap({ venues, canEditPins = false }: VenueMapProps) {
               <Popup>
                 <div dir="rtl" className="text-sm max-w-xs">
                   <p className="font-semibold">{venue.name}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {venue.address}, {venue.city}
                   </p>
                   {venue.neighborhood && (
-                    <p className="text-xs text-gray-500">{venue.neighborhood}</p>
+                    <p className="text-xs text-muted-foreground">{venue.neighborhood}</p>
                   )}
                   {coords.approximate && (
-                    <p className="text-xs text-amber-600 mt-1">מיקום משוער (לפי עיר בלבד)</p>
+                    <p className="text-xs text-warning mt-1">מיקום משוער (לפי עיר בלבד)</p>
                   )}
                   {canEditPins && (
-                    <p className="text-xs text-gray-400 mt-1">ניתן לגרור את הסיכה לתיקון המיקום</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">ניתן לגרור את הסיכה לתיקון המיקום</p>
                   )}
                 </div>
               </Popup>

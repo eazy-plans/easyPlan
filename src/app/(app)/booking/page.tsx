@@ -19,7 +19,7 @@ export default async function BookingPage() {
   if (error) throw new Error(`Failed to load venues: ${error.message}`);
 
   return (
-    <div className="p-4 md:p-6 flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 p-4 sm:p-6">
       <BookingWizard isAdmin={isAdmin} userId={user.id} venues={venues ?? []} />
     </div>
   );

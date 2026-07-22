@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { StepSearch } from "./StepSearch";
 import { StepPickDate } from "./StepPickDate";
 import { Step4VenueDetail } from "./Step4VenueDetail";
@@ -57,10 +58,17 @@ export function BookingWizard({ isAdmin, userId, venues }: BookingWizardProps) {
   const currentIndex = visibleSteps.findIndex((s) => s.screen === screen);
   const showProgress = screen !== "confirm";
 
+  // The confirmation card is a short success message and reads best as a
+  // narrow centered column. Every other step (including the booking form,
+  // which lays out its static summary/pricing and its actual fields as two
+  // columns internally) has real width to fill, so only "confirm" gets the
+  // narrow wrapper.
+  const narrowStep = screen === "confirm";
+
   return (
-    <div className="max-w-2xl mx-auto w-full flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0">
       {showProgress && currentIndex >= 0 && (
-        <div className="mb-4 shrink-0">
+        <div className={cn("mb-4 shrink-0 w-full", narrowStep && "max-w-2xl")}>
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-lg font-semibold">{visibleSteps[currentIndex].title}</h1>
             <span className="text-sm text-muted-foreground">שלב {currentIndex + 1} מתוך {visibleSteps.length}</span>
@@ -76,7 +84,22 @@ export function BookingWizard({ isAdmin, userId, venues }: BookingWizardProps) {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+      <div
+        className={cn(
+          "flex-1 overflow-x-hidden min-h-0 w-full",
+          // The search step manages its own internal split scroll (filters
+          // fixed, results list scrolls) - it needs a bounded height to do
+          // that, so it gets overflow-hidden here instead of owning the scroll.
+          screen === "search" ? "overflow-hidden" : "overflow-y-auto scroll-area"
+          // Deliberately NOT narrowed here even for narrowStep screens: this div
+          // is the scroll container, so its scrollbar sits at its own edge (in
+          // RTL that's the box's left edge). Narrowing it left the scrollbar
+          // floating in the middle of the page. The width cap for narrow steps
+          // now lives inside Step5BookingForm/Step6Confirmation instead, so the
+          // scrollbar stays pinned to the real edge of the screen while the
+          // visible content stays a narrow flush-right column.
+        )}
+      >
 
         {screen === "search" && (
           <StepSearch userId={userId} venues={venues} onSelect={handleVenueSelect} />

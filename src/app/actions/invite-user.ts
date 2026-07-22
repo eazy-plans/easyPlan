@@ -8,14 +8,14 @@ import type { UserRole } from "@/types/database";
 export async function inviteUser(email: string, full_name: string, role: UserRole, password: string) {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Unauthorized" };
+  if (!user) return { error: "אין הרשאה" };
 
   const { data: profile } = await supabase.from("users")
     .select("role")
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin") return { error: "Forbidden" };
+  if (profile?.role !== "admin") return { error: "אין הרשאה לפעולה זו" };
 
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

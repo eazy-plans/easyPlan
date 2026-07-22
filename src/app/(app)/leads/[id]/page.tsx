@@ -44,15 +44,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const eventsData = eventsQuery ? (await eventsQuery).data ?? [] : [];
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <LeadDetailTabs
-          lead={lead}
-          inquiries={inquiries ?? []}
-          events={eventsData}
-          isAdmin={profile.role === "admin"}
-        />
-      </div>
+    <div className="flex flex-col flex-1 min-h-0 max-w-4xl mx-auto w-full">
+      <LeadDetailTabs
+        lead={lead}
+        inquiries={inquiries ?? []}
+        events={eventsData}
+        isAdmin={profile.role === "admin"}
+      />
     </div>
   );
 }

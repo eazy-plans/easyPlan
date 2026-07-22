@@ -58,7 +58,7 @@ export function CancellationDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-red-600">
+          <DialogTitle className="flex items-center gap-2 text-destructive">
             <AlertTriangle size={20} />
             ביטול הזמנה
           </DialogTitle>
@@ -66,9 +66,9 @@ export function CancellationDialog({
 
         <DialogBody className="space-y-4">
           {/* Event Summary */}
-          <div className="rounded-lg bg-gray-50 p-3 space-y-2">
+          <div className="rounded-lg bg-muted p-3 space-y-2">
             <p className="text-sm font-medium">פרטי ההזמנה:</p>
-            <ul className="text-xs space-y-1 text-gray-700">
+            <ul className="text-xs space-y-1 text-muted-foreground">
               <li>
                 <strong>אולם:</strong> {event.venue.name}
               </li>
@@ -85,9 +85,9 @@ export function CancellationDialog({
           </div>
 
           {/* Policy Info */}
-          <div className="rounded-lg bg-blue-50 p-3 space-y-2 border border-blue-200">
-            <p className="text-sm font-medium text-blue-900">מדיניות ביטול:</p>
-            <p className="text-xs text-blue-800 whitespace-pre-wrap">{policyDesc}</p>
+          <div className="rounded-lg bg-primary/5 p-3 space-y-2 border border-primary/20">
+            <p className="text-sm font-medium text-primary">מדיניות ביטול:</p>
+            <p className="text-xs text-foreground/80 whitespace-pre-wrap">{policyDesc}</p>
           </div>
 
           {/* Cancellation Reason */}
@@ -112,7 +112,7 @@ export function CancellationDialog({
               onChange={(e) => setAgreed(e.target.checked)}
               className="mt-1"
             />
-            <label htmlFor="agree" className="text-xs text-gray-700 cursor-pointer">
+            <label htmlFor="agree" className="text-xs text-muted-foreground cursor-pointer">
               אני מאשר/ת שקראתי ואני מבין/ה את מדיניות הביטול של האולם
             </label>
           </div>

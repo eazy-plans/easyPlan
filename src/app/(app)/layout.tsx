@@ -22,9 +22,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-screen">
+    <div className="flex flex-col md:flex-row h-screen overflow-hidden">
       <Sidebar role={profile.role} fullName={profile.full_name} notificationCount={notificationCount} />
-      <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden flex flex-col">{children}</main>
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">{children}</main>
     </div>
   );
 }

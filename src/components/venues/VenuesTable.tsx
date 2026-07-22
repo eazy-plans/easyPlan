@@ -28,6 +28,26 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { VenueEditModal } from "./VenueEditModal";
 import type { VenueRow, UserRow } from "@/types/database";
+import { Building2, ArrowUpDown, ParkingCircle, Accessibility, Bus, ChevronLeft } from "lucide-react";
+
+function AmenityChips({ venue }: { venue: VenueRow }) {
+  const amenities = [
+    { on: venue.has_elevator, icon: ArrowUpDown, label: "מעלית" },
+    { on: venue.has_parking, icon: ParkingCircle, label: "חנייה" },
+    { on: venue.is_accessible, icon: Accessibility, label: "נגישות" },
+    { on: venue.has_public_transport, icon: Bus, label: "תחב״צ" },
+  ].filter((a) => a.on);
+  if (amenities.length === 0) return <span className="text-muted-foreground/50 text-xs">—</span>;
+  return (
+    <div className="flex items-center gap-1.5">
+      {amenities.map(({ icon: Icon, label }) => (
+        <span key={label} title={label} className="flex items-center justify-center w-6 h-6 rounded-md bg-muted text-muted-foreground">
+          <Icon size={13} />
+        </span>
+      ))}
+    </div>
+  );
+}
 
 interface VenuesTableProps {
   venues: VenueRow[];
@@ -105,9 +125,10 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>שם האולם</TableHead>
+              <TableHead>אולם</TableHead>
               <TableHead>עיר</TableHead>
               <TableHead>קיבולת</TableHead>
+              <TableHead>נוחות</TableHead>
               <TableHead>סטטוס</TableHead>
               {canEdit && <TableHead />}
             </TableRow>
@@ -116,23 +137,29 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
             {venues.map((venue) => (
               <TableRow
                 key={venue.id}
-                className="cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+                className="group cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
                 onClick={() => router.push(`/venues/${venue.id}`)}
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === "Enter") router.push(`/venues/${venue.id}`); }}
               >
                 <TableCell className="font-medium">
-                  {/* Real link so the detail page gets prefetched on hover */}
-                  <Link
-                    href={`/venues/${venue.id}`}
-                    className="hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {venue.name}
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Building2 size={16} />
+                    </span>
+                    {/* Real link so the detail page gets prefetched on hover */}
+                    <Link
+                      href={`/venues/${venue.id}`}
+                      className="hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {venue.name}
+                    </Link>
+                  </div>
                 </TableCell>
-                <TableCell>{venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}</TableCell>
+                <TableCell className="text-muted-foreground">{venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}</TableCell>
                 <TableCell>{venue.max_capacity} אורחים</TableCell>
+                <TableCell><AmenityChips venue={venue} /></TableCell>
                 <TableCell>
                   <Badge variant={venue.is_active ? "default" : "secondary"}>
                     {venue.is_active ? "פעיל" : "לא פעיל"}
@@ -140,7 +167,7 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
                 </TableCell>
                 {canEdit && (
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-end gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -155,6 +182,7 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
                           onConfirm={() => deleteVenue(venue)}
                         />
                       )}
+                      <ChevronLeft size={15} className="text-muted-foreground/0 group-hover:text-muted-foreground transition-colors shrink-0" />
                     </div>
                   </TableCell>
                 )}
@@ -171,12 +199,15 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
             key={venue.id}
             role="button"
             tabIndex={0}
-            className="border rounded-lg p-4 space-y-2 cursor-pointer hover:bg-muted/40 transition-colors focus-visible:bg-muted/40 focus-visible:outline-none"
+            className="border rounded-xl bg-card p-4 space-y-3 shadow-card cursor-pointer hover:border-primary/40 transition-all focus-visible:bg-muted/40 focus-visible:outline-none"
             onClick={() => router.push(`/venues/${venue.id}`)}
             onKeyDown={(e) => { if (e.key === "Enter") router.push(`/venues/${venue.id}`); }}
           >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Building2 size={17} />
+              </span>
+              <div className="min-w-0 flex-1">
                 <p className="font-semibold truncate">{venue.name}</p>
                 <p className="text-sm text-muted-foreground truncate">
                   {venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}
@@ -186,9 +217,9 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
                 {venue.is_active ? "פעיל" : "לא פעיל"}
               </Badge>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">קיבולת</span>
-              <span>{venue.max_capacity} אורחים</span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{venue.max_capacity} אורחים</span>
+              <AmenityChips venue={venue} />
             </div>
             {canEdit && (
               <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>

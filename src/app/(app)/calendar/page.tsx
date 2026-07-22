@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/queries";
+import { PageShell } from "@/components/ui/page-shell";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarContent } from "./CalendarContent";
 
 function CalendarSkeleton() {
-  return (
-    <div className="flex-1 border rounded-lg bg-muted/30 animate-pulse min-h-[400px]" />
-  );
+  return <Skeleton className="flex-1 border rounded-lg bg-muted/30 min-h-[400px]" />;
 }
 
 export default async function CalendarPage() {
@@ -14,11 +14,10 @@ export default async function CalendarPage() {
   if (profile.role === "secretary") redirect("/events");
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 gap-4">
-      <h1 className="text-2xl font-bold shrink-0">יומן אירועים</h1>
+    <PageShell title="יומן אירועים" scroll={false} bodyClassName="gap-4">
       <Suspense fallback={<CalendarSkeleton />}>
         <CalendarContent />
       </Suspense>
-    </div>
+    </PageShell>
   );
 }

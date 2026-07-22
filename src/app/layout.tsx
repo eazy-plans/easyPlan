@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Noto_Sans_Hebrew } from "next/font/google";
+import { DirectionProvider } from "@radix-ui/react-direction";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -26,8 +27,10 @@ export default function RootLayout({
       className={`${hebrewFont.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {children}
-        <Toaster richColors position="top-center" />
+        <DirectionProvider dir="rtl">
+          {children}
+          <Toaster richColors position="top-center" />
+        </DirectionProvider>
       </body>
     </html>
   );

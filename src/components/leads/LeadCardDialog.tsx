@@ -9,14 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Phone, Mail, ArrowLeft } from "lucide-react";
 
 const AVATAR_GRADIENTS = [
+  "from-primary to-primary/70",
+  "from-rose-500 to-pink-600",
   "from-violet-500 to-purple-600",
-  "from-blue-500 to-cyan-500",
-  "from-emerald-500 to-teal-600",
-  "from-orange-500 to-amber-500",
-  "from-pink-500 to-rose-600",
-  "from-indigo-500 to-blue-600",
-  "from-sky-500 to-blue-500",
-  "from-fuchsia-500 to-pink-600",
+  "from-teal-500 to-emerald-600",
 ];
 
 type LeadCard = { id: string };

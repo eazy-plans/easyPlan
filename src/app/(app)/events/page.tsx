@@ -1,14 +1,14 @@
 import { Suspense } from "react";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { PageShell } from "@/components/ui/page-shell";
 import { EventsContent } from "./EventsContent";
 
 export default function EventsPage() {
   return (
-    <div className="p-4 md:p-6 flex flex-col flex-1 min-h-0">
-      <h1 className="text-2xl font-bold mb-6">ניהול אירועים</h1>
+    <PageShell title="ניהול אירועים" scroll={false}>
       <Suspense fallback={<TableSkeleton />}>
         <EventsContent />
       </Suspense>
-    </div>
+    </PageShell>
   );
 }

@@ -189,7 +189,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
               {STATUS_LABELS[event.status]}
             </Badge>
             {event.cancellation_requested_at && event.status !== "cancelled" && (
-              <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+              <Badge variant="warning-soft">
                 ממתין לביטול
               </Badge>
             )}
@@ -317,7 +317,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
           {event.cancellation_requested_at && event.status !== "cancelled" && (
             <div className="flex gap-2">
               <span className="text-muted-foreground w-24 shrink-0">בקשת ביטול</span>
-              <span className="text-amber-600 dark:text-amber-400" dir="ltr">
+              <span className="text-warning" dir="ltr">
                 {formatDateTime(event.cancellation_requested_at)}
               </span>
             </div>
@@ -385,7 +385,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
             <Button
               size="sm"
               variant="outline"
-              className="border-amber-500 text-amber-600 hover:text-amber-700 dark:text-amber-400"
+              className="border-warning/50 text-warning hover:text-warning/80"
               onClick={toggleCancellationRequest}
               disabled={loading || cancelLoading}
             >

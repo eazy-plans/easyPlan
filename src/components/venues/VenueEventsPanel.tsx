@@ -68,35 +68,47 @@ export function VenueEventsPanel({ venueId, initialEvents, userId, isAdmin }: Pr
 
   return (
     <div className="flex flex-col gap-4 min-h-0">
-      {/* View toggle */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex border rounded-lg overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setViewMode("calendar")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "calendar" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-          >
-            <CalendarDays size={14} />
-            לוח
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("list")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors border-r ${viewMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-          >
-            <List size={14} />
-            רשימה
-          </button>
+      {/* View toggle + legend (calendar view only), sharing one row */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex border rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setViewMode("calendar")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "calendar" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            >
+              <CalendarDays size={14} />
+              לוח
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors border-r ${viewMode === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            >
+              <List size={14} />
+              רשימה
+            </button>
+          </div>
+          {isAdmin && (
+            <Button size="sm" onClick={() => setAddModal({ open: true, date: new Date() })}>
+              + אירוע חדש
+            </Button>
+          )}
         </div>
-        {isAdmin && (
-          <Button size="sm" onClick={() => setAddModal({ open: true, date: new Date() })}>
-            + אירוע חדש
-          </Button>
+        {viewMode === "calendar" && (
+          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            {(Object.entries(EVENT_TYPE_LABELS) as [keyof typeof EVENT_TYPE_COLORS, string][]).map(([type, label]) => (
+              <span key={type} className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: EVENT_TYPE_COLORS[type] }} />
+                {label}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
       {viewMode === "calendar" ? (
-        <div className="min-h-[560px]">
+        <div className="min-h-[440px]">
           <VenueCalendarView
             venueId={venueId}
             events={events}

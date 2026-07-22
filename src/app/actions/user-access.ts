@@ -14,7 +14,7 @@ const BLOCK_DURATION = "876000h";
 export async function setUserAccess(userId: string, blocked: boolean) {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Unauthorized" };
+  if (!user) return { error: "אין הרשאה" };
   if (blocked && user.id === userId) return { error: "לא ניתן לחסום את הגישה של עצמך" };
 
   const { data: profile } = await supabase.from("users")
@@ -22,7 +22,7 @@ export async function setUserAccess(userId: string, blocked: boolean) {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin") return { error: "Forbidden" };
+  if (profile?.role !== "admin") return { error: "אין הרשאה לפעולה זו" };
 
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -12,16 +12,16 @@ import {
   DialogTitle,
   DialogBody,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { VenueRow } from "@/types/database";
 import { formatCurrency } from "@/lib/utils";
+import { Building2, Inbox } from "lucide-react";
 
 export function PendingVenuesPanel() {
   const supabase = useMemo(() => createClient(), []);
   const [venues, setVenues] = useState<VenueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVenue, setSelectedVenue] = useState<VenueRow | null>(null);
-  const [rejectionReason, setRejectionReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
@@ -41,7 +41,7 @@ export function PendingVenuesPanel() {
     } catch (err) {
       const message = err instanceof Error ? err.message :
                       (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
-                      'Unknown error';
+                      'שגיאה לא ידועה';
       toast.error("שגיאה בטעינת אולמות: " + message);
     } finally {
       setLoading(false);
@@ -65,7 +65,7 @@ export function PendingVenuesPanel() {
     } catch (err) {
       const message = err instanceof Error ? err.message :
                       (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
-                      'Unknown error';
+                      'שגיאה לא ידועה';
       toast.error("שגיאה באישור האולם: " + message);
     } finally {
       setActionLoading(false);
@@ -73,73 +73,59 @@ export function PendingVenuesPanel() {
   }
 
   async function rejectVenue(venueId: string) {
-    if (!rejectionReason.trim()) {
-      toast.error("יש להקליד סיבה לדחייה");
-      return;
-    }
-
     setActionLoading(true);
     try {
       const { error } = await supabase.from("venues")
         .update({
           approval_status: "rejected",
-          rejection_reason: rejectionReason,
         })
         .eq("id", venueId);
 
       if (error) throw error;
       toast.success("האולם דחה בהצלחה");
       setSelectedVenue(null);
-      setRejectionReason("");
       await loadPendingVenues();
     } catch (err) {
       const message = err instanceof Error ? err.message :
                       (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
-                      'Unknown error';
+                      'שגיאה לא ידועה';
       toast.error("שגיאה בדחיית האולם: " + message);
     } finally {
       setActionLoading(false);
     }
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">אולמות ממתינים לאישור</h2>
-        <p className="text-muted-foreground">טוען...</p>
-      </div>
-    );
-  }
-
-  if (venues.length === 0) {
-    return (
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">אולמות ממתינים לאישור</h2>
-        <p className="text-muted-foreground">אין אולמות הממתינים לאישור</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">אולמות ממתינים לאישור ({venues.length})</h2>
-        <Button onClick={loadPendingVenues} variant="outline" size="sm">
+    <Card variant="elevated">
+      <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Building2 size={16} className="text-primary" />
+          אולמות ממתינים לאישור {!loading && `(${venues.length})`}
+        </CardTitle>
+        <Button onClick={loadPendingVenues} variant="ghost" size="sm">
           רענן
         </Button>
-      </div>
-
-      <div className="space-y-2 border rounded-lg divide-y">
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        {loading ? (
+          <p className="text-muted-foreground text-sm text-center py-8">טוען...</p>
+        ) : venues.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-1.5 py-8 text-center">
+            <Inbox size={28} strokeWidth={1.5} className="text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">אין אולמות הממתינים לאישור</p>
+          </div>
+        ) : (
+      <div className="divide-y divide-border/60">
         {venues.map((venue) => (
-          <div key={venue.id} className="p-4 hover:bg-muted/50 transition-colors">
+          <div key={venue.id} className="px-2 py-3 hover:bg-muted/60 rounded-lg transition-colors">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-lg">{venue.name}</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="font-semibold text-sm">{venue.name}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {venue.address}, {venue.city}
                   {venue.neighborhood ? ` - ${venue.neighborhood}` : ""}
                 </p>
-                <div className="flex flex-wrap gap-2 mt-2">
+                <div className="flex flex-wrap gap-1.5 mt-2">
                   <Badge variant="secondary" className="text-xs">
                     {venue.max_capacity} אורחים
                   </Badge>
@@ -173,6 +159,8 @@ export function PendingVenuesPanel() {
           </div>
         ))}
       </div>
+        )}
+      </CardContent>
 
       {/* Detail Modal */}
       <Dialog open={!!selectedVenue} onOpenChange={(open) => !open && setSelectedVenue(null)}>
@@ -244,16 +232,6 @@ export function PendingVenuesPanel() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">דחייה (אם בחרת)</h4>
-                  <Textarea
-                    placeholder="הסבר מדוע אתה דוחה אולם זה (יישלח לבעל האולם)"
-                    rows={3}
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                  />
-                </div>
-
                 <div className="flex gap-3 justify-end pt-4 border-t">
                   <Button
                     variant="outline"
@@ -265,7 +243,7 @@ export function PendingVenuesPanel() {
                   <Button
                     variant="destructive"
                     onClick={() => rejectVenue(selectedVenue.id)}
-                    disabled={actionLoading || !rejectionReason.trim()}
+                    disabled={actionLoading}
                   >
                     דחה
                   </Button>
@@ -281,6 +259,6 @@ export function PendingVenuesPanel() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
   );
 }

@@ -13,6 +13,12 @@ import { isValidPhone } from "@/lib/utils";
 import type { LeadStatus, LeadInquiryStatus } from "@/types/database";
 import { INQUIRY_STATUS_LABELS, INQUIRY_STATUSES, REJECTION_STATUSES } from "@/types/leads";
 import { useRouter } from "next/navigation";
+import { Phone, Mail, ChevronLeft, UserPlus, Hourglass, PartyPopper, TrendingUp } from "lucide-react";
+import { StatChip } from "@/components/ui/stat-chip";
+
+function leadInitials(name: string) {
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "?";
+}
 
 type LeadRow = {
   id: string;
@@ -192,9 +198,24 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
     setQuickReusedLead(false);
   }
 
+  const stats = useMemo(() => {
+    const isPending = (s: LeadStatus) => s === "new" || s === "considering" || s === "waiting_for_date" || s === "date_taken";
+    const pending = leads.filter((l) => isPending(l.status)).length;
+    const booked = leads.filter((l) => l.status === "booked").length;
+    const conversion = leads.length ? Math.round((booked / leads.length) * 100) : 0;
+    return { total: leads.length, pending, booked, conversion };
+  }, [leads]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
+      {/* Stat strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatChip label="סה״כ לידים" value={stats.total} icon={UserPlus} tone="primary" />
+        <StatChip label="בטיפול" value={stats.pending} icon={Hourglass} tone="warning" />
+        <StatChip label="הוזמנו" value={stats.booked} icon={PartyPopper} tone="success" />
+        <StatChip label="שיעור המרה" value={`${stats.conversion}%`} icon={TrendingUp} tone="violet" />
+      </div>
+
       {/* Toolbar */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-row gap-2 items-center">
@@ -360,7 +381,6 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
                     value={quickForm.venue_id}
                     onValueChange={(v) => setQuickForm((f) => ({ ...f, venue_id: v }))}
                     placeholder={loadingVenues ? "טוען..." : "בחר אולם"}
-                    searchPlaceholder="הקלד שם אולם..."
                     disabled={loadingVenues}
                     clearable={false}
                   />
@@ -410,14 +430,26 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
           <button
             key={lead.id}
             onClick={() => router.push(`/leads/${lead.id}`)}
-            className="border rounded-lg p-3 hover:bg-muted/50 hover:border-primary/50 transition-colors text-right h-28"
+            className="group flex items-start gap-3 border rounded-xl bg-card p-4 shadow-card hover:border-primary/40 hover:shadow-md transition-all text-right h-28"
             dir="rtl"
           >
-            <div className="space-y-1">
+            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">
+              {leadInitials(lead.client_name)}
+            </span>
+            <div className="min-w-0 flex-1 space-y-1">
               <p className="font-semibold text-sm truncate">{lead.client_name}</p>
-              {lead.client_phone && <p className="text-xs text-muted-foreground truncate" dir="ltr">{lead.client_phone}</p>}
-              {lead.client_email && <p className="text-xs text-muted-foreground truncate" dir="ltr">{lead.client_email}</p>}
+              {lead.client_phone && (
+                <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5" dir="ltr">
+                  <Phone size={12} className="shrink-0" />{lead.client_phone}
+                </p>
+              )}
+              {lead.client_email && (
+                <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5" dir="ltr">
+                  <Mail size={12} className="shrink-0" />{lead.client_email}
+                </p>
+              )}
             </div>
+            <ChevronLeft size={16} className="self-center shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
           </button>
         ))}
       </div>

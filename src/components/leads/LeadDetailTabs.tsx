@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from "recharts";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Pencil, Trash2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatCard } from "@/components/ui/stat-card";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import { CHART_GRADIENTS } from "@/lib/chart-colors";
+import { ArrowRight, Pencil, Trash2, Plus, Inbox, TrendingUp, PartyPopper, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/dialog";
 import {
@@ -24,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/combobox";
-import { Plus } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { LeadRow, LeadInquiryStatus, EventRow, VenueRow } from "@/types/database";
@@ -83,6 +90,40 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     rejection_reason: "",
   });
   const [savingInquiry, setSavingInquiry] = useState(false);
+
+  const inquiryStats = useMemo(() => {
+    const byStatus = INQUIRY_STATUSES.reduce((acc, status) => {
+      acc[status] = inquiries.filter((i) => i.status === status).length;
+      return acc;
+    }, {} as Record<LeadInquiryStatus, number>);
+    const total = inquiries.length;
+    const conversion = total > 0 ? Math.round((byStatus.booked / total) * 100) : 0;
+    return { byStatus, total, conversion };
+  }, [inquiries]);
+
+  const eventStats = useMemo(() => {
+    const cancelled = events.filter((e) => e.cancelled_at).length;
+    return { active: events.length - cancelled, cancelled };
+  }, [events]);
+
+  const monthlyChartData = useMemo(() => {
+    const map = new Map<string, { count: number; revenue: number }>();
+    events.forEach((event) => {
+      const date = new Date(event.date);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const current = map.get(key) ?? { count: 0, revenue: 0 };
+      current.count++;
+      current.revenue += Number(event.price_final ?? 0);
+      map.set(key, current);
+    });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, stats]) => {
+        const [year, month] = key.split("-");
+        const name = new Date(Number(year), Number(month) - 1).toLocaleDateString("he-IL", { month: "short", year: "2-digit" });
+        return { name, ...stats };
+      });
+  }, [events]);
 
   async function handleSave() {
     setSaving(true);
@@ -193,86 +234,61 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
   }
 
   return (
-    <div className="space-y-6">
-      {/* Back Button */}
-      <div className="flex justify-start">
-        <Button variant="outline" size="sm" onClick={() => router.back()}>
-          <ArrowRight className="h-4 w-4 ml-2" />
-          חזור
-        </Button>
-      </div>
-
-      {/* Header */}
-      <div className="bg-card border rounded-lg p-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <h1 className="text-3xl font-bold">{lead.client_name}</h1>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-4 w-4 ml-2" />
-            עריכה
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Back Button + Header + Tab bar: fixed, only the content below scrolls */}
+      <div className="shrink-0 px-4 sm:px-6 pt-3 sm:pt-4 space-y-3">
+        <div className="flex justify-start">
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
+            <ArrowRight className="h-4 w-4 ml-2" />
+            חזור
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div>
-            <p className="text-sm text-muted-foreground mb-1">טלפון</p>
-            <p className="font-medium text-base" dir="ltr">{lead.client_phone || "-"}</p>
+        <div className="bg-card border rounded-lg p-3">
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <div>
+              <h1 className="text-lg font-bold tracking-tight">{lead.client_name}</h1>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-4 w-4 ml-2" />
+              עריכה
+            </Button>
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground mb-1">מייל</p>
-            <p className="font-medium text-sm" dir="ltr">{lead.client_email || "-"}</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground">טלפון</p>
+              <p className="font-medium text-sm" dir="ltr">{lead.client_phone || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">מייל</p>
+              <p className="font-medium text-sm" dir="ltr">{lead.client_email || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">תאריך הוספה</p>
+              <p className="font-medium text-sm">{formatDate(new Date(lead.created_at))} <span className="text-xs text-muted-foreground">· {toHebrewDateShort(lead.created_at)}</span></p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground mb-1">תאריך הוספה</p>
-            <p className="font-medium">{formatDate(new Date(lead.created_at))}</p>
-            <p className="text-xs text-muted-foreground">{toHebrewDateShort(lead.created_at)}</p>
-          </div>
+
+          {lead.notes && (
+            <div className="mt-2 p-2 bg-muted rounded-lg border">
+              <p className="text-xs text-muted-foreground mb-1">הערות</p>
+              <p className="text-sm whitespace-pre-wrap">{lead.notes}</p>
+            </div>
+          )}
         </div>
 
-        {lead.notes && (
-          <div className="mt-6 p-4 bg-muted rounded-lg border">
-            <p className="text-sm text-muted-foreground mb-2">הערות</p>
-            <p className="text-sm whitespace-pre-wrap">{lead.notes}</p>
-          </div>
-        )}
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "inquiries" | "events" | "statistics")}>
+          <TabsList>
+            <TabsTrigger value="inquiries">פניות ({inquiries.length})</TabsTrigger>
+            <TabsTrigger value="events">הזמנות ({events.length})</TabsTrigger>
+            <TabsTrigger value="statistics">סטטיסטיקות</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      {/* Tabs */}
-      <div className="space-y-4">
-        <div className="flex gap-2 border-b">
-          <button
-            onClick={() => setTab("inquiries")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              tab === "inquiries"
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            פניות ({inquiries.length})
-          </button>
-          <button
-            onClick={() => setTab("events")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              tab === "events"
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            הזמנות ({events.length})
-          </button>
-          <button
-            onClick={() => setTab("statistics")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              tab === "statistics"
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            סטטיסטיקות
-          </button>
-        </div>
-
+      {/* Scrollable tab content */}
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-area px-4 sm:px-6 py-4 pb-6 space-y-4">
         {/* Inquiries Tab */}
         {tab === "inquiries" && (
           <div className="space-y-4">
@@ -416,7 +432,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
                           <Badge variant="destructive">בוטל</Badge>
                         )}
                         {event.cancellation_requested_at && event.status !== "cancelled" && (
-                          <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                          <Badge variant="warning-soft">
                             ממתין לביטול
                           </Badge>
                         )}
@@ -504,82 +520,72 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold mb-4">סטטיסטיקות פניות</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg text-center border border-blue-200 dark:border-blue-800">
-                  <p className="text-xs text-muted-foreground mb-1">סה"כ פניות</p>
-                  <p className="font-bold text-lg">{inquiries.length}</p>
-                </div>
-                <div className="bg-purple-50 dark:bg-purple-950 p-3 rounded-lg text-center border border-purple-200 dark:border-purple-800">
-                  <p className="text-xs text-muted-foreground mb-1">בשיקול</p>
-                  <p className="font-bold text-lg">{inquiries.filter((i) => i.status === "considering").length}</p>
-                </div>
-                <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg text-center border border-green-200 dark:border-green-800">
-                  <p className="text-xs text-muted-foreground mb-1">הוזמן</p>
-                  <p className="font-bold text-lg">{inquiries.filter((i) => i.status === "booked").length}</p>
-                </div>
-                <div className="bg-red-50 dark:bg-red-950 p-3 rounded-lg text-center border border-red-200 dark:border-red-800">
-                  <p className="text-xs text-muted-foreground mb-1">בוטל</p>
-                  <p className="font-bold text-lg">{inquiries.filter((i) => i.status === "cancelled").length}</p>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg text-center border border-gray-200 dark:border-gray-800">
-                  <p className="text-xs text-muted-foreground mb-1">יקר מדי</p>
-                  <p className="font-bold text-lg">{inquiries.filter((i) => i.status === "too_expensive").length}</p>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <StatCard label="סה״כ פניות" value={inquiryStats.total} icon={Inbox} tone="primary" />
+                <StatCard label="שיעור המרה" value={`${inquiryStats.conversion}%`} icon={TrendingUp} tone="violet" />
+                <StatCard label="הזמנות פעילות" value={eventStats.active} icon={PartyPopper} tone="success" />
+                <StatCard label="הזמנות שבוטלו" value={eventStats.cancelled} icon={XCircle} tone="warning" />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {INQUIRY_STATUSES.map((status) => (
+                  <Badge key={status} variant={INQUIRY_STATUS_VARIANT[status]} className="gap-1.5">
+                    {INQUIRY_STATUS_LABELS[status]}
+                    <span className="font-bold">{inquiryStats.byStatus[status]}</span>
+                  </Badge>
+                ))}
               </div>
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold mb-4">סטטיסטיקות אירועים לפי חודש</h3>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {(() => {
-                  const monthlyStats = new Map<string, { total: number; booked: number; cancelled: number; revenue: number }>();
-                  events.forEach((event) => {
-                    const date = new Date(event.date);
-                    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                    const current = monthlyStats.get(key) || { total: 0, booked: 0, cancelled: 0, revenue: 0 };
-                    current.total++;
-                    if (!event.cancelled_at) current.booked++;
-                    if (event.cancelled_at) current.cancelled++;
-                    current.revenue += event.price_final || 0;
-                    monthlyStats.set(key, current);
-                  });
-
-                  if (monthlyStats.size === 0) {
-                    return <p className="text-sm text-muted-foreground">אין אירועים</p>;
-                  }
-
-                  return Array.from(monthlyStats.entries())
-                    .sort()
-                    .reverse()
-                    .map(([month, stats]) => {
-                      const [year, monthNum] = month.split('-');
-                      const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
-                      return (
-                        <div key={month} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                          <p className="font-semibold text-sm mb-2">{monthName}</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                            <div className="bg-blue-50 dark:bg-blue-950 p-2 rounded text-center">
-                              <p className="text-xs text-muted-foreground">סה"כ</p>
-                              <p className="font-bold">{stats.total}</p>
-                            </div>
-                            <div className="bg-green-50 dark:bg-green-950 p-2 rounded text-center">
-                              <p className="text-xs text-muted-foreground">הוזמנו</p>
-                              <p className="font-bold">{stats.booked}</p>
-                            </div>
-                            <div className="bg-red-50 dark:bg-red-950 p-2 rounded text-center">
-                              <p className="text-xs text-muted-foreground">בוטלו</p>
-                              <p className="font-bold">{stats.cancelled}</p>
-                            </div>
-                            <div className="bg-amber-50 dark:bg-amber-950 p-2 rounded text-center">
-                              <p className="text-xs text-muted-foreground">הכנסה</p>
-                              <p className="font-bold text-xs" dir="ltr">{stats.revenue.toLocaleString('he-IL')}₪</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    });
-                })()}
-              </div>
+              <h3 className="text-lg font-semibold mb-4">אירועים לפי חודש</h3>
+              {monthlyChartData.length === 0 ? (
+                <p className="text-sm text-muted-foreground">אין אירועים</p>
+              ) : (
+                <Card variant="elevated">
+                  <CardHeader className="pb-2 pt-5 px-5">
+                    <CardTitle className="text-base font-semibold">אירועים והכנסות לפי חודש</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-5">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={monthlyChartData} margin={{ top: 4, right: 4, bottom: 0, left: -16 }} barGap={3}>
+                        <defs>
+                          <linearGradient id="leadEvGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={CHART_GRADIENTS.primary.from} stopOpacity={1} />
+                            <stop offset="100%" stopColor={CHART_GRADIENTS.primary.to} stopOpacity={0.85} />
+                          </linearGradient>
+                          <linearGradient id="leadRevGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={CHART_GRADIENTS.success.from} stopOpacity={1} />
+                            <stop offset="100%" stopColor={CHART_GRADIENTS.success.to} stopOpacity={0.85} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis yAxisId="left" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tick={{ fontSize: 10 }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={44}
+                          tickFormatter={(v) => v === 0 ? "" : `${(v / 1000).toFixed(0)}k`}
+                        />
+                        <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(var(--muted))", radius: 4 }} />
+                        <Bar yAxisId="left" dataKey="count" name="אירועים" fill="url(#leadEvGrad)" radius={[5, 5, 0, 0]} maxBarSize={22} />
+                        <Bar yAxisId="right" dataKey="revenue" name="הכנסות" fill="url(#leadRevGrad)" radius={[5, 5, 0, 0]} maxBarSize={22} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="flex gap-5 mt-3 justify-center">
+                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="w-3 h-3 rounded-sm bg-primary inline-block" />אירועים
+                      </span>
+                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="w-3 h-3 rounded-sm bg-success inline-block" />הכנסות
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         )}
@@ -656,7 +662,6 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
                   value={inquiryForm.venue_id}
                   onValueChange={(v) => setInquiryForm({ ...inquiryForm, venue_id: v })}
                   placeholder={loadingVenues ? "טוען..." : "בחר אולם"}
-                  searchPlaceholder="הקלד שם אולם..."
                   disabled={loadingVenues}
                   clearable={false}
                 />

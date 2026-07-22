@@ -271,7 +271,7 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
 
   if (lockError) {
     return (
-      <div className="space-y-4">
+      <div className="max-w-2xl w-full space-y-4">
         <div className="bg-destructive/10 text-destructive rounded-lg p-4 text-sm">{lockError}</div>
         <Button variant="outline" onClick={onBack} className="w-full">חזור לבחירת אולם</Button>
       </div>
@@ -279,11 +279,11 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col min-h-full">
+    <form onSubmit={handleSubmit} className="max-w-5xl w-full flex flex-col min-h-full">
       <div className="flex-1 space-y-5">
-        {/* Lock timer */}
+        {/* Lock timer - full width, kept prominent since it's time-critical */}
         {secondsLeft > 0 ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-800 flex justify-between items-center">
+          <div className="bg-warning/10 border border-warning/30 rounded-lg px-4 py-2 text-sm text-warning flex justify-between items-center">
             <span>האולם שמור לך עוד</span>
             <span className="font-mono font-bold" dir="ltr">{minutes}:{seconds}</span>
           </div>
@@ -296,122 +296,130 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
           </div>
         )}
 
-        {/* Summary */}
-        <div className="bg-muted rounded-lg p-3 text-sm space-y-1">
-          <div className="flex gap-2"><span className="text-muted-foreground w-20">אולם:</span><span className="font-medium">{venue.name}</span></div>
-          <div className="flex flex-col gap-0.5 items-end">
-            <div className="flex gap-2 w-full justify-between"><span className="text-muted-foreground">תאריך:</span><span className="font-medium">{formatDate(date)}</span></div>
-            <span className="text-xs text-muted-foreground">{toHebrewDateShort(date)}</span>
-          </div>
-          <div className="flex gap-2"><span className="text-muted-foreground w-20">סוג:</span><span className="font-medium">{EVENT_TYPE_LABELS[eventType]}</span></div>
-        </div>
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Right column: static reference info - summary, pricing, policy */}
+          <div className="lg:w-80 shrink-0 space-y-4">
+            {/* Summary */}
+            <div className="bg-muted rounded-lg p-3 text-sm space-y-1">
+              <div className="flex gap-2"><span className="text-muted-foreground w-20">אולם:</span><span className="font-medium">{venue.name}</span></div>
+              <div className="flex flex-col gap-0.5 items-end">
+                <div className="flex gap-2 w-full justify-between"><span className="text-muted-foreground">תאריך:</span><span className="font-medium">{formatDate(date)}</span></div>
+                <span className="text-xs text-muted-foreground">{toHebrewDateShort(date)}</span>
+              </div>
+              <div className="flex gap-2"><span className="text-muted-foreground w-20">סוג:</span><span className="font-medium">{EVENT_TYPE_LABELS[eventType]}</span></div>
+            </div>
 
-        <div className="space-y-1">
-          <Label>מהות האירוע *</Label>
-          <Combobox
-            options={(Object.entries(EVENT_PURPOSE_LABELS) as [EventPurpose, string][]).map(([v, l]) => ({ value: v, label: l }))}
-            value={form.event_purpose}
-            onValueChange={(v) => set("event_purpose", v)}
-            placeholder="בחר מהות"
-            clearable={false}
-          />
-        </div>
+            {/* Pricing */}
+            <div className="bg-muted rounded-lg p-3 space-y-2 text-sm" dir="rtl">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">מחיר מחירון</span>
+                <span>{formatCurrency(listedPrice)}</span>
+              </div>
+              {isAdmin && (
+                <div className="flex items-center justify-between gap-4" dir="rtl">
+                  <span className="text-muted-foreground shrink-0">הנחה (₪)</span>
+                  <Input
+                    type="number" min="0" max={listedPrice}
+                    value={form.discount_amount}
+                    onChange={(e) => set("discount_amount", e.target.value)}
+                    className="h-7 w-28 text-left"
+                    dir="ltr"
+                  />
+                </div>
+              )}
+              <div className="flex justify-between font-bold border-t pt-2">
+                <span>מחיר סופי</span>
+                <span>{formatCurrency(finalPrice)}</span>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-2 gap-4" ref={clientRef} dir="rtl">
-          {/* Name */}
-          <div className="space-y-1 col-span-2 relative" dir="rtl">
-            <Label>שם הלקוח *</Label>
-            <Input
-              value={form.client_name}
-              onChange={(e) => set("client_name", e.target.value)}
-              onFocus={() => activeField !== "client_name" && suggestions.length > 0 && setActiveField("client_name")}
-              required
-              dir="rtl"
-            />
-            {activeField === "client_name" && suggestions.length > 0 && (
-              <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
-            )}
+            {/* Cancellation Policy */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2" dir="rtl">
+              <div className="flex items-start gap-2">
+                <div className="text-primary font-medium text-sm">📋 מדיניות ביטול</div>
+              </div>
+              <p className="text-xs text-foreground/80 whitespace-pre-wrap">
+                {venue.cancellation_policy?.trim() || "לא הוגדרה מדיניות ביטול לאולם זה. לפרטים יש לפנות לאולם."}
+              </p>
+              <p className="text-xs text-primary font-medium">
+                בעת ביטול ההזמנה, ההחזר יטופל לפי מדיניות זו.
+              </p>
+            </div>
           </div>
-          {/* Phone */}
-          <div className="space-y-1 relative" dir="rtl">
-            <Label>טלפון *</Label>
-            <Input
-              type="tel"
-              dir="ltr"
-              value={form.client_phone}
-              onChange={(e) => set("client_phone", e.target.value)}
-              onFocus={() => activeField !== "client_phone" && suggestions.length > 0 && setActiveField("client_phone")}
-              className={phoneError ? "border-destructive" : ""}
-              placeholder="052-1234567"
-            />
-            {phoneError && <p className="text-xs text-destructive">{phoneError}</p>}
-            {activeField === "client_phone" && suggestions.length > 0 && (
-              <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
-            )}
-          </div>
-          {/* Email - optional (migration 027): clients without email get no
-              confirmation mail; forcing a made-up address just bounced. */}
-          <div className="space-y-1 relative">
-            <Label>מייל</Label>
-            <Input
-              type="email"
-              dir="ltr"
-              value={form.client_email}
-              onChange={(e) => set("client_email", e.target.value)}
-              onFocus={() => activeField !== "client_email" && suggestions.length > 0 && setActiveField("client_email")}
-            />
-            {activeField === "client_email" && suggestions.length > 0 && (
-              <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
-            )}
-          </div>
-        </div>
 
-        {/* Pricing */}
-        <div className="bg-muted rounded-lg p-3 space-y-2 text-sm" dir="rtl">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">מחיר מחירון</span>
-            <span>{formatCurrency(listedPrice)}</span>
-          </div>
-          {isAdmin && (
-            <div className="flex items-center justify-between gap-4" dir="rtl">
-              <span className="text-muted-foreground shrink-0">הנחה (₪)</span>
-              <Input
-                type="number" min="0" max={listedPrice}
-                value={form.discount_amount}
-                onChange={(e) => set("discount_amount", e.target.value)}
-                className="h-7 w-28 text-left"
-                dir="ltr"
+          {/* Left column: the actual form fields */}
+          <div className="flex-1 min-w-0 space-y-5">
+            <div className="space-y-1">
+              <Label>מהות האירוע *</Label>
+              <Combobox
+                options={(Object.entries(EVENT_PURPOSE_LABELS) as [EventPurpose, string][]).map(([v, l]) => ({ value: v, label: l }))}
+                value={form.event_purpose}
+                onValueChange={(v) => set("event_purpose", v)}
+                placeholder="בחר מהות"
+                clearable={false}
               />
             </div>
-          )}
-          <div className="flex justify-between font-bold border-t pt-2">
-            <span>מחיר סופי</span>
-            <span>{formatCurrency(finalPrice)}</span>
-          </div>
-        </div>
 
-        {/* Cancellation Policy */}
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2" dir="rtl">
-          <div className="flex items-start gap-2">
-            <div className="text-amber-700 font-medium text-sm">📋 מדיניות ביטול</div>
-          </div>
-          <p className="text-xs text-amber-800 whitespace-pre-wrap">
-            {venue.cancellation_policy?.trim() || "לא הוגדרה מדיניות ביטול לאולם זה. לפרטים יש לפנות לאולם."}
-          </p>
-          <p className="text-xs text-amber-700 font-medium">
-            בעת ביטול ההזמנה, ההחזר יטופל לפי מדיניות זו.
-          </p>
-        </div>
+            <div className="grid grid-cols-2 gap-4" ref={clientRef} dir="rtl">
+              {/* Name */}
+              <div className="space-y-1 col-span-2 relative" dir="rtl">
+                <Label>שם הלקוח *</Label>
+                <Input
+                  value={form.client_name}
+                  onChange={(e) => set("client_name", e.target.value)}
+                  onFocus={() => activeField !== "client_name" && suggestions.length > 0 && setActiveField("client_name")}
+                  required
+                  dir="rtl"
+                />
+                {activeField === "client_name" && suggestions.length > 0 && (
+                  <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
+                )}
+              </div>
+              {/* Phone */}
+              <div className="space-y-1 relative" dir="rtl">
+                <Label>טלפון *</Label>
+                <Input
+                  type="tel"
+                  dir="ltr"
+                  value={form.client_phone}
+                  onChange={(e) => set("client_phone", e.target.value)}
+                  onFocus={() => activeField !== "client_phone" && suggestions.length > 0 && setActiveField("client_phone")}
+                  className={phoneError ? "border-destructive" : ""}
+                  placeholder="052-1234567"
+                />
+                {phoneError && <p className="text-xs text-destructive">{phoneError}</p>}
+                {activeField === "client_phone" && suggestions.length > 0 && (
+                  <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
+                )}
+              </div>
+              {/* Email - optional (migration 027): clients without email get no
+                  confirmation mail; forcing a made-up address just bounced. */}
+              <div className="space-y-1 relative">
+                <Label>מייל</Label>
+                <Input
+                  type="email"
+                  dir="ltr"
+                  value={form.client_email}
+                  onChange={(e) => set("client_email", e.target.value)}
+                  onFocus={() => activeField !== "client_email" && suggestions.length > 0 && setActiveField("client_email")}
+                />
+                {activeField === "client_email" && suggestions.length > 0 && (
+                  <SuggestionDropdown suggestions={suggestions} onSelect={applySuggestion} />
+                )}
+              </div>
+            </div>
 
-        <div className="space-y-1" dir="rtl">
-          <Label>הערות</Label>
-          <Textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} dir="rtl" />
+            <div className="space-y-1" dir="rtl">
+              <Label>הערות</Label>
+              <Textarea rows={5} value={form.notes} onChange={(e) => set("notes", e.target.value)} dir="rtl" />
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="sticky bottom-0 bg-background pt-3 pb-1 flex gap-3">
-        <Button type="submit" disabled={loading || secondsLeft === 0} className="flex-1">
-          {loading ? "שומר..." : "שמור"}
+      <div className="sticky bottom-0 bg-background pt-3 pb-1 mt-6 flex gap-3">
+        <Button type="submit" disabled={loading || secondsLeft === 0} className="w-32">
+          {loading ? "שומר..." : "המשך"}
         </Button>
         <Button type="button" variant="outline" onClick={onBack}>חזור</Button>
       </div>

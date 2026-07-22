@@ -63,23 +63,12 @@ export function VenueCalendarView({ events, onEventClick, onSlotClick }: Props) 
   );
 
   return (
-    <>
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mb-3">
-        {(Object.entries(EVENT_TYPE_LABELS) as [keyof typeof EVENT_TYPE_COLORS, string][]).map(([type, label]) => (
-          <span key={type} className="flex items-center gap-1">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: EVENT_TYPE_COLORS[type] }} />
-            {label}
-          </span>
-        ))}
-      </div>
-      <div className="overflow-x-auto">
-        <HebrewCalendar
-          onSelect={(date) => onSlotClick(date)}
-          renderDay={renderDay}
-          dayClassName={dayClassName}
-        />
-      </div>
-    </>
+    <div className="overflow-x-auto">
+      <HebrewCalendar
+        onSelect={(date) => onSlotClick(date)}
+        renderDay={renderDay}
+        dayClassName={dayClassName}
+      />
+    </div>
   );
 }

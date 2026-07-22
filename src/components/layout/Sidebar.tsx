@@ -100,6 +100,16 @@ export function Sidebar({ role, fullName, notificationCount = 0 }: SidebarProps)
   }
 
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const initials = fullName.trim().slice(0, 2);
+
+  const brandMark = (
+    <Link href="/dashboard" className="flex items-center gap-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/50 text-sm font-bold text-white">
+        E
+      </span>
+      <h1 className="text-lg font-bold tracking-tight text-white">Eazyplans</h1>
+    </Link>
+  );
 
   const navLinks = (
     <nav className="flex flex-col gap-1 flex-1">
@@ -109,10 +119,10 @@ export function Sidebar({ role, fullName, notificationCount = 0 }: SidebarProps)
           href={item.href}
           onClick={() => setMobileOpen(false)}
           className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+            "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all",
             pathname.startsWith(item.href)
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              ? "bg-white/15 text-white font-semibold"
+              : "text-white/65 hover:bg-white/10 hover:text-white"
           )}
         >
           {item.icon}
@@ -130,11 +140,11 @@ export function Sidebar({ role, fullName, notificationCount = 0 }: SidebarProps)
   return (
     <>
       {/* Mobile top bar */}
-      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border shrink-0">
-        <h1 className="text-xl font-bold tracking-tight">Eazyplans</h1>
+      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-primary shrink-0">
+        {brandMark}
         <button
           onClick={() => setMobileOpen(true)}
-          className="p-1 rounded-md hover:bg-muted transition-colors"
+          className="p-1 rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
           aria-label="פתח תפריט"
         >
           <Menu size={22} />
@@ -152,30 +162,37 @@ export function Sidebar({ role, fullName, notificationCount = 0 }: SidebarProps)
       {/* Mobile drawer */}
       <aside
         className={cn(
-          "md:hidden fixed top-0 right-0 h-full w-56 bg-card border-l border-border py-4 px-3 z-50 flex flex-col transition-transform duration-200",
+          "md:hidden fixed top-0 right-0 h-full w-64 bg-primary py-4 px-3 z-50 flex flex-col transition-transform duration-200",
           mobileOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         <div className="flex justify-between items-center px-2 pb-4">
-          <h1 className="text-xl font-bold tracking-tight">Eazyplans</h1>
+          {brandMark}
           <button
             onClick={() => setMobileOpen(false)}
-            className="p-1 rounded-md hover:bg-muted transition-colors"
+            className="p-1 rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
             aria-label="סגור תפריט"
           >
             <X size={20} />
           </button>
         </div>
 
-        <Separator className="mb-3" />
+        <Separator className="mb-3 bg-white/15" />
 
         {navLinks}
 
-        <Separator className="mt-3 mb-3" />
+        <Separator className="mt-3 mb-3 bg-white/15" />
+
+        <div className="flex items-center gap-2.5 px-2 pb-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold text-xs font-semibold text-gold-foreground">
+            {initials}
+          </span>
+          <p className="text-sm font-medium truncate text-white">{fullName}</p>
+        </div>
 
         <Button
           variant="ghost"
-          className="justify-start gap-3 text-muted-foreground hover:text-destructive"
+          className="justify-start gap-3 text-white/65 hover:text-white hover:bg-white/10"
           onClick={handleLogout}
         >
           <LogOut size={18} />
@@ -184,21 +201,27 @@ export function Sidebar({ role, fullName, notificationCount = 0 }: SidebarProps)
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-56 h-full bg-card border-l border-border py-4 px-3 shrink-0">
+      <aside className="hidden md:flex flex-col w-60 h-full bg-primary py-4 px-3 shrink-0">
         <div className="px-2 pb-4">
-          <h1 className="text-xl font-bold tracking-tight">Eazyplans</h1>
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">{fullName}</p>
+          {brandMark}
         </div>
 
-        <Separator className="mb-3" />
+        <Separator className="mb-3 bg-white/15" />
 
         {navLinks}
 
-        <Separator className="mt-3 mb-3" />
+        <Separator className="mt-3 mb-3 bg-white/15" />
+
+        <div className="flex items-center gap-2.5 px-2 pb-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold text-xs font-semibold text-gold-foreground">
+            {initials}
+          </span>
+          <p className="text-sm font-medium truncate text-white">{fullName}</p>
+        </div>
 
         <Button
           variant="ghost"
-          className="justify-start gap-3 text-muted-foreground hover:text-destructive"
+          className="justify-start gap-3 text-white/65 hover:text-white hover:bg-white/10"
           onClick={handleLogout}
         >
           <LogOut size={18} />

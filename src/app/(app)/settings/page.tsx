@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/queries";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { PageShell } from "@/components/ui/page-shell";
 import { SettingsContent } from "./SettingsContent";
 
 export default async function SettingsPage() {
@@ -9,11 +10,10 @@ export default async function SettingsPage() {
   if (profile.role !== "admin") redirect("/dashboard");
 
   return (
-    <div className="p-4 md:p-6 flex flex-col flex-1 min-h-0">
-      <h1 className="text-2xl font-bold mb-6">ניהול משתמשים</h1>
+    <PageShell title="ניהול משתמשים">
       <Suspense fallback={<TableSkeleton />}>
         <SettingsContent />
       </Suspense>
-    </div>
+    </PageShell>
   );
 }

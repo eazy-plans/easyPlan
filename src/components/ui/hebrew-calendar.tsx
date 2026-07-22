@@ -211,7 +211,7 @@ export function HebrewCalendar({
           </Button>
         </div>
         <div className="flex-1 text-center">
-          <h2 className={cn("whitespace-nowrap font-bold leading-tight text-[#1467b3]", compact ? "text-base sm:text-lg" : "text-lg sm:text-xl")}>{hebrewTitle}</h2>
+          <h2 className={cn("whitespace-nowrap font-bold leading-tight text-primary", compact ? "text-base sm:text-lg" : "text-lg sm:text-xl")}>{hebrewTitle}</h2>
           <div className="text-xs text-muted-foreground">{gregorianSubtitle}</div>
         </div>
         {/* Spacer to keep the title centered; dropped on phones where every pixel counts */}
@@ -222,9 +222,9 @@ export function HebrewCalendar({
       {/* compact mode has no min-width: it must fit phone screens (booking wizard, popovers) */}
       <table className={cn("w-full table-fixed border-collapse", !compact && "min-w-[560px]")}>
         <thead>
-          <tr className="bg-[#1467b3] text-white">
+          <tr className="bg-primary text-primary-foreground">
             {HEBREW_DAY_NAMES.map((day, i) => (
-              <th key={day} className="border border-[#1467b3] p-1.5 text-center text-xs font-bold sm:p-2 sm:text-sm">
+              <th key={day} className="border border-primary p-1.5 text-center text-xs font-bold sm:p-2 sm:text-sm">
                 <span className="sm:hidden">{HEBREW_DAY_NAMES_SHORT[i]}</span>
                 <span className="hidden sm:inline">{day}</span>
               </th>
@@ -250,35 +250,35 @@ export function HebrewCalendar({
                       if (!isDisabled) onSelect?.(date)
                     }}
                     className={cn(
-                      "border border-gray-300 bg-white p-1 align-top transition-colors sm:p-1.5",
-                      compact ? "h-14 sm:h-16" : "h-24",
-                      isSat && "bg-slate-100",
+                      "border border-border bg-background p-1 align-top transition-colors sm:p-1.5",
+                      compact ? "h-14 sm:h-16" : "h-20",
+                      isSat && "bg-muted",
                       isDisabled
-                        ? "cursor-not-allowed bg-gray-100 opacity-60"
-                        : onSelect && "cursor-pointer hover:bg-blue-50/60",
+                        ? "cursor-not-allowed bg-muted opacity-60"
+                        : onSelect && "cursor-pointer hover:bg-primary/5",
                       // after the disabled styles so callers can re-color specific
                       // blocked days (e.g. booked-red vs plain unavailable-gray)
                       dayClassName?.(date),
-                      isToday && "bg-amber-100",
-                      isSelectedDay && "bg-sky-100 ring-2 ring-inset ring-[#1467b3]"
+                      isToday && "bg-warning/15",
+                      isSelectedDay && "bg-primary/10 ring-2 ring-inset ring-primary"
                     )}
                   >
                     <div className={cn("flex flex-col gap-0.5 text-right", !inMonth && "opacity-40")}>
-                      <div className={cn("font-bold leading-tight text-[#1467b3]", compact ? "text-base sm:text-lg" : "text-lg sm:text-xl")}>
+                      <div className={cn("font-bold leading-tight text-primary", compact ? "text-base sm:text-lg" : "text-lg sm:text-xl")}>
                         {gematriya(hd.getDate())}
                       </div>
                       <div className="text-[10px] leading-tight sm:text-[11px]">
-                        <span className="font-medium text-amber-600">{String(date.getDate()).padStart(2, "0")}</span>{" "}
-                        <span className="text-gray-500">{gregorianMonthFormatter.format(date)}</span>
+                        <span className="font-medium text-foreground/70">{String(date.getDate()).padStart(2, "0")}</span>{" "}
+                        <span className="text-muted-foreground">{gregorianMonthFormatter.format(date)}</span>
                       </div>
                       {info?.fasts.map((t) => (
-                        <div key={t} className="text-[10px] font-semibold leading-tight text-red-700 sm:text-[11px]">{t}</div>
+                        <div key={t} className="text-[10px] font-semibold leading-tight text-destructive sm:text-[11px]">{t}</div>
                       ))}
                       {info?.holidays.map((t) => (
-                        <div key={t} className="text-[10px] leading-tight text-green-700 sm:text-[11px]">{t}</div>
+                        <div key={t} className="text-[10px] leading-tight text-success sm:text-[11px]">{t}</div>
                       ))}
                       {info?.parsha && (
-                        <div className="text-[10px] font-bold leading-tight text-yellow-800 sm:text-[11px]">{info.parsha}</div>
+                        <div className="text-[10px] font-bold leading-tight text-primary sm:text-[11px]">{info.parsha}</div>
                       )}
                     </div>
                     {renderDay && <div className="mt-1">{renderDay(date)}</div>}

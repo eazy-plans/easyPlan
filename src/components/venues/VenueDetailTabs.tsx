@@ -21,6 +21,7 @@ import {
 import { VenueForm } from "./VenueForm";
 import { VenueEventsPanel } from "./VenueEventsPanel";
 import { VenueStatsPanel } from "./VenueStatsPanel";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { VenueRow, UserRow, VenueImageRow, EventRow } from "@/types/database";
 
 type Tab = "events" | "stats" | "edit";
@@ -70,9 +71,9 @@ export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, u
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
-      <div className="shrink-0 bg-background border-b">
+      <div className="shrink-0 bg-background border-b px-4 sm:px-6">
         {/* Back + title row */}
-        <div className="flex items-center gap-3 pt-4 pb-3">
+        <div className="flex items-center gap-3 pt-3 pb-2">
           <Link
             href="/venues"
             className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-muted transition-colors shrink-0"
@@ -133,26 +134,19 @@ export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, u
           )}
         </div>
         {/* Tab bar */}
-        <div className="flex">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                tab === t.id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+          <TabsList className="border-b-0">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.id} value={t.id} className="px-5 py-2">
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Scrollable tab content */}
-      <div className="flex-1 min-h-0 overflow-y-auto py-5 pb-10">
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-area px-4 sm:px-6 py-4 pb-6">
         {tab === "events" && (
           <VenueEventsPanel
             venueId={venue.id}

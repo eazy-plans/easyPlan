@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getUserProfile } from "@/lib/supabase/queries";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { PageShell } from "@/components/ui/page-shell";
 import { LeadsContent } from "./LeadsContent";
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
@@ -10,11 +11,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const { q } = await searchParams;
 
   return (
-    <div className="p-4 md:p-6 flex flex-col flex-1 min-h-0">
-      <h1 className="text-2xl font-bold mb-6">לידים ולקוחות</h1>
+    <PageShell title="לידים ולקוחות" scroll={false}>
       <Suspense fallback={<TableSkeleton />}>
         <LeadsContent initialSearch={q} />
       </Suspense>
-    </div>
+    </PageShell>
   );
 }

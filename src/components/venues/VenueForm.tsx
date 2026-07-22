@@ -10,8 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/combobox";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
-import { X, Star, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Star, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, ShieldCheck, ShieldAlert, Clock } from "lucide-react";
 import type { VenueRow, UserRow, VenueImageRow, VenueApprovalStatus } from "@/types/database";
 import {
   uploadVenueImage,
@@ -380,7 +382,6 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
                 value={form.owner_user_id}
                 onValueChange={(v) => set("owner_user_id", v)}
                 placeholder="בחר בעל אולם"
-                searchPlaceholder="הקלד שם או מייל..."
                 clearable={false}
                 className={errors.owner_user_id ? "border-destructive" : ""}
               />
@@ -487,21 +488,19 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
 
         <div className="space-y-3">
           <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={form.has_elevator}
               onChange={(e) => set("has_elevator", e.target.checked)}
-              className="w-5 h-5 rounded"
+              className="h-5 w-5"
             />
             <span className="text-sm">מעלית</span>
           </label>
 
           <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={form.is_accessible}
               onChange={(e) => set("is_accessible", e.target.checked)}
-              className="w-5 h-5 rounded"
+              className="h-5 w-5"
             />
             <span className="text-sm">נגיש לנכים</span>
           </label>
@@ -510,11 +509,10 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
         <div className="border-t pt-4 space-y-4">
           <div className="space-y-2">
             <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={form.has_parking}
                 onChange={(e) => set("has_parking", e.target.checked)}
-                className="w-5 h-5 rounded"
+                className="h-5 w-5"
               />
               <span className="text-sm font-medium">חנייה</span>
             </label>
@@ -530,11 +528,10 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
 
           <div className="space-y-2">
             <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={form.has_public_transport}
                 onChange={(e) => set("has_public_transport", e.target.checked)}
-                className="w-5 h-5 rounded"
+                className="h-5 w-5"
               />
               <span className="text-sm font-medium">תחבורה ציבורית</span>
             </label>
@@ -562,7 +559,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
             value={form.cancellation_policy}
             onChange={(e) => set("cancellation_policy", e.target.value)}
           />
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             הטקסט יוצג ללקוח בעת ההזמנה ובעת ביטול הזמנה.
           </p>
         </div>
@@ -570,8 +567,13 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
 
       {/* Admin Approval */}
       {isAdmin && isEdit && (
-        <section className="space-y-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
-          <h2 className="text-lg font-semibold border-b pb-2">אישור מנהל</h2>
+        <section className="space-y-4 bg-primary/5 p-4 rounded-lg border border-primary/20">
+          <h2 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
+            {form.approval_status === "approved" && <ShieldCheck size={18} className="text-success" />}
+            {form.approval_status === "rejected" && <ShieldAlert size={18} className="text-destructive" />}
+            {form.approval_status === "pending" && <Clock size={18} className="text-warning" />}
+            אישור מנהל
+          </h2>
           <div className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="approval_status">סטטוס אישור</Label>
@@ -592,11 +594,11 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
                 <Label htmlFor="rejection_reason">סיבת דחייה</Label>
                 <Textarea
                   id="rejection_reason"
-                  placeholder="הסבר מדוע דחה הנכס"
                   rows={3}
                   value={form.rejection_reason ?? ""}
                   onChange={(e) => set("rejection_reason", e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">הסיבה תוצג לבעל האולם.</p>
               </div>
             )}
           </div>
@@ -605,19 +607,11 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
 
       {/* Show Approval Status Badge */}
       {isEdit && (
-        <div className="bg-gray-50 p-3 rounded-lg border">
-          <p className="text-sm text-muted-foreground mb-1">סטטוס אישור:</p>
-          <div className="flex items-center gap-2">
-            {form.approval_status === "pending" && (
-              <><span className="inline-block w-2 h-2 bg-yellow-500 rounded-full"></span><span className="text-sm font-medium">בהמתנה</span></>
-            )}
-            {form.approval_status === "approved" && (
-              <><span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span><span className="text-sm font-medium">אושר</span></>
-            )}
-            {form.approval_status === "rejected" && (
-              <><span className="inline-block w-2 h-2 bg-red-500 rounded-full"></span><span className="text-sm font-medium">דחוי</span></>
-            )}
-          </div>
+        <div className="bg-muted/50 p-3 rounded-lg border flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">סטטוס אישור</p>
+          {form.approval_status === "pending" && <Badge variant="warning-soft">בהמתנה</Badge>}
+          {form.approval_status === "approved" && <Badge variant="success-soft">אושר</Badge>}
+          {form.approval_status === "rejected" && <Badge variant="destructive">דחוי</Badge>}
         </div>
       )}
 
@@ -639,7 +633,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
                 <div className="aspect-video relative">
                   <Image
                     src={getUrl(img.storage_path)}
-                    alt="venue"
+                    alt="תמונת אולם"
                     fill
                     className="object-cover"
                   />
@@ -663,7 +657,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); markDeleted(img.id); }}
-                    className="w-full flex items-center justify-center gap-1 text-xs bg-red-500/80 hover:bg-red-600 text-white rounded px-2 py-1"
+                    className="w-full flex items-center justify-center gap-1 text-xs bg-destructive/80 hover:bg-destructive text-white rounded px-2 py-1"
                   >
                     <X size={12} />
                     מחק
@@ -683,7 +677,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={p.previewUrl}
-                    alt="preview"
+                    alt="תצוגה מקדימה"
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -743,8 +737,11 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
             className="fixed inset-0 z-[9999] flex items-center justify-center outline-none"
             onOpenAutoFocus={(e) => e.preventDefault()}
             onKeyDown={(e) => {
-              if (e.key === "ArrowLeft")  { setLightboxIdx(i => i !== null ? (i - 1 + allLightboxUrls.length) % allLightboxUrls.length : null); setZoom(1); }
-              if (e.key === "ArrowRight") { setLightboxIdx(i => i !== null ? (i + 1) % allLightboxUrls.length : null); setZoom(1); }
+              // RTL gallery: "next" sits visually on the left, "previous" on
+              // the right (see the matching buttons below), so the arrow
+              // keys move in the same direction as their visual position.
+              if (e.key === "ArrowLeft")  { setLightboxIdx(i => i !== null ? (i + 1) % allLightboxUrls.length : null); setZoom(1); }
+              if (e.key === "ArrowRight") { setLightboxIdx(i => i !== null ? (i - 1 + allLightboxUrls.length) % allLightboxUrls.length : null); setZoom(1); }
             }}
           >
             <DialogPrimitive.Title className="sr-only">תצוגת תמונה</DialogPrimitive.Title>
@@ -766,9 +763,9 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
             </div>
 
             {allLightboxUrls.length > 1 && (
-              <button type="button" className="absolute left-4 top-1/2 -translate-y-1/2 text-white bg-black/40 hover:bg-black/60 rounded-full p-3 transition-colors z-10"
+              <button type="button" className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-black/40 hover:bg-black/60 rounded-full p-3 transition-colors z-10"
                 onClick={() => { setLightboxIdx(i => i !== null ? (i - 1 + allLightboxUrls.length) % allLightboxUrls.length : null); setZoom(1); }}>
-                <ChevronLeft size={24} />
+                <ChevronRight size={24} />
               </button>
             )}
 
@@ -783,9 +780,9 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
             )}
 
             {allLightboxUrls.length > 1 && (
-              <button type="button" className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-black/40 hover:bg-black/60 rounded-full p-3 transition-colors z-10"
+              <button type="button" className="absolute left-4 top-1/2 -translate-y-1/2 text-white bg-black/40 hover:bg-black/60 rounded-full p-3 transition-colors z-10"
                 onClick={() => { setLightboxIdx(i => i !== null ? (i + 1) % allLightboxUrls.length : null); setZoom(1); }}>
-                <ChevronRight size={24} />
+                <ChevronLeft size={24} />
               </button>
             )}
 

@@ -46,39 +46,39 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     .maybeSingle();
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Back Button */}
-        <div className="flex justify-start mb-6">
-          <BackButton />
-        </div>
+    <div className="h-full min-h-0 overflow-y-auto scroll-area">
+    <div className="max-w-4xl mx-auto w-full p-4 sm:p-6">
+      {/* Back Button */}
+      <div className="flex justify-start mb-6">
+        <BackButton />
+      </div>
 
-        {/* Header */}
-        <div className="bg-card border rounded-lg p-6 mb-6">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <h1 className="text-3xl font-bold">
-                {event.venue?.id ? (
-                  <Link href={`/venues/${event.venue.id}`} className="hover:underline hover:text-primary transition-colors">
-                    {event.venue.name}
-                  </Link>
-                ) : (
-                  event.venue?.name || "-"
-                )}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">סוג: הזמנה</p>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <Badge variant={event.status === "approved" ? "default" : "destructive"}>
-                {EVENT_STATUS_LABELS_FULL[event.status] || event.status}
-              </Badge>
-              {event.cancellation_requested_at && event.status !== "cancelled" && (
-                <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
-                  ממתין לביטול
-                </Badge>
+      {/* Header */}
+      <div className="bg-card border rounded-lg p-6 mb-6">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              {event.venue?.id ? (
+                <Link href={`/venues/${event.venue.id}`} className="hover:underline hover:text-primary transition-colors">
+                  {event.venue.name}
+                </Link>
+              ) : (
+                event.venue?.name || "-"
               )}
-            </div>
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">סוג: הזמנה</p>
           </div>
+          <div className="flex flex-col items-end gap-1">
+            <Badge variant={event.status === "approved" ? "default" : "destructive"}>
+              {EVENT_STATUS_LABELS_FULL[event.status] || event.status}
+            </Badge>
+            {event.cancellation_requested_at && event.status !== "cancelled" && (
+              <Badge variant="warning-soft">
+                ממתין לביטול
+              </Badge>
+            )}
+          </div>
+        </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
@@ -158,7 +158,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               {event.cancellation_requested_at && event.status !== "cancelled" && (
                 <div>
                   <p className="text-muted-foreground mb-1">בקשת ביטול</p>
-                  <p dir="ltr" className="text-right text-amber-600 dark:text-amber-400">
+                  <p dir="ltr" className="text-right text-warning">
                     {formatDateTime(event.cancellation_requested_at)}
                   </p>
                 </div>
@@ -201,7 +201,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             </div>
           )}
         </div>
-      </div>
+    </div>
     </div>
   );
 }

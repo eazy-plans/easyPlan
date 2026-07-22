@@ -15,11 +15,11 @@ const ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "webp", "gif", "avif"]);
  * service-role key and an anonymous caller - never remove it.
  */
 async function authorizeVenueAccess(venueId: string): Promise<void> {
-  if (!venueId) throw new Error("Missing venueId");
+  if (!venueId) throw new Error("חסר מזהה אולם");
 
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new Error("אין הרשאה");
 
   const { data: profile } = await supabase.from("users")
     .select("role")
@@ -33,7 +33,7 @@ async function authorizeVenueAccess(venueId: string): Promise<void> {
     .eq("id", venueId)
     .single();
 
-  if (!venue || venue.owner_user_id !== user.id) throw new Error("Forbidden");
+  if (!venue || venue.owner_user_id !== user.id) throw new Error("אין הרשאה לבצע פעולה זו");
 }
 
 export async function uploadVenueImage(formData: FormData): Promise<string> {
@@ -43,9 +43,9 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
 
   await authorizeVenueAccess(venueId);
 
-  if (!(file instanceof File)) throw new Error("No file provided");
-  if (file.size === 0 || file.size > MAX_FILE_BYTES) throw new Error("File too large");
-  if (!file.type.startsWith("image/")) throw new Error("Only image files are allowed");
+  if (!(file instanceof File)) throw new Error("לא נבחר קובץ");
+  if (file.size === 0 || file.size > MAX_FILE_BYTES) throw new Error("הקובץ גדול מדי (מקסימום 8MB)");
+  if (!file.type.startsWith("image/")) throw new Error("ניתן להעלות קבצי תמונה בלבד");
 
   const rawExt = (file.name.split(".").pop() ?? "").toLowerCase();
   const ext = ALLOWED_EXT.has(rawExt) ? rawExt : "jpg";
@@ -86,7 +86,7 @@ export async function deleteVenueImage(
     .eq("venue_id", venueId)
     .single();
 
-  if (!image) throw new Error("Image not found");
+  if (!image) throw new Error("התמונה לא נמצאה");
 
   await supabase.storage.from(BUCKET).remove([image.storage_path]);
   await supabase.from("venue_images").delete().eq("id", imageId);

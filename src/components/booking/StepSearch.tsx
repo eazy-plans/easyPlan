@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
-import { Building2, CalendarDays, X, ChevronDown, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus } from "lucide-react";
+import { Building2, CalendarDays, X, ChevronDown, ChevronLeft, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus } from "lucide-react";
 import Image from "next/image";
 import { formatDate, formatCurrency, toLocalDateStr } from "@/lib/utils";
 import type { EventType, VenueRow, VenueImageRow } from "@/types/database";
-import { EVENT_TYPE_LABELS, PRICE_KEY } from "@/types/booking";
+import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, PRICE_KEY } from "@/types/booking";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
@@ -214,7 +214,10 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
   ].filter(Boolean).length;
 
   return (
-    <div className="flex flex-col min-h-full gap-4" dir="rtl">
+    <div className="flex flex-col lg:flex-row gap-5 h-full min-h-0" dir="rtl">
+
+    {/* Filters column - fixed width, own scroll so it never pushes the results list off screen */}
+    <div className="lg:w-80 shrink-0 flex flex-col gap-4 lg:overflow-y-auto lg:scroll-area lg:pl-1">
 
       {/* Venue and City Selection */}
       <div className="space-y-3 bg-card rounded-lg p-4 border border-border" dir="rtl">
@@ -238,7 +241,6 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
                 }
               }}
               placeholder="כל האולמות"
-              searchPlaceholder="הקלד שם אולם..."
             />
           </div>
 
@@ -253,7 +255,6 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
               value={selectedCity}
               onValueChange={setSelectedCity}
               placeholder="כל הערים"
-              searchPlaceholder="הקלד שם עיר..."
             />
           </div>
         </div>
@@ -268,12 +269,13 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
               key={type}
               type="button"
               onClick={() => handleEventType(type)}
-              className={`px-4 py-3 rounded-lg font-medium text-sm transition-all border-2 ${
+              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all border-2 ${
                 eventType === type
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-transparent bg-muted/50 text-foreground hover:bg-muted"
+                  : "border-border bg-card text-foreground hover:bg-muted/60 hover:border-primary/40"
               }`}
             >
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: EVENT_TYPE_COLORS[type] }} />
               {label}
             </button>
           ))}
@@ -475,8 +477,12 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
         </div>
       </div>
 
-      {/* Results */}
-      <p className="text-sm text-muted-foreground text-right">
+    </div>
+    {/* end filters column */}
+
+    {/* Results column - fills remaining width, only this list scrolls */}
+    <div className="flex-1 min-w-0 flex flex-col gap-3 min-h-0">
+      <p className="text-sm text-muted-foreground text-right shrink-0">
         {loadingAvail   ? "בודק זמינות..." :
          hasDateFilter  ? `${filtered.length} אולמות פנויים` :
          `${filtered.length} אולמות`}
@@ -484,11 +490,11 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
 
       {/* Active holds panel */}
       {activeLocks.length > 0 && (
-        <div className="border border-amber-200 rounded-lg overflow-hidden">
+        <div className="border border-warning/30 rounded-lg overflow-hidden shrink-0">
           <button
             type="button"
             onClick={() => setShowHolds((h) => !h)}
-            className="w-full flex flex-row-reverse items-center justify-between px-3 py-2 text-sm bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors"
+            className="w-full flex flex-row-reverse items-center justify-between px-3 py-2 text-sm bg-warning/10 text-warning hover:bg-warning/15 transition-colors"
           >
             <ChevronDown size={14} className={`transition-transform ${showHolds ? "rotate-180" : ""}`} />
             <span className="flex flex-row-reverse items-center justify-end gap-2">
@@ -497,13 +503,13 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
             </span>
           </button>
           {showHolds && (
-            <div className="divide-y divide-amber-100">
+            <div className="divide-y divide-warning/20">
               {activeLocks.map((lock, i) => {
                 const venueName = allVenues.find((v) => v.id === lock.venue_id)?.name ?? "אולם לא ידוע";
                 const minsLeft = Math.max(0, Math.round((new Date(lock.locked_until).getTime() - Date.now()) / 60000));
                 return (
-                  <div key={i} className="px-3 py-2 text-sm flex flex-row-reverse items-center justify-between bg-amber-50/50">
-                    <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50 shrink-0">
+                  <div key={i} className="px-3 py-2 text-sm flex flex-row-reverse items-center justify-between bg-warning/5">
+                    <Badge variant="warning-soft" className="shrink-0">
                       {minsLeft} דק&apos;
                     </Badge>
                     <div className="flex flex-row-reverse items-center justify-end gap-2 min-w-0 flex-1">
@@ -520,8 +526,8 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
         </div>
       )}
 
-      {(
-        filtered.length === 0 ? (
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-area">
+        {filtered.length === 0 ? (
           <div className="flex flex-col items-center py-12 text-muted-foreground gap-2 text-right">
             <Building2 size={40} strokeWidth={1} />
             {allTakenOnDate ? (
@@ -541,10 +547,10 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
               return (
                 <div
                   key={venue.id}
-                  className="border rounded-lg p-4 flex flex-row-reverse gap-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="group border rounded-xl bg-card p-4 flex flex-row-reverse gap-4 shadow-card cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
                   onClick={() => onSelect(venue, date, eventType)}
                 >
-                  <div className="w-20 h-20 rounded-md bg-muted shrink-0 overflow-hidden flex items-center justify-center">
+                  <div className="w-20 h-20 rounded-lg bg-muted shrink-0 overflow-hidden flex items-center justify-center">
                     {primaryImage ? (
                       <Image src={getImageUrl(primaryImage.storage_path)} alt={venue.name} width={80} height={80} className="w-full h-full object-cover" />
                     ) : (
@@ -563,12 +569,15 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
                       <p className="text-sm font-medium mt-1 text-primary text-right">{formatCurrency(price)}</p>
                     )}
                   </div>
+                  <ChevronLeft size={16} className="self-center shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
                 </div>
               );
             })}
           </div>
-        )
-      )}
+        )}
+      </div>
+    </div>
+    {/* end results column */}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { inviteUser } from "@/app/actions/invite-user";
 import { setUserAccess } from "@/app/actions/user-access";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +26,18 @@ import {
 import { formatDate } from "@/lib/utils";
 import type { UserRole } from "@/types/database";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Users, ShieldCheck, Building2 } from "lucide-react";
+import { StatChip } from "@/components/ui/stat-chip";
+
+function userInitials(name: string) {
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "?";
+}
+
+const ROLE_AVATAR_CLASSES: Record<UserRole, string> = {
+  admin: "bg-primary/10 text-primary",
+  secretary: "bg-violet-500/10 text-violet-600",
+  venue_owner: "bg-success/10 text-success",
+};
 
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: "מנהל",
@@ -85,6 +97,12 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
   const [showPassword, setShowPassword] = useState(false);
   const [accessLoading, setAccessLoading] = useState<string | null>(null);
 
+  const stats = useMemo(() => ({
+    admins: users.filter((u) => u.role === "admin").length,
+    secretaries: users.filter((u) => u.role === "secretary").length,
+    owners: users.filter((u) => u.role === "venue_owner").length,
+  }), [users]);
+
   async function toggleAccess(u: UserRow) {
     setAccessLoading(u.id);
     const result = await setUserAccess(u.id, !u.blocked);
@@ -143,6 +161,13 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
 
   return (
     <div className="space-y-6">
+      {/* Stat strip */}
+      <div className="grid grid-cols-3 gap-3">
+        <StatChip label="מנהלים" value={stats.admins} icon={ShieldCheck} tone="primary" />
+        <StatChip label="מזכירות" value={stats.secretaries} icon={Users} tone="violet" />
+        <StatChip label="בעלי אולמות" value={stats.owners} icon={Building2} tone="success" />
+      </div>
+
       {/* Edit dialog */}
       <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
         <DialogContent dir="rtl">
@@ -269,31 +294,36 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
       {/* Table (desktop) */}
       <div className="hidden md:block overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
-          <thead className="bg-muted text-muted-foreground sticky top-0 z-10">
-            <tr>
-              <th className="text-right px-4 py-3 font-medium">שם</th>
-              <th className="text-right px-4 py-3 font-medium">אימייל</th>
-              <th className="text-right px-4 py-3 font-medium">תפקיד</th>
-              <th className="text-right px-4 py-3 font-medium">נוצר</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
+          <TableHeader className="bg-muted sticky top-0 z-10 [&_tr]:border-b-0">
+            <TableRow className="hover:bg-transparent">
+              <TableHead>שם</TableHead>
+              <TableHead>אימייל</TableHead>
+              <TableHead>תפקיד</TableHead>
+              <TableHead>נוצר</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {users.map((u) => (
-              <tr key={u.id} className="border-t hover:bg-muted/40 transition-colors">
-                <td className="px-4 py-3 font-medium">
-                  {u.full_name}
-                  {u.id === currentUserId && <span className="text-xs text-muted-foreground mr-2">(אתה)</span>}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground" dir="ltr">{u.email}</td>
-                <td className="px-4 py-3">
+              <TableRow key={u.id}>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-3">
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ROLE_AVATAR_CLASSES[u.role]}`}>
+                      {userInitials(u.full_name)}
+                    </span>
+                    {u.full_name}
+                    {u.id === currentUserId && <span className="text-xs text-muted-foreground mr-2">(אתה)</span>}
+                  </div>
+                </TableCell>
+                <TableCell className="text-muted-foreground" dir="ltr">{u.email}</TableCell>
+                <TableCell>
                   <div className="flex items-center gap-2">
                     <Badge variant={ROLE_VARIANT[u.role]}>{ROLE_LABELS[u.role]}</Badge>
                     {u.blocked && <Badge variant="destructive">הגישה חסומה</Badge>}
                   </div>
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{formatDate(new Date(u.created_at))}</td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="text-muted-foreground">{formatDate(new Date(u.created_at))}</TableCell>
+                <TableCell>
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="outline" onClick={() => openEdit(u)}>ערוך</Button>
                     {u.id !== currentUserId && (
@@ -306,26 +336,31 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                       )
                     )}
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
+          </TableBody>
         </table>
       </div>
 
       {/* Cards (mobile) */}
       <div className="md:hidden space-y-3">
         {users.map((u) => (
-          <div key={u.id} className="border rounded-lg p-4 space-y-3">
+          <div key={u.id} className="border rounded-xl bg-card p-4 space-y-3 shadow-card">
             <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="font-semibold">
-                  {u.full_name}
-                  {u.id === currentUserId && <span className="text-xs text-muted-foreground mr-1">(אתה)</span>}
-                </p>
-                <p className="text-sm text-muted-foreground" dir="ltr">{u.email}</p>
+              <div className="flex items-start gap-3 min-w-0">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ROLE_AVATAR_CLASSES[u.role]}`}>
+                  {userInitials(u.full_name)}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">
+                    {u.full_name}
+                    {u.id === currentUserId && <span className="text-xs text-muted-foreground mr-1">(אתה)</span>}
+                  </p>
+                  <p className="text-sm text-muted-foreground truncate" dir="ltr">{u.email}</p>
+                </div>
               </div>
-              <div className="flex flex-col items-end gap-1">
+              <div className="flex flex-col items-end gap-1 shrink-0">
                 <Badge variant={ROLE_VARIANT[u.role]}>{ROLE_LABELS[u.role]}</Badge>
                 {u.blocked && <Badge variant="destructive">הגישה חסומה</Badge>}
               </div>

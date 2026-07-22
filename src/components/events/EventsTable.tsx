@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
 import { Combobox } from "@/components/ui/combobox";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { formatDate, formatCurrency, toLocalDateStr } from "@/lib/utils";
@@ -146,31 +148,15 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Tabs: all events / pending-cancellation watchlist */}
-      <div className="flex gap-2 border-b">
-        <button
-          onClick={() => setViewTab("all")}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            viewTab === "all"
-              ? "border-primary text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          כל האירועים
-        </button>
-        <button
-          onClick={() => setViewTab("pending_cancellation")}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            viewTab === "pending_cancellation"
-              ? "border-primary text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          ממתינים לביטול ({pendingCancellationCount})
-        </button>
-      </div>
+      <Tabs value={viewTab} onValueChange={(v) => setViewTab(v as "all" | "pending_cancellation")}>
+        <TabsList>
+          <TabsTrigger value="all">כל האירועים</TabsTrigger>
+          <TabsTrigger value="pending_cancellation">ממתינים לביטול ({pendingCancellationCount})</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {viewTab === "pending_cancellation" && (
-        <p className="text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+        <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded-md px-3 py-2">
           אירועים שהלקוח ביקש לבטל. אין לבטל אותם בפועל אלא אם נמצא לקוח אחר לתאריך.
         </p>
       )}
@@ -200,7 +186,6 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
           value={venueFilter === "all" ? "" : venueFilter}
           onValueChange={(v) => setVenueFilter(v || "all")}
           placeholder="כל האולמות"
-          searchPlaceholder="הקלד שם אולם..."
           className="w-full sm:w-44"
         />
         {/* Hebrew calendar picker like the rest of the app - the native date
@@ -249,41 +234,43 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
       {/* Scrollable table area */}
       <div className="flex-1 overflow-auto min-h-0">
 
-      {/* Table (desktop) */}
+      {/* Table (desktop) - plain <table> (not the Table root wrapper) so the
+          sticky header sticks to this screen's own scroll container instead
+          of an extra nested overflow-auto div */}
       <div className="hidden md:block rounded-lg border">
         <table className="w-full text-sm">
-          <thead className="bg-muted text-muted-foreground sticky top-0 z-10">
-            <tr>
-              <th className="text-right px-4 py-3 font-medium">תאריך</th>
-              <th className="text-right px-4 py-3 font-medium">אולם</th>
-              <th className="text-right px-4 py-3 font-medium">לקוח</th>
-              <th className="text-right px-4 py-3 font-medium">סוג</th>
-              <th className="text-right px-4 py-3 font-medium">מחיר סופי</th>
-              <th className="text-right px-4 py-3 font-medium">סטטוס</th>
-              <th className="text-right px-4 py-3 font-medium">הערות</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
+          <TableHeader className="bg-muted sticky top-0 z-10 [&_tr]:border-b-0">
+            <TableRow className="hover:bg-transparent">
+              <TableHead>תאריך</TableHead>
+              <TableHead>אולם</TableHead>
+              <TableHead>לקוח</TableHead>
+              <TableHead>סוג</TableHead>
+              <TableHead>מחיר סופי</TableHead>
+              <TableHead>סטטוס</TableHead>
+              <TableHead>הערות</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtered.length === 0 && (
-              <tr>
-                <td colSpan={8} className="text-center py-10 text-muted-foreground">אין אירועים תואמים</td>
-              </tr>
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">אין אירועים תואמים</TableCell>
+              </TableRow>
             )}
             {filtered.map((ev) => (
-              <tr
+              <TableRow
                 key={ev.id}
-                className="border-t hover:bg-muted/40 transition-colors cursor-pointer focus-visible:bg-muted/40 focus-visible:outline-none"
+                className="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
                 onClick={() => setDetailEvent(ev)}
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === "Enter") setDetailEvent(ev); }}
               >
-                <td className="px-4 py-3 whitespace-nowrap">
+                <TableCell className="whitespace-nowrap">
                   <div>{formatDate(new Date(ev.date))}</div>
                   <div className="text-xs text-muted-foreground">{format(new Date(ev.date), "EEEE", { locale: he })}</div>
                   <div className="text-xs text-muted-foreground">{toHebrewDateShort(ev.date)}</div>
-                </td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell>
                   {ev.venue?.id ? (
                     <Link
                       href={`/venues/${ev.venue.id}`}
@@ -296,39 +283,39 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                     <div className="font-medium">-</div>
                   )}
                   <div className="text-muted-foreground text-xs">{ev.venue?.city}</div>
-                </td>
+                </TableCell>
                 {/* stopPropagation: without it the row's onClick also fires and
                     stacks the detail modal on top of the lead dialog */}
-                <td
-                  className="px-4 py-3 cursor-pointer hover:text-primary transition-colors"
+                <TableCell
+                  className="cursor-pointer hover:text-primary transition-colors"
                   onClick={(e) => { e.stopPropagation(); setLeadDialogEvent(ev); }}
                 >
                   <div className="font-medium">{ev.client_name}</div>
                   <div className="text-muted-foreground text-xs" dir="ltr">{ev.client_phone}</div>
-                </td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell>
                   <div>{EVENT_TYPE_LABELS[ev.event_type as keyof typeof EVENT_TYPE_LABELS] ?? ev.event_type}</div>
                   <div className="text-xs text-muted-foreground">{EVENT_PURPOSE_LABELS[ev.event_purpose as keyof typeof EVENT_PURPOSE_LABELS] ?? ev.event_purpose}</div>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">{formatCurrency(ev.price_final)}</td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="whitespace-nowrap">{formatCurrency(ev.price_final)}</TableCell>
+                <TableCell>
                   <div className="flex flex-col items-start gap-1">
                     <Badge variant={STATUS_VARIANT[ev.status]}>{STATUS_LABELS[ev.status]}</Badge>
                     {ev.cancellation_requested_at && ev.status !== "cancelled" && (
-                      <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                      <Badge variant="warning-soft">
                         ממתין לביטול
                       </Badge>
                     )}
                   </div>
-                </td>
-                <td className="px-4 py-3 max-w-xs">
+                </TableCell>
+                <TableCell className="max-w-xs">
                   {ev.notes ? (
                     <span className="text-sm text-muted-foreground truncate block">{ev.notes}</span>
                   ) : (
                     <span className="text-sm text-muted-foreground/50">-</span>
                   )}
-                </td>
-                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                </TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1 justify-end">
                     {canEdit && ev.status !== "cancelled" && (
                       <Button size="sm" variant="ghost" onClick={() => setEditingEvent(ev)} disabled={isPending}>
@@ -341,10 +328,10 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                       </Button>
                     )}
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
+          </TableBody>
         </table>
       </div>
 
@@ -374,7 +361,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
               <div className="flex flex-col items-end gap-1">
                 <Badge variant={STATUS_VARIANT[ev.status]}>{STATUS_LABELS[ev.status]}</Badge>
                 {ev.cancellation_requested_at && ev.status !== "cancelled" && (
-                  <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400">
+                  <Badge variant="warning-soft">
                     ממתין לביטול
                   </Badge>
                 )}

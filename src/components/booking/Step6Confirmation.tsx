@@ -17,10 +17,10 @@ interface Step6Props {
 
 export function Step6Confirmation({ venue, date, eventType, eventId, onNewBooking }: Step6Props) {
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="max-w-2xl w-full flex flex-col min-h-full">
       <div className="flex-1 flex flex-col items-center text-center gap-6 py-6">
         <div className="flex flex-col items-center gap-3">
-          <CheckCircle2 size={56} className="text-green-500" strokeWidth={1.5} />
+          <CheckCircle2 size={56} className="text-success" strokeWidth={1.5} />
           <h2 className="text-xl font-bold">האירוע אושר בהצלחה!</h2>
           <p className="text-sm text-muted-foreground">האירוע נרשם במערכת ומאושר</p>
         </div>

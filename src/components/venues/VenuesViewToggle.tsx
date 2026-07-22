@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { MapIcon, List } from "lucide-react";
+import { MapIcon, List, Building2, CheckCircle2, Users, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StatChip } from "@/components/ui/stat-chip";
 import { VenuesTable } from "./VenuesTable";
 import type { VenueRow, UserRow } from "@/types/database";
 
@@ -36,8 +37,25 @@ export function VenuesViewToggle({
 }: VenuesViewToggleProps) {
   const [viewMode, setViewMode] = useState<"table" | "map">("table");
 
+  const stats = useMemo(() => {
+    const active = venues.filter((v) => v.is_active).length;
+    const pending = venues.filter((v) => v.approval_status === "pending").length;
+    const avgCapacity = venues.length
+      ? Math.round(venues.reduce((s, v) => s + (v.max_capacity ?? 0), 0) / venues.length)
+      : 0;
+    return { active, pending, avgCapacity };
+  }, [venues]);
+
   return (
     <>
+      {/* Compact stat strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatChip label="סה״כ אולמות" value={venues.length} icon={Building2} tone="primary" />
+        <StatChip label="פעילים" value={stats.active} icon={CheckCircle2} tone="success" />
+        <StatChip label="ממתינים לאישור" value={stats.pending} icon={Clock} tone="warning" />
+        <StatChip label="קיבולת ממוצעת" value={stats.avgCapacity} icon={Users} tone="violet" />
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button

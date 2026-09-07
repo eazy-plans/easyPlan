@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { isValidPhone } from "@/lib/utils";
 import type { LeadStatus, LeadInquiryStatus } from "@/types/database";
 import { INQUIRY_STATUS_LABELS, INQUIRY_STATUSES, REJECTION_STATUSES } from "@/types/leads";
-import { useRouter } from "next/navigation";
-import { Phone, Mail, ChevronLeft, UserPlus, Hourglass, PartyPopper, TrendingUp } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Phone, Mail, ChevronLeft, UserPlus, Hourglass, PartyPopper, TrendingUp, FileSpreadsheet, Loader2 } from "lucide-react";
 import { StatChip } from "@/components/ui/stat-chip";
+import { exportToExcel, type ExcelColumn } from "@/lib/export/excel";
+import { formatDate } from "@/lib/utils";
+import { logAudit } from "@/lib/audit";
 
 function leadInitials(name: string) {
   return name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "?";
@@ -36,6 +39,17 @@ interface LeadsManagerProps {
   initialSearch?: string;
 }
 
+const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
+  new: "פנייה חדשה",
+  considering: "שוקל/ת",
+  waiting_for_date: "ממתין/ה לתאריך",
+  date_taken: "תאריך תפוס",
+  booked: "הוזמן",
+  cancelled: "בוטל",
+  too_expensive: "יקר מדי",
+  not_relevant: "לא רלוונטי",
+};
+
 const EMPTY_FORM = { client_name: "", client_phone: "", client_email: "" };
 
 const EMPTY_QUICK_FORM = {
@@ -48,6 +62,7 @@ const EMPTY_QUICK_FORM = {
 
 export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsManagerProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [leads, setLeads] = useState(initialLeads);
   const [searchFilter, setSearchFilter] = useState(initialSearch);
   const [addOpen, setAddOpen] = useState(false);
@@ -64,6 +79,18 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
   const [quickReusedLead, setQuickReusedLead] = useState(false);
   const [venues, setVenues] = useState<{ id: string; name: string }[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(false);
+
+  // Sidebar's "פנייה מהירה" nav item links to /leads?quick=1 as a shortcut
+  // straight into this dialog. Strip the param afterwards so a refresh
+  // doesn't force it back open.
+  useEffect(() => {
+    if (searchParams.get("quick") !== "1") return;
+    loadVenues();
+    setQuickOpen(true);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("quick");
+    router.replace(params.toString() ? `/leads?${params.toString()}` : "/leads", { scroll: false });
+  }, [searchParams]);
 
   const filtered = useMemo(() => leads.filter((l) => {
     const searchLower = searchFilter.toLowerCase();
@@ -113,6 +140,10 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
       toast.error("שגיאה בשמירת ליד");
       return;
     }
+    const { data: { user } } = await supabase.auth.getUser();
+    logAudit(supabase, user?.id ?? null, "lead.create", "lead", data.id, {
+      client_name: data.client_name, client_phone: data.client_phone,
+    });
     setLeads((prev) => [data, ...prev]);
     setForm(EMPTY_FORM);
     setCreatedLeadId(data.id);
@@ -129,12 +160,14 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
     setLoadingVenues(false);
   }
 
-  // One-dialog flow: creates the lead and its first inquiry together. If a
-  // lead with this phone already exists (unique index on client_phone), the
-  // inquiry is attached to the existing lead instead of failing.
+  // One-dialog flow: creates the lead and (if a venue was picked) its first
+  // inquiry together. Venue is optional (L3) - lead_inquiries.venue_id is a
+  // NOT NULL FK, so with no venue chosen the lead is created on its own and
+  // no inquiry row is written. If a lead with this phone already exists
+  // (unique index on client_phone), the inquiry is attached to the existing
+  // lead instead of failing.
   async function handleQuickAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!quickForm.venue_id) { toast.error("בחר אולם"); return; }
     if (quickForm.client_phone && !isValidPhone(quickForm.client_phone)) {
       setQuickPhoneError("מספר טלפון לא תקין (לדוגמה: 052-1234567)");
       return;
@@ -172,19 +205,46 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
       setLeads((prev) => [created, ...prev]);
     }
 
-    const { error: inquiryError } = await supabase.from("lead_inquiries")
-      .upsert({
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!reused) {
+      logAudit(supabase, user?.id ?? null, "lead.create", "lead", leadId, {
+        client_name: quickForm.client_name, client_phone: quickForm.client_phone || null,
+      });
+    }
+
+    if (!quickForm.venue_id) {
+      setQuickSaving(false);
+      setQuickDoneLeadId(leadId);
+      setQuickReusedLead(reused);
+      toast.success(reused ? "הליד הקיים עודכן" : "הליד נוסף");
+      router.refresh();
+      return;
+    }
+
+    // Plain insert (032 dropped the lead_id+venue_id unique constraint) -
+    // marked source: "quick" so the notifications tab (G1) can list these
+    // separately from inquiries added via the regular lead-detail flow.
+    const { data: inquiryData, error: inquiryError } = await supabase.from("lead_inquiries")
+      .insert({
         lead_id: leadId,
         venue_id: quickForm.venue_id,
         status: quickForm.status,
         rejection_reason: quickForm.note || null,
-      }, { onConflict: "lead_id,venue_id" });
+        source: "quick",
+      })
+      .select("id")
+      .single();
 
     setQuickSaving(false);
     if (inquiryError) {
       toast.error("הליד נשמר אך הוספת הפנייה נכשלה");
       return;
     }
+    logAudit(supabase, user?.id ?? null, "lead_inquiry.create", "lead_inquiry", inquiryData?.id ?? null, {
+      lead: quickForm.client_name,
+      venue: venues.find((v) => v.id === quickForm.venue_id)?.name ?? quickForm.venue_id,
+      source: "quick",
+    });
     setQuickDoneLeadId(leadId);
     setQuickReusedLead(reused);
     toast.success(reused ? "הפנייה נוספה לליד הקיים" : "הליד והפנייה נוספו");
@@ -205,6 +265,24 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
     const conversion = leads.length ? Math.round((booked / leads.length) * 100) : 0;
     return { total: leads.length, pending, booked, conversion };
   }, [leads]);
+
+  const [exporting, setExporting] = useState(false);
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const columns: ExcelColumn<LeadRow>[] = [
+        { header: "שם", key: "client_name", value: (l) => l.client_name, width: 20 },
+        { header: "טלפון", key: "client_phone", value: (l) => l.client_phone ?? "", width: 14 },
+        { header: "מייל", key: "client_email", value: (l) => l.client_email ?? "", width: 22 },
+        { header: "סטטוס", key: "status", value: (l) => LEAD_STATUS_LABELS[l.status] ?? l.status, width: 14 },
+        { header: "הערות", key: "notes", value: (l) => l.notes ?? "", width: 24 },
+        { header: "תאריך הוספה", key: "created_at", value: (l) => formatDate(new Date(l.created_at)), width: 12 },
+      ];
+      await exportToExcel("לידים", "לידים", columns, filtered);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
@@ -314,6 +392,17 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
         >
           + פנייה מהירה
         </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          className="ms-auto"
+          onClick={handleExport}
+          disabled={exporting || filtered.length === 0}
+          aria-label={exporting ? "מייצא..." : "ייצוא לאקסל"}
+          title="ייצוא לאקסל"
+        >
+          {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+        </Button>
         </div>
       </div>
 
@@ -375,14 +464,13 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
                   {quickPhoneError && <p className="text-xs text-destructive">{quickPhoneError}</p>}
                 </div>
                 <div className="space-y-1">
-                  <Label>אולם *</Label>
+                  <Label>אולם</Label>
                   <Combobox
                     options={venues.map((venue) => ({ value: venue.id, label: venue.name }))}
                     value={quickForm.venue_id}
                     onValueChange={(v) => setQuickForm((f) => ({ ...f, venue_id: v }))}
                     placeholder={loadingVenues ? "טוען..." : "בחר אולם"}
                     disabled={loadingVenues}
-                    clearable={false}
                   />
                 </div>
                 <div className="space-y-1">

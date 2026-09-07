@@ -3,6 +3,8 @@ import { ownerEventCreatedHtml } from "./templates/ownerEventCreated";
 import { clientConfirmHtml } from "./templates/clientConfirm";
 import { waitlistNotifyHtml } from "./templates/waitlistNotify";
 import { eventCancelledHtml } from "./templates/eventCancelled";
+import { eventReplacedHtml } from "./templates/eventReplaced";
+import { ownerEventReplacedHtml } from "./templates/ownerEventReplaced";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 import { formatCurrency } from "@/lib/utils";
 import type { EventRow, VenueRow } from "@/types/database";
@@ -150,6 +152,65 @@ export async function sendCancellationEmail(
   return sendEmail({
     to: event.client_email,
     subject: `הודעת ביטול הזמנה - אולם ${venue.name} - ${formatDateHe(event.date)}`,
+    html,
+  });
+}
+
+// Sent to the client whose pending-cancellation event was auto-cancelled
+// because a different client booked the same slot (decision #1 / G5).
+export async function sendEventReplacedEmail(
+  event: Pick<EventRow, "date" | "event_type" | "event_purpose" | "client_name" | "client_email" | "price_final" | "original_price_final">,
+  venue: Pick<VenueRow, "name" | "cancellation_policy" | "contact_name" | "contact_phone"> & { owner?: { full_name: string } | null },
+) {
+  if (!event.client_email) return;
+
+  const html = eventReplacedHtml({
+    clientName: event.client_name,
+    venueName: venue.name,
+    date: formatDateHe(event.date),
+    dayOfWeek: formatDayOfWeekHe(event.date),
+    eventType: EVENT_TYPE_LABELS[event.event_type] ?? event.event_type,
+    eventPurpose: EVENT_PURPOSE_LABELS[event.event_purpose] ?? event.event_purpose,
+    originalPrice: formatCurrency(event.original_price_final ?? event.price_final),
+    policyDescription: venue.cancellation_policy || undefined,
+    contactName: venue.contact_name ?? venue.owner?.full_name,
+    contactPhone: venue.contact_phone ?? undefined,
+  });
+
+  return sendEmail({
+    to: event.client_email,
+    subject: `הודעת ביטול הזמנה - אולם ${venue.name} - ${formatDateHe(event.date)}`,
+    html,
+  });
+}
+
+// Sent to the venue owner when the above replacement happens - the owner
+// otherwise never learns their calendar changed (ownerEventCreated only
+// fires for the new booking, not for the cancellation it triggered).
+export async function sendOwnerEventReplacedEmail(
+  newEvent: Pick<EventRow, "date" | "event_type" | "event_purpose" | "client_name" | "client_phone" | "client_email" | "price_final">,
+  venue: Pick<VenueRow, "name">,
+  ownerEmail: string,
+  ownerName: string | undefined,
+  previousClientName: string,
+) {
+  const html = ownerEventReplacedHtml({
+    venueName: venue.name,
+    ownerName,
+    date: formatDateHe(newEvent.date),
+    dayOfWeek: formatDayOfWeekHe(newEvent.date),
+    eventType: EVENT_TYPE_LABELS[newEvent.event_type] ?? newEvent.event_type,
+    eventPurpose: EVENT_PURPOSE_LABELS[newEvent.event_purpose] ?? newEvent.event_purpose,
+    previousClientName,
+    newClientName: newEvent.client_name,
+    newClientPhone: newEvent.client_phone,
+    newClientEmail: newEvent.client_email ?? undefined,
+    priceFinal: formatCurrency(newEvent.price_final),
+  });
+
+  return sendEmail({
+    to: ownerEmail,
+    subject: `התאריך הוחלף בהזמנה חדשה - ${venue.name} - ${formatDateHe(newEvent.date)}`,
     html,
   });
 }

@@ -2,13 +2,21 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendOwnerEventCreatedEmail, sendClientConfirmEmail } from "@/lib/email/sendEventEmails";
+import {
+  sendOwnerEventCreatedEmail,
+  sendClientConfirmEmail,
+  sendEventReplacedEmail,
+  sendOwnerEventReplacedEmail,
+} from "@/lib/email/sendEventEmails";
 
 // POST /api/events/notify
-// body: { eventId: string, type: "owner_event_created" | "client_confirm" }
+// body: { eventId: string, type: "owner_event_created" | "client_confirm" | "event_replaced" | "owner_event_replaced" }
+// For "event_replaced"/"owner_event_replaced", eventId is the OLD (now
+// cancelled) event - the route follows its replaced_by_event_id to find
+// the new booking that took its slot.
 const BodySchema = z.object({
   eventId: z.uuid(),
-  type: z.enum(["owner_event_created", "client_confirm"]),
+  type: z.enum(["owner_event_created", "client_confirm", "event_replaced", "owner_event_replaced"]),
 });
 
 export async function POST(request: Request) {
@@ -89,21 +97,76 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // type === "client_confirm"
-  if (!event.client_email) return NextResponse.json({ skipped: "no client email" });
+  if (type === "client_confirm") {
+    if (!event.client_email) return NextResponse.json({ skipped: "no client email" });
+
+    let emailFailed = false;
+    try {
+      await sendClientConfirmEmail(event, venue);
+    } catch (err) {
+      console.error(`Client confirm email failed for event ${eventId}:`, err);
+      emailFailed = true;
+    }
+
+    await supabase.from("email_logs").insert({
+      event_id: eventId,
+      recipient_email: event.client_email,
+      email_type: "client_confirm",
+      status: emailFailed ? "failed" : "sent",
+    });
+
+    if (emailFailed) return NextResponse.json({ error: "Email send failed" }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // type === "event_replaced" | "owner_event_replaced" - eventId is the OLD
+  // (now cancelled) event; both notify about the new booking that replaced it.
+  if (!event.replaced_by_event_id) return NextResponse.json({ skipped: "not a replacement" });
+
+  if (type === "event_replaced") {
+    if (!event.client_email) return NextResponse.json({ skipped: "no client email" });
+
+    let emailFailed = false;
+    try {
+      await sendEventReplacedEmail(event, venue);
+    } catch (err) {
+      console.error(`Event replaced email failed for event ${eventId}:`, err);
+      emailFailed = true;
+    }
+
+    await supabase.from("email_logs").insert({
+      event_id: eventId,
+      recipient_email: event.client_email,
+      email_type: "event_replaced",
+      status: emailFailed ? "failed" : "sent",
+    });
+
+    if (emailFailed) return NextResponse.json({ error: "Email send failed" }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // type === "owner_event_replaced"
+  const ownerEmail = venue?.owner?.email;
+  if (!ownerEmail) return NextResponse.json({ skipped: "no owner email" });
+
+  const { data: newEvent, error: newEventErr } = await supabase.from("events")
+    .select("date, event_type, event_purpose, client_name, client_phone, client_email, price_final")
+    .eq("id", event.replaced_by_event_id)
+    .single();
+  if (newEventErr || !newEvent) return NextResponse.json({ error: "Replacement event not found" }, { status: 404 });
 
   let emailFailed = false;
   try {
-    await sendClientConfirmEmail(event, venue);
+    await sendOwnerEventReplacedEmail(newEvent, venue, ownerEmail, venue?.owner?.full_name, event.client_name);
   } catch (err) {
-    console.error(`Client confirm email failed for event ${eventId}:`, err);
+    console.error(`Owner replaced email failed for event ${eventId}:`, err);
     emailFailed = true;
   }
 
   await supabase.from("email_logs").insert({
     event_id: eventId,
-    recipient_email: event.client_email,
-    email_type: "client_confirm",
+    recipient_email: ownerEmail,
+    email_type: "owner_event_replaced",
     status: emailFailed ? "failed" : "sent",
   });
 

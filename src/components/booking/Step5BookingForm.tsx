@@ -12,6 +12,7 @@ import { formatCurrency, formatDate, isValidPhone, toLocalDateStr } from "@/lib/
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS, PRICE_KEY } from "@/types/booking";
 import type { EventType, EventPurpose, VenueRow } from "@/types/database";
+import { logAudit } from "@/lib/audit";
 
 type ClientSuggestion = { client_name: string; client_phone: string | null; client_email: string | null };
 
@@ -181,22 +182,24 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
     setLoading(true);
     const supabase = createClient();
 
-    const { data, error } = await supabase.from("events").insert({
-      venue_id: venue.id,
-      date: toLocalDateStr(date),
-      event_type: eventType,
-      event_purpose: form.event_purpose,
-      status: "approved",
-      client_name: form.client_name,
-      client_phone: form.client_phone,
-      client_email: form.client_email || null,
-      price_listed: listedPrice,
-      discount_amount: isAdmin ? discount : 0,
-      price_final: finalPrice,
-      notes: form.notes || null,
-      booking_date: new Date().toISOString(),
-      created_by: userId,
-    }).select("id").single();
+    // Atomic RPC: creates the event, and - if this slot is occupied by an
+    // event flagged cancellation_requested_at - cancels and links that old
+    // event in the same transaction (product decision #1). See migration
+    // 030_event_replacement.sql.
+    const { data: rows, error } = await supabase.rpc("create_event_with_replacement", {
+      p_venue_id: venue.id,
+      p_date: toLocalDateStr(date),
+      p_event_type: eventType,
+      p_event_purpose: form.event_purpose as EventPurpose,
+      p_client_name: form.client_name,
+      p_client_phone: form.client_phone,
+      p_client_email: form.client_email || null,
+      p_price_listed: listedPrice,
+      p_discount_amount: isAdmin ? discount : 0,
+      p_price_final: finalPrice,
+      p_notes: form.notes || null,
+      p_created_by: userId,
+    });
 
     setLoading(false);
 
@@ -209,21 +212,51 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
       return;
     }
 
+    const result = rows?.[0];
+    if (!result) {
+      toast.error("שגיאה בשמירת האירוע");
+      return;
+    }
+    const eventId = result.event_id;
+    const replacedEventId = result.replaced_event_id;
+
+    logAudit(supabase, userId || null, "event.create", "event", eventId, {
+      client_name: form.client_name, date: toLocalDateStr(date), venue: venue.name,
+    });
+    if (replacedEventId) {
+      logAudit(supabase, userId || null, "event.replace", "event", replacedEventId, {
+        venue: venue.name, replaced_by_client: form.client_name,
+      });
+    }
+
     // Send emails fire-and-forget
     fetch("/api/events/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventId: data.id, type: "owner_event_created" }),
+      body: JSON.stringify({ eventId, type: "owner_event_created" }),
     }).catch(() => null);
     if (form.client_email) {
       fetch("/api/events/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: data.id, type: "client_confirm" }),
+        body: JSON.stringify({ eventId, type: "client_confirm" }),
+      }).catch(() => null);
+    }
+    if (replacedEventId) {
+      fetch("/api/events/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: replacedEventId, type: "event_replaced" }),
+      }).catch(() => null);
+      fetch("/api/events/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: replacedEventId, type: "owner_event_replaced" }),
       }).catch(() => null);
     }
 
-    // Upsert lead by phone - fire-and-forget
+    // Upsert lead by phone, then link the event directly (lead_id) so future
+    // lookups don't depend on comparing phone strings - fire-and-forget.
     (async () => {
       const { data: existing } = await supabase.from("leads")
         .select("id")
@@ -254,16 +287,19 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBa
           return;
         }
       }
+      await supabase.from("events").update({ lead_id: leadId }).eq("id", eventId)
+        .then(() => null, () => null);
+
       await supabase.from("lead_venue_interests")
         .upsert({ lead_id: leadId, venue_id: venue.id }, { onConflict: "lead_id,venue_id" })
         .then(() => null, () => null);
 
       await supabase.from("lead_inquiries")
-        .upsert({ lead_id: leadId, venue_id: venue.id, status: "booked" }, { onConflict: "lead_id,venue_id" })
+        .insert({ lead_id: leadId, venue_id: venue.id, status: "booked" })
         .then(() => null, () => null);
     })().catch(() => null);
 
-    onSuccess(data.id);
+    onSuccess(eventId);
   }
 
   const minutes = Math.floor(secondsLeft / 60);

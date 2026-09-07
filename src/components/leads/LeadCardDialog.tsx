@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Phone, Mail, ArrowLeft } from "lucide-react";
+import { logAudit } from "@/lib/audit";
 
 const AVATAR_GRADIENTS = [
   "from-primary to-primary/70",
@@ -64,6 +65,10 @@ export function LeadCardDialog({ clientPhone, clientName, clientEmail, venueId, 
       .select("id")
       .single();
     if (error) { toast.error("שגיאה ביצירת ליד"); setCreating(false); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    logAudit(supabase, user?.id ?? null, "lead.create", "lead", data.id, {
+      client_name: clientName, client_phone: clientPhone,
+    });
     await supabase.from("lead_venue_interests")
       .upsert({ lead_id: data.id, venue_id: venueId }, { onConflict: "lead_id,venue_id" })
       .then(() => null, () => null);

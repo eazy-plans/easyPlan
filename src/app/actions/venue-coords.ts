@@ -2,6 +2,7 @@
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAudit } from "@/lib/audit";
 
 export type VenueCoords = {
   lat: number;
@@ -161,6 +162,11 @@ export async function setVenueCoords(venueId: string, lat: number, lng: number):
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("אין הרשאה");
 
+  const { data: previous } = await supabase.from("venues")
+    .select("name, lat, lng")
+    .eq("id", venueId)
+    .maybeSingle();
+
   const { data, error } = await supabase.from("venues")
     .update({ lat, lng, coords_approximate: false })
     .eq("id", venueId)
@@ -168,4 +174,10 @@ export async function setVenueCoords(venueId: string, lat: number, lng: number):
   if (error) throw new Error(error.message);
   // RLS silently updates zero rows when the caller may not edit this venue.
   if (!data?.length) throw new Error("Not allowed to move this venue's pin");
+
+  logAudit(supabase, user.id, "venue.update_coords", "venue", venueId, {
+    venue: previous?.name ?? venueId,
+    lat: { from: previous?.lat ?? null, to: lat },
+    lng: { from: previous?.lng ?? null, to: lng },
+  });
 }

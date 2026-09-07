@@ -12,6 +12,7 @@ import {
   ListOrdered,
   Building2,
   Users,
+  Zap,
   Bell,
   Settings,
   LogOut,
@@ -67,6 +68,12 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["admin", "secretary"],
   },
   {
+    label: "פנייה מהירה",
+    href: "/leads?quick=1",
+    icon: <Zap size={18} />,
+    roles: ["admin", "secretary"],
+  },
+  {
     label: "התראות",
     href: "/notifications",
     icon: <Bell size={18} />,
@@ -76,7 +83,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "הגדרות",
     href: "/settings",
     icon: <Settings size={18} />,
-    roles: ["admin"],
+    roles: ["admin", "secretary", "venue_owner"],
   },
 ];
 

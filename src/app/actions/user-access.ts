@@ -2,6 +2,7 @@
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { logAudit } from "@/lib/audit";
 
 // venues.owner_user_id and events.created_by are ON DELETE RESTRICT, so a user
 // with any history can never be hard-deleted. "Removing access" is therefore a
@@ -35,5 +36,11 @@ export async function setUserAccess(userId: string, blocked: boolean) {
   });
 
   if (error) return { error: error.message };
+
+  const { data: targetUser } = await adminClient.from("users").select("full_name").eq("id", userId).maybeSingle();
+  logAudit(adminClient, user.id, blocked ? "user.block" : "user.unblock", "user", userId, {
+    full_name: targetUser?.full_name ?? userId,
+  });
+
   return { ok: true };
 }

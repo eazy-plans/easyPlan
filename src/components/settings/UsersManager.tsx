@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { formatDate } from "@/lib/utils";
+import { logAudit } from "@/lib/audit";
 import type { UserRole } from "@/types/database";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Users, ShieldCheck, Building2 } from "lucide-react";
@@ -132,6 +133,11 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
     setEditLoading(false);
 
     if (error) { toast.error("שגיאה בשמירת הפרטים"); return; }
+
+    logAudit(supabase, currentUserId, "user.update", "user", editUser.id, {
+      full_name: { from: editUser.full_name, to: editForm.full_name },
+      role: { from: editUser.role, to: editForm.role },
+    });
 
     setUsers((prev) => prev.map((u) =>
       u.id === editUser.id ? { ...u, full_name: editForm.full_name, role: editForm.role } : u

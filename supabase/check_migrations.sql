@@ -87,6 +87,14 @@ from (values
             and schemaname = 'public' and tablename = 'booking_locks')),
   ('029_event_cancellation_request',
     exists (select 1 from col where table_name = 'events'
-            and column_name = 'cancellation_requested_at'))
+            and column_name = 'cancellation_requested_at')),
+  ('030_event_replacement',
+    exists (select 1 from pg_proc where proname = 'create_event_with_replacement')),
+  ('031_leads_direct_link',
+    to_regclass('public.lead_phones') is not null),
+  ('032_lead_inquiries_chronological',
+    exists (select 1 from col where table_name = 'lead_inquiries' and column_name = 'source')),
+  ('033_audit_log',
+    to_regclass('public.audit_log') is not null)
 ) as m(migration, applied)
 order by migration;

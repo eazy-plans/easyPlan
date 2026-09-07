@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { logAudit } from "@/lib/audit";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -21,10 +22,11 @@ import {
 import { VenueForm } from "./VenueForm";
 import { VenueEventsPanel } from "./VenueEventsPanel";
 import { VenueStatsPanel } from "./VenueStatsPanel";
+import { VenueDetailPreview } from "./VenueDetailPreview";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { VenueRow, UserRow, VenueImageRow, EventRow } from "@/types/database";
 
-type Tab = "events" | "stats" | "edit";
+type Tab = "events" | "preview" | "stats" | "edit";
 
 interface Props {
   venue: VenueRow;
@@ -38,9 +40,10 @@ interface Props {
 }
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "events", label: "אירועים" },
-  { id: "stats",  label: "סטטיסטיקות" },
-  { id: "edit",   label: "עריכה" },
+  { id: "events",  label: "אירועים" },
+  { id: "preview", label: "פרטים ותמונות" },
+  { id: "stats",   label: "סטטיסטיקות" },
+  { id: "edit",    label: "עריכה" },
 ];
 
 export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, userId, isAdmin }: Props) {
@@ -63,6 +66,8 @@ export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, u
       }
       return;
     }
+    const { data: { user: actor } } = await supabase.auth.getUser();
+    logAudit(supabase, actor?.id ?? null, "venue.delete", "venue", venue.id, { name: venue.name });
     toast.success(`האולם "${venue.name}" נמחק`);
     router.push("/venues");
     router.refresh();
@@ -154,6 +159,10 @@ export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, u
             userId={userId}
             isAdmin={isAdmin}
           />
+        )}
+
+        {tab === "preview" && (
+          <VenueDetailPreview venue={venue} images={images} />
         )}
 
         {tab === "stats" && (

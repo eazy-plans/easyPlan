@@ -20,6 +20,7 @@ import {
   deleteVenueImage,
   updateVenueImagePrimary,
 } from "@/app/actions/venue-images";
+import { logAudit } from "@/lib/audit";
 
 interface PendingFile {
   id: string;
@@ -84,6 +85,10 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Snapshot of the primary image id as loaded, so submit only calls the
+  // sync-primary action when the user actually changed it - not on every
+  // save, which would add a needless round trip to every edit.
+  const originalPrimaryIdRef = useRef<string | null>(initialImages?.find((i) => i.is_primary)?.id ?? null);
 
   useEffect(() => {
     if (isEdit && venue?.id && !initialImages) {
@@ -106,6 +111,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
       .eq("venue_id", venueId)
       .order("created_at");
     setExistingImages(data ?? []);
+    originalPrimaryIdRef.current = data?.find((i) => i.is_primary)?.id ?? null;
   }
 
   function getUrl(path: string) {
@@ -159,10 +165,11 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
       })
     );
 
-    // Sync primary flag changes (user toggled primary without deleting)
-    const primaryChanged = surviving.find((i) => i.is_primary);
-    if (primaryChanged && !primaryDeleted) {
-      await updateVenueImagePrimary(venueId, primaryChanged.id);
+    // Sync primary flag only if the user actually toggled it (without deleting) -
+    // calling this on every save would add a needless round trip to every edit.
+    const survivingPrimary = surviving.find((i) => i.is_primary);
+    if (survivingPrimary && !primaryDeleted && survivingPrimary.id !== originalPrimaryIdRef.current) {
+      await updateVenueImagePrimary(venueId, survivingPrimary.id);
     }
 
     // Upload pending files in parallel
@@ -301,6 +308,15 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
     }
 
     await processImages(venueId);
+
+    // Audit logging is best-effort and must never block the save - resolve
+    // the actor id in the background instead of awaiting it here.
+    supabase.auth.getUser().then(({ data: { user: actor } }) => {
+      const nameDiff = isEdit && venue.name !== form.name
+        ? { name: { from: venue.name, to: form.name } }
+        : { name: form.name };
+      logAudit(supabase, actor?.id ?? null, isEdit ? "venue.update" : "venue.create", "venue", venueId, nameDiff);
+    });
 
     setLoading(false);
     toast.success(isEdit ? "האולם עודכן בהצלחה" : "האולם נוסף בהצלחה");

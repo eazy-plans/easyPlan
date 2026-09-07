@@ -15,6 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { VenueRow } from "@/types/database";
 import { formatCurrency } from "@/lib/utils";
+import { logAudit } from "@/lib/audit";
 import { Building2, Inbox } from "lucide-react";
 
 export function PendingVenuesPanel() {
@@ -59,6 +60,11 @@ export function PendingVenuesPanel() {
         .eq("id", venueId);
 
       if (error) throw error;
+      const { data: { user } } = await supabase.auth.getUser();
+      logAudit(supabase, user?.id ?? null, "venue.approve", "venue", venueId, {
+        name: venues.find((v) => v.id === venueId)?.name ?? venueId,
+        approval_status: { from: "pending", to: "approved" },
+      });
       toast.success("האולם אושר בהצלחה");
       setSelectedVenue(null);
       await loadPendingVenues();
@@ -82,6 +88,11 @@ export function PendingVenuesPanel() {
         .eq("id", venueId);
 
       if (error) throw error;
+      const { data: { user } } = await supabase.auth.getUser();
+      logAudit(supabase, user?.id ?? null, "venue.reject", "venue", venueId, {
+        name: venues.find((v) => v.id === venueId)?.name ?? venueId,
+        approval_status: { from: "pending", to: "rejected" },
+      });
       toast.success("האולם דחה בהצלחה");
       setSelectedVenue(null);
       await loadPendingVenues();

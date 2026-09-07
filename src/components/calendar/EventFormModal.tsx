@@ -15,6 +15,7 @@ import type { EventType, EventPurpose, EventRow } from "@/types/database";
 import { formatDate, isValidPhone, toLocalDateStr } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
+import { logAudit } from "@/lib/audit";
 
 interface EventFormModalProps {
   open: boolean;
@@ -119,6 +120,8 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
     };
 
     let error: { message: string } | null = null;
+    let newEventId: string | null = null;
+    let replacedEventId: string | null = null;
 
     if (isEdit && event) {
       const updatePayload = {
@@ -129,13 +132,26 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
       };
       ({ error } = await supabase.from("events").update(updatePayload).eq("id", event.id));
     } else {
-      ({ error } = await supabase.from("events").insert({
-        ...payload,
-        venue_id: venueId,
-        date: toLocalDateStr(selectedDate),
-        status: "approved",
-        created_by: userId,
-      }));
+      // Atomic RPC: also auto-cancels/links a pending-cancellation event
+      // occupying this slot (decision #1) - same entry point as the booking
+      // wizard's Step5BookingForm.
+      const { data: rows, error: rpcError } = await supabase.rpc("create_event_with_replacement", {
+        p_venue_id: venueId,
+        p_date: toLocalDateStr(selectedDate),
+        p_event_type: form.event_type as EventType,
+        p_event_purpose: form.event_purpose as EventPurpose,
+        p_client_name: payload.client_name,
+        p_client_phone: payload.client_phone,
+        p_client_email: payload.client_email,
+        p_price_listed: payload.price_listed,
+        p_discount_amount: payload.discount_amount,
+        p_price_final: payload.price_final,
+        p_notes: payload.notes,
+        p_created_by: userId,
+      });
+      error = rpcError;
+      newEventId = rows?.[0]?.event_id ?? null;
+      replacedEventId = rows?.[0]?.replaced_event_id ?? null;
     }
 
     setLoading(false);
@@ -147,6 +163,42 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
         toast.error("שגיאה בשמירת האירוע: " + error.message);
       }
       return;
+    }
+
+    let venueRow: { name: string } | null = null;
+    if (isEdit && event) {
+      const newDate = toLocalDateStr(selectedDate);
+      const changes: Record<string, unknown> = {};
+      if (event.client_name !== payload.client_name) changes.client_name = { from: event.client_name, to: payload.client_name };
+      else changes.client_name = event.client_name;
+      if (event.client_phone !== payload.client_phone) changes.client_phone = { from: event.client_phone, to: payload.client_phone };
+      if ((event.client_email ?? null) !== payload.client_email) changes.client_email = { from: event.client_email, to: payload.client_email };
+      if (event.date !== newDate) changes.date = { from: event.date, to: newDate };
+      if (Number(event.price_final) !== payload.price_final) changes.price_final = { from: event.price_final, to: payload.price_final };
+      if ((event.notes ?? null) !== payload.notes) changes.notes = { from: event.notes, to: payload.notes };
+      logAudit(supabase, userId || null, "event.update", "event", event.id, changes);
+    } else if (newEventId) {
+      const { data } = await supabase.from("venues").select("name").eq("id", venueId).maybeSingle();
+      venueRow = data;
+      logAudit(supabase, userId || null, "event.create", "event", newEventId, {
+        client_name: payload.client_name, date: toLocalDateStr(selectedDate), venue: venueRow?.name ?? venueId,
+      });
+    }
+
+    if (replacedEventId) {
+      logAudit(supabase, userId || null, "event.replace", "event", replacedEventId, {
+        venue: venueRow?.name ?? venueId, replaced_by_client: payload.client_name,
+      });
+      fetch("/api/events/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: replacedEventId, type: "event_replaced" }),
+      }).catch(() => null);
+      fetch("/api/events/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: replacedEventId, type: "owner_event_replaced" }),
+      }).catch(() => null);
     }
 
     toast.success(isEdit ? "האירוע עודכן בהצלחה" : "האירוע נוסף בהצלחה");

@@ -2,7 +2,8 @@
 
 import { useState, useTransition, useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { CalendarDays, Pencil, X } from "lucide-react";
+import { CalendarDays, Pencil, X, FileSpreadsheet, Loader2 } from "lucide-react";
+import { exportToExcel, type ExcelColumn } from "@/lib/export/excel";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
   const [dateFilter, setDateFilter] = useState<string>("");
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [timeFilter, setTimeFilter] = useState<"upcoming" | "past" | "all">("upcoming");
-  const [viewTab, setViewTab] = useState<"all" | "pending_cancellation">("all");
+  const [viewTab, setViewTab] = useState<"all" | "pending_cancellation" | "replaced">("all");
   const [isPending, startTransition] = useTransition();
   const [leadDialogEvent, setLeadDialogEvent] = useState<EventWithMetadata | null>(null);
   const [editingEvent, setEditingEvent] = useState<EventWithMetadata | null>(null);
@@ -78,9 +79,31 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
     [events]
   );
 
+  // Pairs of (old cancelled event, new event that took its slot) - the new
+  // event also keeps appearing in the "all" tab, this is an additional view
+  // over the same rows, not a move.
+  const replacementPairs = useMemo(() => {
+    const byId = new Map(events.map((e) => [e.id, e]));
+    const pairs: { old: EventWithMetadata; new: EventWithMetadata }[] = [];
+    for (const ev of events) {
+      if (!ev.replaced_by_event_id) continue;
+      const replacement = byId.get(ev.replaced_by_event_id);
+      if (replacement) pairs.push({ old: ev, new: replacement });
+    }
+    return pairs;
+  }, [events]);
+
+  const replacedNewIds = useMemo(
+    () => new Set(replacementPairs.map((p) => p.new.id)),
+    [replacementPairs]
+  );
+
   const filtered = useMemo(() => {
     const today = toLocalDateStr(new Date());
-    const list = events.filter((ev) => {
+    const source = viewTab === "replaced"
+      ? replacementPairs.flatMap((p) => [p.old, p.new])
+      : events;
+    const list = source.filter((ev) => {
       // The pending-cancellation tab is a watchlist - show every flagged
       // event regardless of the upcoming/past range.
       if (viewTab === "pending_cancellation" &&
@@ -89,7 +112,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
       const matchDate = !dateFilter || ev.date === dateFilter;
       // An explicit date wins over the upcoming/past range, otherwise picking
       // a past date while on "upcoming" silently shows nothing.
-      const matchTime = viewTab === "pending_cancellation" ||
+      const matchTime = viewTab !== "all" ||
         !!dateFilter || timeFilter === "all" ||
         (timeFilter === "upcoming" ? ev.date >= today : ev.date < today);
       const q = search.toLowerCase();
@@ -101,7 +124,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
     });
     // Server order is date-ascending; history reads best newest-first
     return timeFilter === "past" && !dateFilter && viewTab === "all" ? list.reverse() : list;
-  }, [events, search, venueFilter, dateFilter, timeFilter, viewTab]);
+  }, [events, replacementPairs, search, venueFilter, dateFilter, timeFilter, viewTab]);
 
   async function openCancellationDialog(event: EventWithMetadata) {
     setEventToCancelWithVenue(event as EventWithMetadata & { venue: VenueRow });
@@ -142,22 +165,52 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
     }
   }
 
+  // G4: past events can't be edited or cancelled (deletion, admin-only, stays unrestricted by date).
+  const isPastEvent = (ev: EventWithMetadata) => ev.date < toLocalDateStr(new Date());
   const canCancel = role === "admin" || role === "secretary";
   const canEdit = role === "admin" || role === "secretary";
 
+  const [exporting, setExporting] = useState(false);
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const columns: ExcelColumn<EventWithMetadata>[] = [
+        { header: "תאריך", key: "date", value: (e) => e.date, width: 12 },
+        { header: "אולם", key: "venue", value: (e) => e.venue?.name ?? "-", width: 20 },
+        { header: "לקוח", key: "client_name", value: (e) => e.client_name, width: 20 },
+        { header: "טלפון", key: "client_phone", value: (e) => e.client_phone, width: 14 },
+        { header: "סוג", key: "event_type", value: (e) => EVENT_TYPE_LABELS[e.event_type as keyof typeof EVENT_TYPE_LABELS] ?? e.event_type, width: 10 },
+        { header: "מהות", key: "event_purpose", value: (e) => EVENT_PURPOSE_LABELS[e.event_purpose as keyof typeof EVENT_PURPOSE_LABELS] ?? e.event_purpose, width: 12 },
+        { header: "מחיר סופי", key: "price_final", value: (e) => Number(e.price_final), width: 12 },
+        { header: "סטטוס", key: "status", value: (e) => STATUS_LABELS[e.status], width: 10 },
+        { header: "הערות", key: "notes", value: (e) => e.notes ?? "", width: 24 },
+      ];
+      await exportToExcel("אירועים", "אירועים", columns, filtered);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
-      {/* Tabs: all events / pending-cancellation watchlist */}
-      <Tabs value={viewTab} onValueChange={(v) => setViewTab(v as "all" | "pending_cancellation")}>
+      {/* Tabs: all events / pending-cancellation watchlist / cancelled-and-rebooked */}
+      <Tabs value={viewTab} onValueChange={(v) => setViewTab(v as "all" | "pending_cancellation" | "replaced")}>
         <TabsList>
           <TabsTrigger value="all">כל האירועים</TabsTrigger>
           <TabsTrigger value="pending_cancellation">ממתינים לביטול ({pendingCancellationCount})</TabsTrigger>
+          <TabsTrigger value="replaced">בוטלו ונקבעו מחדש ({replacementPairs.length})</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {viewTab === "pending_cancellation" && (
         <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded-md px-3 py-2">
           אירועים שהלקוח ביקש לבטל. אין לבטל אותם בפועל אלא אם נמצא לקוח אחר לתאריך.
+        </p>
+      )}
+
+      {viewTab === "replaced" && (
+        <p className="text-sm text-muted-foreground bg-muted border rounded-md px-3 py-2">
+          זוגות של הזמנה שבוטלה והזמנה חדשה שתפסה את מקומה באותו תאריך. ההזמנה החדשה ממשיכה להופיע גם בלשונית &quot;כל האירועים&quot;.
         </p>
       )}
 
@@ -229,7 +282,19 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground">{filtered.length} אירועים</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">{filtered.length} אירועים</p>
+        <Button
+          size="icon"
+          variant="outline"
+          onClick={handleExport}
+          disabled={exporting || filtered.length === 0}
+          aria-label={exporting ? "מייצא..." : "ייצוא לאקסל"}
+          title="ייצוא לאקסל"
+        >
+          {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+        </Button>
+      </div>
 
       {/* Scrollable table area */}
       <div className="flex-1 overflow-auto min-h-0">
@@ -306,6 +371,12 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                         ממתין לביטול
                       </Badge>
                     )}
+                    {ev.status === "cancelled" && ev.replaced_by_event_id && (
+                      <Badge variant="outline">← הוחלף בהזמנה חדשה</Badge>
+                    )}
+                    {replacedNewIds.has(ev.id) && (
+                      <Badge variant="outline">החליף הזמנה שבוטלה →</Badge>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell className="max-w-xs">
@@ -317,12 +388,12 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1 justify-end">
-                    {canEdit && ev.status !== "cancelled" && (
+                    {canEdit && ev.status !== "cancelled" && !isPastEvent(ev) && (
                       <Button size="sm" variant="ghost" onClick={() => setEditingEvent(ev)} disabled={isPending}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                     )}
-                    {canCancel && ev.status !== "cancelled" && (
+                    {canCancel && ev.status !== "cancelled" && !isPastEvent(ev) && (
                       <Button size="sm" variant="outline" onClick={() => openCancellationDialog(ev)} disabled={cancellationLoading || isPending}>
                         בטל
                       </Button>
@@ -364,6 +435,12 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                   <Badge variant="warning-soft">
                     ממתין לביטול
                   </Badge>
+                )}
+                {ev.status === "cancelled" && ev.replaced_by_event_id && (
+                  <Badge variant="outline">← הוחלף בהזמנה חדשה</Badge>
+                )}
+                {replacedNewIds.has(ev.id) && (
+                  <Badge variant="outline">החליף הזמנה שבוטלה →</Badge>
                 )}
               </div>
             </div>
@@ -416,7 +493,7 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                 </div>
               )}
             </div>
-            {(canEdit || canCancel) && ev.status !== "cancelled" && (
+            {(canEdit || canCancel) && ev.status !== "cancelled" && !isPastEvent(ev) && (
               <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
                 {canEdit && (
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => setEditingEvent(ev)} disabled={isPending}>

@@ -15,7 +15,7 @@ import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import { CHART_GRADIENTS } from "@/lib/chart-colors";
 import { ArrowRight, Pencil, Trash2, Plus, Inbox, TrendingUp, PartyPopper, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogTrigger } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,9 +34,12 @@ import { Combobox } from "@/components/ui/combobox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import type { LeadRow, LeadInquiryStatus, EventRow, VenueRow } from "@/types/database";
+import { isValidPhone } from "@/lib/utils";
+import { logAudit } from "@/lib/audit";
+import type { LeadRow, LeadInquiryStatus, EventRow, VenueRow, LeadPhoneRow } from "@/types/database";
 import { EVENT_PURPOSE_LABELS } from "@/types/booking";
 import { INQUIRY_STATUS_LABELS, INQUIRY_STATUSES, INQUIRY_STATUS_VARIANT, REJECTION_STATUSES } from "@/types/leads";
+import { Phone, X } from "lucide-react";
 
 interface LeadInquiry {
   id: string;
@@ -55,6 +58,7 @@ interface LeadDetailTabsProps {
   lead: LeadRow;
   inquiries: LeadInquiry[];
   events: Event[];
+  phones: LeadPhoneRow[];
   /** events RLS only lets admins delete - hide the button for everyone else */
   isAdmin: boolean;
 }
@@ -66,11 +70,17 @@ const EVENT_STATUS_LABELS: Record<string, string> = {
   shabbat: "שבת",
 };
 
-export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries, events: initialEvents, isAdmin }: LeadDetailTabsProps) {
+export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries, events: initialEvents, phones: initialPhones, isAdmin }: LeadDetailTabsProps) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
   const [inquiries, setInquiries] = useState(initialInquiries);
   const [events, setEvents] = useState(initialEvents);
+  const [phones, setPhones] = useState(initialPhones);
+  const [addPhoneOpen, setAddPhoneOpen] = useState(false);
+  const [phoneForm, setPhoneForm] = useState({ phone: "", label: "" });
+  const [phoneFormError, setPhoneFormError] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [deletingPhoneId, setDeletingPhoneId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [tab, setTab] = useState<"inquiries" | "events" | "statistics">("inquiries");
   const [editOpen, setEditOpen] = useState(false);
@@ -139,6 +149,17 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
 
     setSaving(false);
     if (error) { toast.error("שגיאה בשמירת שינויים"); return; }
+    const { data: { user: savedByUser } } = await supabase.auth.getUser();
+    const newPhone = editForm.client_phone || null;
+    const newEmail = editForm.client_email || null;
+    const newNotes = editForm.notes || null;
+    const changes: Record<string, unknown> = {};
+    if (lead.client_name !== editForm.client_name) changes.client_name = { from: lead.client_name, to: editForm.client_name };
+    else changes.client_name = lead.client_name;
+    if ((lead.client_phone ?? null) !== newPhone) changes.client_phone = { from: lead.client_phone, to: newPhone };
+    if ((lead.client_email ?? null) !== newEmail) changes.client_email = { from: lead.client_email, to: newEmail };
+    if ((lead.notes ?? null) !== newNotes) changes.notes = { from: lead.notes, to: newNotes };
+    logAudit(supabase, savedByUser?.id ?? null, "lead.update", "lead", lead.id, changes);
     setLead({
       ...lead,
       client_name: editForm.client_name,
@@ -149,6 +170,44 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     setEditOpen(false);
     toast.success("הליד עודכן");
     router.refresh();
+  }
+
+  async function handleAddPhone(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isValidPhone(phoneForm.phone)) {
+      setPhoneFormError("מספר טלפון לא תקין (לדוגמה: 052-1234567)");
+      return;
+    }
+    setSavingPhone(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.from("lead_phones")
+      .insert({ lead_id: lead.id, phone: phoneForm.phone, label: phoneForm.label || null })
+      .select("*")
+      .single();
+    setSavingPhone(false);
+    if (error) {
+      toast.error(error.code === "23505" ? "מספר זה כבר קיים עבור הליד" : "שגיאה בהוספת טלפון");
+      return;
+    }
+    const { data: { user: addedByUser } } = await supabase.auth.getUser();
+    logAudit(supabase, addedByUser?.id ?? null, "lead.phone_add", "lead", lead.id, { lead: lead.client_name, phone: data.phone });
+    setPhones((prev) => [...prev, data]);
+    setPhoneForm({ phone: "", label: "" });
+    setPhoneFormError("");
+    setAddPhoneOpen(false);
+    toast.success("הטלפון נוסף");
+  }
+
+  async function handleDeletePhone(phoneId: string) {
+    setDeletingPhoneId(phoneId);
+    const supabase = createClient();
+    const phone = phones.find((p) => p.id === phoneId);
+    const { error } = await supabase.from("lead_phones").delete().eq("id", phoneId);
+    setDeletingPhoneId(null);
+    if (error) { toast.error("שגיאה במחיקת הטלפון"); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    logAudit(supabase, user?.id ?? null, "lead.phone_delete", "lead", lead.id, { lead: lead.client_name, phone: phone?.phone ?? null });
+    setPhones((prev) => prev.filter((p) => p.id !== phoneId));
   }
 
   async function loadVenues() {
@@ -166,26 +225,25 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     const supabase = createClient();
 
     try {
-      const { error } = await supabase.from("lead_inquiries")
-        .upsert({
+      // Plain insert (032 dropped the lead_id+venue_id unique constraint) -
+      // a lead can now have more than one inquiry logged against the same
+      // venue over time, ordered chronologically by created_at.
+      const { data: newData, error } = await supabase.from("lead_inquiries")
+        .insert({
           lead_id: lead.id,
           venue_id: inquiryForm.venue_id,
           status: inquiryForm.status,
           rejection_reason: inquiryForm.rejection_reason || null,
-        }, { onConflict: "lead_id,venue_id" });
+        })
+        .select("*")
+        .single();
 
       if (error) {
-        console.error("Upsert error:", error);
+        console.error("Insert error:", error);
         toast.error(`שגיאה בהוספת פנייה: ${error.message}`);
         setSavingInquiry(false);
         return;
       }
-
-      const { data: newData } = await supabase.from("lead_inquiries")
-        .select("*")
-        .eq("lead_id", lead.id)
-        .eq("venue_id", inquiryForm.venue_id)
-        .single();
 
       if (newData) {
         const venue = venues.find((v) => v.id === newData.venue_id);
@@ -193,9 +251,10 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
           ...newData,
           venue: venue ? { id: venue.id, name: venue.name } : null,
         };
-        setInquiries((prev) => {
-          const exists = prev.find((i) => i.id === newData.id);
-          return exists ? prev.map((i) => i.id === newData.id ? inquiryWithVenue : i) : [inquiryWithVenue, ...prev];
+        setInquiries((prev) => [inquiryWithVenue, ...prev]);
+        const { data: { user } } = await supabase.auth.getUser();
+        logAudit(supabase, user?.id ?? null, "lead_inquiry.create", "lead_inquiry", newData.id, {
+          lead: lead.client_name, venue: venue?.name ?? newData.venue_id,
         });
       }
 
@@ -217,6 +276,8 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     const { error } = await supabase.from("lead_inquiries").delete().eq("id", inquiryId);
     setDeletingId(null);
     if (error) { toast.error("שגיאה במחיקת הפנייה"); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    logAudit(supabase, user?.id ?? null, "lead_inquiry.delete", "lead_inquiry", inquiryId, { lead: lead.client_name });
     setInquiries((prev) => prev.filter((i) => i.id !== inquiryId));
     toast.success("הפנייה נמחקה");
     router.refresh();
@@ -228,6 +289,8 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     const { error } = await supabase.from("events").delete().eq("id", eventId);
     setDeletingId(null);
     if (error) { toast.error("שגיאה במחיקת ההזמנה"); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    logAudit(supabase, user?.id ?? null, "event.delete", "event", eventId, { lead: lead.client_name });
     setEvents((prev) => prev.filter((e) => e.id !== eventId));
     toast.success("ההזמנה נמחקה");
     router.refresh();
@@ -268,6 +331,72 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
               <p className="text-xs text-muted-foreground">תאריך הוספה</p>
               <p className="font-medium text-sm">{formatDate(new Date(lead.created_at))} <span className="text-xs text-muted-foreground">· {toHebrewDateShort(lead.created_at)}</span></p>
             </div>
+          </div>
+
+          {/* Extra phone numbers (031) - the lead's own client_phone above stays
+              the primary number; these are additional contacts. */}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {phones.map((p) => (
+              <span key={p.id} className="flex items-center gap-1.5 text-xs bg-muted rounded-full pr-2.5 pl-1 py-1">
+                <Phone size={11} className="text-muted-foreground shrink-0" />
+                <span dir="ltr">{p.phone}</span>
+                {p.label && <span className="text-muted-foreground">({p.label})</span>}
+                <button
+                  type="button"
+                  onClick={() => handleDeletePhone(p.id)}
+                  disabled={deletingPhoneId === p.id}
+                  className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-background/80 text-muted-foreground hover:text-destructive transition-colors"
+                  aria-label="הסר טלפון"
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+            <Dialog open={addPhoneOpen} onOpenChange={(open) => {
+              setAddPhoneOpen(open);
+              if (!open) { setPhoneForm({ phone: "", label: "" }); setPhoneFormError(""); }
+            }}>
+              <DialogTrigger asChild>
+                <button type="button" className="text-xs text-primary hover:underline px-1.5 py-1">
+                  + טלפון נוסף
+                </button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>הוספת טלפון נוסף</DialogTitle>
+                </DialogHeader>
+                <DialogBody>
+                  <form onSubmit={handleAddPhone} className="space-y-4">
+                    <div className="space-y-1">
+                      <Label>טלפון *</Label>
+                      <Input
+                        type="tel"
+                        dir="ltr"
+                        value={phoneForm.phone}
+                        onChange={(e) => { setPhoneForm((f) => ({ ...f, phone: e.target.value })); setPhoneFormError(""); }}
+                        className={phoneFormError ? "border-destructive" : ""}
+                        placeholder="052-1234567"
+                      />
+                      {phoneFormError && <p className="text-xs text-destructive">{phoneFormError}</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <Label>תיוג</Label>
+                      <Input
+                        value={phoneForm.label}
+                        onChange={(e) => setPhoneForm((f) => ({ ...f, label: e.target.value }))}
+                        placeholder="לדוגמה: בן/בת זוג"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <Button type="submit" disabled={savingPhone} className="flex-1">
+                        {savingPhone ? "שומר..." : "שמור"}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => setAddPhoneOpen(false)}>ביטול</Button>
+                    </div>
+                  </form>
+                </DialogBody>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {lead.notes && (

@@ -27,7 +27,9 @@ export type EmailType =
   | "client_confirm"
   | "reminder"
   | "waitlist_notify"
-  | "event_cancelled";
+  | "event_cancelled"
+  | "event_replaced"
+  | "owner_event_replaced";
 
 export type VenueApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -41,6 +43,8 @@ export type LeadInquiryStatus =
   | "booked"
   | "cancelled"
   | "other";
+
+export type LeadInquirySource = "manual" | "quick";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Row types (what you get back from SELECT queries)
@@ -131,6 +135,8 @@ export type EventRow = {
   refund_date: string | null;
   original_price_final: number | null;
   cancellation_requested_at: string | null;
+  replaced_by_event_id: string | null;
+  lead_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -187,8 +193,27 @@ export type LeadInquiryRow = {
   venue_id: string;
   status: LeadInquiryStatus;
   rejection_reason: string | null;
+  source: LeadInquirySource;
   created_at: string;
   updated_at: string;
+};
+
+export type LeadPhoneRow = {
+  id: string;
+  lead_id: string;
+  phone: string;
+  label: string | null;
+  created_at: string;
+};
+
+export type AuditLogRow = {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  diff: Record<string, unknown> | null;
+  created_at: string;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -319,6 +344,8 @@ export type Database = {
           refund_date?: string | null;
           original_price_final?: number | null;
           cancellation_requested_at?: string | null;
+          replaced_by_event_id?: string | null;
+          lead_id?: string | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -344,6 +371,20 @@ export type Database = {
             columns: ["cancelled_by"];
             isOneToOne: false;
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "events_replaced_by_event_id_fkey";
+            columns: ["replaced_by_event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "events_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "leads";
             referencedColumns: ["id"];
           },
         ];
@@ -397,6 +438,7 @@ export type Database = {
           venue_id: string;
           status?: LeadInquiryStatus;
           rejection_reason?: string | null;
+          source?: LeadInquirySource;
           created_at?: string;
           updated_at?: string;
         };
@@ -414,6 +456,48 @@ export type Database = {
             columns: ["venue_id"];
             isOneToOne: false;
             referencedRelation: "venues";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lead_phones: {
+        Row: LeadPhoneRow;
+        Insert: {
+          id?: string;
+          lead_id: string;
+          phone: string;
+          label?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<LeadPhoneRow>;
+        Relationships: [
+          {
+            foreignKeyName: "lead_phones_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "leads";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      audit_log: {
+        Row: AuditLogRow;
+        Insert: {
+          id?: string;
+          actor_id?: string | null;
+          action: string;
+          entity_type: string;
+          entity_id?: string | null;
+          diff?: Record<string, unknown> | null;
+          created_at?: string;
+        };
+        Update: Partial<AuditLogRow>;
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
         ];
@@ -506,6 +590,23 @@ export type Database = {
           p_minutes?: number;
         };
         Returns: boolean;
+      };
+      create_event_with_replacement: {
+        Args: {
+          p_venue_id: string;
+          p_date: string;
+          p_event_type: EventType;
+          p_event_purpose: EventPurpose;
+          p_client_name: string;
+          p_client_phone: string;
+          p_client_email: string | null;
+          p_price_listed: number;
+          p_discount_amount: number;
+          p_price_final: number;
+          p_notes: string | null;
+          p_created_by: string;
+        };
+        Returns: { event_id: string; replaced_event_id: string | null }[];
       };
     };
     Enums: Record<string, never>;

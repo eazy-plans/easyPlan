@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/types/database";
+import { logAudit } from "@/lib/audit";
 
 export async function inviteUser(email: string, full_name: string, role: UserRole, password: string) {
   const supabase = await createServerClient();
@@ -26,7 +27,7 @@ export async function inviteUser(email: string, full_name: string, role: UserRol
   // Users without an email address still need one to sign in with password.
   const finalEmail = email.trim() || `user-${randomUUID().slice(0, 8)}@eazyplans.local`;
 
-  const { error } = await adminClient.auth.admin.createUser({
+  const { data, error } = await adminClient.auth.admin.createUser({
     email: finalEmail,
     password,
     email_confirm: true,
@@ -37,5 +38,8 @@ export async function inviteUser(email: string, full_name: string, role: UserRol
   });
 
   if (error) return { error: error.message };
+
+  logAudit(adminClient, user.id, "user.create", "user", data.user.id, { email: finalEmail, full_name, role });
+
   return { ok: true, email: finalEmail };
 }

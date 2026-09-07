@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/audit";
 
 const BUCKET = "venue-images";
 
@@ -14,7 +15,12 @@ const ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "webp", "gif", "avif"]);
  * public HTTP endpoints, so this check is the only thing standing between the
  * service-role key and an anonymous caller - never remove it.
  */
-async function authorizeVenueAccess(venueId: string): Promise<void> {
+async function getVenueName(supabase: ReturnType<typeof createAdminClient>, venueId: string): Promise<string> {
+  const { data } = await supabase.from("venues").select("name").eq("id", venueId).maybeSingle();
+  return data?.name ?? venueId;
+}
+
+async function authorizeVenueAccess(venueId: string): Promise<string> {
   if (!venueId) throw new Error("חסר מזהה אולם");
 
   const supabase = await createServerClient();
@@ -26,7 +32,7 @@ async function authorizeVenueAccess(venueId: string): Promise<void> {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role === "admin") return;
+  if (profile?.role === "admin") return user.id;
 
   const { data: venue } = await supabase.from("venues")
     .select("owner_user_id")
@@ -34,6 +40,7 @@ async function authorizeVenueAccess(venueId: string): Promise<void> {
     .single();
 
   if (!venue || venue.owner_user_id !== user.id) throw new Error("אין הרשאה לבצע פעולה זו");
+  return user.id;
 }
 
 export async function uploadVenueImage(formData: FormData): Promise<string> {
@@ -41,7 +48,7 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
   const venueId = formData.get("venueId") as string;
   const isPrimary = formData.get("isPrimary") === "true";
 
-  await authorizeVenueAccess(venueId);
+  const actorId = await authorizeVenueAccess(venueId);
 
   if (!(file instanceof File)) throw new Error("לא נבחר קובץ");
   if (file.size === 0 || file.size > MAX_FILE_BYTES) throw new Error("הקובץ גדול מדי (מקסימום 8MB)");
@@ -67,6 +74,8 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
 
   if (dbError) throw new Error(dbError.message);
 
+  logAudit(supabase, actorId, "venue.image_upload", "venue", venueId, { venue: await getVenueName(supabase, venueId), path });
+
   return path;
 }
 
@@ -75,7 +84,7 @@ export async function deleteVenueImage(
   wasprimary: boolean,
   venueId: string
 ): Promise<void> {
-  await authorizeVenueAccess(venueId);
+  const actorId = await authorizeVenueAccess(venueId);
 
   const supabase = createAdminClient();
 
@@ -90,6 +99,8 @@ export async function deleteVenueImage(
 
   await supabase.storage.from(BUCKET).remove([image.storage_path]);
   await supabase.from("venue_images").delete().eq("id", imageId);
+
+  logAudit(supabase, actorId, "venue.image_delete", "venue", venueId, { venue: await getVenueName(supabase, venueId), path: image.storage_path });
 
   if (wasprimary) {
     const { data } = await supabase.from("venue_images")
@@ -110,9 +121,15 @@ export async function updateVenueImagePrimary(
   venueId: string,
   primaryId: string
 ): Promise<void> {
-  await authorizeVenueAccess(venueId);
+  const actorId = await authorizeVenueAccess(venueId);
 
   const supabase = createAdminClient();
+  const { data: previousPrimary } = await supabase.from("venue_images")
+    .select("id")
+    .eq("venue_id", venueId)
+    .eq("is_primary", true)
+    .maybeSingle();
+
   await supabase.from("venue_images")
     .update({ is_primary: false })
     .eq("venue_id", venueId);
@@ -120,4 +137,9 @@ export async function updateVenueImagePrimary(
     .update({ is_primary: true })
     .eq("id", primaryId)
     .eq("venue_id", venueId);
+
+  logAudit(supabase, actorId, "venue.image_set_primary", "venue", venueId, {
+    venue: await getVenueName(supabase, venueId),
+    image_id: { from: previousPrimary?.id ?? null, to: primaryId },
+  });
 }

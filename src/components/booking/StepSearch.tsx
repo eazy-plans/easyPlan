@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
-import { Building2, CalendarDays, X, ChevronDown, ChevronLeft, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus } from "lucide-react";
+import { Building2, CalendarDays, X, ChevronDown, ChevronLeft, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus, Info } from "lucide-react";
 import Image from "next/image";
 import { formatDate, formatCurrency, toLocalDateStr } from "@/lib/utils";
 import type { EventType, VenueRow, VenueImageRow } from "@/types/database";
@@ -15,6 +15,7 @@ import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, PRICE_KEY } from "@/types/booking
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
+import { VenueDetailPreview } from "@/components/venues/VenueDetailPreview";
 
 type VenueWithImages = VenueRow & { images: VenueImageRow[] };
 
@@ -31,6 +32,7 @@ interface StepSearchProps {
 }
 
 export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchProps) {
+  const [detailVenue, setDetailVenue]     = useState<VenueWithImages | null>(null);
   const [selectedVenueId, setSelectedVenueId] = useState("");
   const [selectedCity, setSelectedCity]   = useState("");
   const [eventType, setEventType]         = useState<EventType | null>(null);
@@ -38,6 +40,7 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const [bookedSet, setBookedSet]         = useState<Set<string>>(new Set());
+  const [pendingSet, setPendingSet]       = useState<Set<string>>(new Set());
   const [loadingAvail, setLoadingAvail]   = useState(false);
   const [activeLocks, setActiveLocks]     = useState<{ venue_id: string; date: string; event_type: EventType; locked_until: string }[]>([]);
   const [showHolds, setShowHolds]         = useState(false);
@@ -91,16 +94,23 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
 
     const [{ data: evts }, { data: locks }] = await Promise.all([
       isShabbat
-        ? supabase.from("events").select("venue_id,event_type,date").in("date", [dateStr, prevStr]).neq("status", "cancelled")
-        : supabase.from("events").select("venue_id,event_type,date").eq("date", dateStr).neq("status", "cancelled"),
+        ? supabase.from("events").select("venue_id,event_type,date,cancellation_requested_at").in("date", [dateStr, prevStr]).neq("status", "cancelled")
+        : supabase.from("events").select("venue_id,event_type,date,cancellation_requested_at").eq("date", dateStr).neq("status", "cancelled"),
       isShabbat
         ? supabase.from("booking_locks").select("venue_id,event_type,date").in("date", [dateStr, prevStr]).gt("locked_until", nowIso).neq("locked_by_user_id", userId)
         : supabase.from("booking_locks").select("venue_id,event_type,date").eq("date", dateStr).gt("locked_until", nowIso).neq("locked_by_user_id", userId),
     ]);
 
     const blocked = new Set<string>();
-    for (const ev of [...(evts ?? []), ...(locks ?? [])]) {
-      blocked.add(`${ev.venue_id}:${ev.event_type}`);
+    const pending = new Set<string>();
+    // Cross-blocks (full_day <-> morning/evening, shabbat <-> evening_friday)
+    // always hard-block: replacing a pending-cancellation event only works
+    // for an exact venue+date+event_type match (see create_event_with_replacement),
+    // so a slot that's only free because of some *other* type's cancellation
+    // request can't actually be booked yet.
+    for (const ev of evts ?? []) {
+      const key = `${ev.venue_id}:${ev.event_type}`;
+      if (ev.cancellation_requested_at) pending.add(key); else blocked.add(key);
       if (ev.event_type === "full_day") {
         blocked.add(`${ev.venue_id}:morning`);
         blocked.add(`${ev.venue_id}:evening`);
@@ -109,13 +119,26 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
       if (ev.event_type === "shabbat")                                 blocked.add(`${ev.venue_id}:evening_friday`);
       if (ev.event_type === "evening" && ev.date === prevStr)          blocked.add(`${ev.venue_id}:shabbat`);
     }
+    for (const lock of locks ?? []) {
+      const key = `${lock.venue_id}:${lock.event_type}`;
+      blocked.add(key);
+      if (lock.event_type === "full_day") {
+        blocked.add(`${lock.venue_id}:morning`);
+        blocked.add(`${lock.venue_id}:evening`);
+      }
+      if (lock.event_type === "morning" || lock.event_type === "evening") blocked.add(`${lock.venue_id}:full_day`);
+      if (lock.event_type === "shabbat")                                 blocked.add(`${lock.venue_id}:evening_friday`);
+      if (lock.event_type === "evening" && lock.date === prevStr)        blocked.add(`${lock.venue_id}:shabbat`);
+    }
+    for (const key of blocked) pending.delete(key);
     setBookedSet(blocked);
+    setPendingSet(pending);
     setLoadingAvail(false);
   }, [userId]);
 
   useEffect(() => {
     if (date && eventType) fetchAvailability(date, eventType);
-    else setBookedSet(new Set());
+    else { setBookedSet(new Set()); setPendingSet(new Set()); }
   }, [date, eventType, fetchAvailability]);
 
   const isFriday   = (d: Date) => d.getDay() === 5;
@@ -192,6 +215,7 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
     setEventType(null);
     setDate(null);
     setBookedSet(new Set());
+    setPendingSet(new Set());
     setMinCapacity("");
     setMaxPrice("");
     setShowFilters(false);
@@ -446,7 +470,7 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
           {date && (
             <button
               type="button"
-              onClick={() => { setDate(null); setBookedSet(new Set()); }}
+              onClick={() => { setDate(null); setBookedSet(new Set()); setPendingSet(new Set()); }}
               className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors flex flex-row-reverse items-center justify-end gap-1"
             >
               נקה
@@ -544,6 +568,7 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
             {filtered.map((venue) => {
               const primaryImage = venue.images.find((i) => i.is_primary) ?? venue.images[0];
               const price = eventType ? Number(venue[PRICE_KEY[eventType]] ?? 0) : null;
+              const isPending = hasDateFilter && eventType ? pendingSet.has(`${venue.id}:${eventType}`) : false;
               return (
                 <div
                   key={venue.id}
@@ -565,10 +590,22 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
                     <p className="text-sm text-muted-foreground mt-0.5 text-right">
                       {venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}
                     </p>
+                    {isPending && (
+                      <Badge variant="warning-soft" className="mt-1">ממתין לביטול · ניתן להזמין</Badge>
+                    )}
                     {price !== null && price > 0 && (
                       <p className="text-sm font-medium mt-1 text-primary text-right">{formatCurrency(price)}</p>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setDetailVenue(venue); }}
+                    className="self-center shrink-0 flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    title="פרטי האולם"
+                    aria-label={`פרטי ${venue.name}`}
+                  >
+                    <Info size={17} />
+                  </button>
                   <ChevronLeft size={16} className="self-center shrink-0 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
                 </div>
               );
@@ -578,6 +615,20 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
       </div>
     </div>
     {/* end results column */}
+
+    {/* Venue details modal - view full gallery/pricing/hours without picking a date first (B1) */}
+    <Dialog open={!!detailVenue} onOpenChange={(open) => !open && setDetailVenue(null)}>
+      <DialogContent className="max-w-3xl" dir="rtl">
+        <DialogHeader>
+          <DialogTitle>{detailVenue?.name}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          {detailVenue && (
+            <VenueDetailPreview venue={detailVenue} images={detailVenue.images} eventType={eventType ?? undefined} />
+          )}
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
     </div>
   );
 }

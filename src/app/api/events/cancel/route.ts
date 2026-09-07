@@ -3,6 +3,8 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWaitlistNotifyEmail, sendCancellationEmail } from "@/lib/email/sendEventEmails";
+import { toLocalDateStr } from "@/lib/utils";
+import { logAudit } from "@/lib/audit";
 
 // POST /api/events/cancel
 // body: { eventId: string, cancellationReason?: string }
@@ -32,7 +34,7 @@ export async function POST(request: Request) {
     // and the contact phone lives on venues, not users.
     // event_type feeds the cancellation email - without it the email's
     // event-type line rendered empty.
-    .select("id, venue_id, date, event_type, event_purpose, status, client_name, client_phone, client_email, price_final, booking_date, original_price_final, notes, venues(id, name, city, owner_user_id, cancellation_policy, contact_name, contact_phone, owner:users!owner_user_id(full_name))")
+    .select("id, venue_id, date, event_type, event_purpose, status, client_name, client_phone, client_email, price_final, booking_date, original_price_final, notes, lead_id, venues(id, name, city, owner_user_id, cancellation_policy, contact_name, contact_phone, owner:users!owner_user_id(full_name))")
     .eq("id", eventId)
     .single();
 
@@ -41,6 +43,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "האירוע לא נמצא" }, { status: 404 });
   }
   if (event.status === "cancelled") return NextResponse.json({ ok: true, notified: 0 });
+
+  // G4: past events can't be cancelled through this route either - the UI
+  // already hides the button, but the client-side check alone isn't trustworthy.
+  if (event.date < toLocalDateStr(new Date())) {
+    return NextResponse.json({ error: "לא ניתן לבטל אירוע שכבר עבר" }, { status: 400 });
+  }
 
   const venue = event.venues;
   if (!venue) return NextResponse.json({ error: "האולם לא נמצא" }, { status: 404 });
@@ -64,6 +72,11 @@ export async function POST(request: Request) {
 
   // Use admin client for email logs and other admin-only operations
   const admin = createAdminClient();
+
+  logAudit(admin, user.id, "event.cancel", "event", eventId, {
+    client_name: event.client_name, venue: venue.name,
+    reason: cancellationReason ?? null,
+  });
 
   // Send cancellation email to client. Skip logging when there is no client
   // email - email_logs.recipient_email is NOT NULL.
@@ -89,23 +102,25 @@ export async function POST(request: Request) {
     }
   }
 
-  // Update the linked lead_inquiry status to cancelled (if it exists). The
-  // booking flow upserts leads keyed by client_phone, so resolve this event's
-  // lead the same way - matching any "booked" inquiry for the venue could
-  // cancel a different client's inquiry.
-  if (event.client_phone) {
+  // Update the linked lead_inquiry status to cancelled (if it exists).
+  // events.lead_id (031) is the reliable link; fall back to phone matching
+  // for events booked before that column existed. Matching any "booked"
+  // inquiry for the venue (rather than this lead specifically) could cancel
+  // a different client's inquiry.
+  let leadId = event.lead_id as string | null;
+  if (!leadId && event.client_phone) {
     const { data: lead } = await admin.from("leads")
       .select("id")
       .eq("client_phone", event.client_phone)
       .maybeSingle();
-
-    if (lead) {
-      await admin.from("lead_inquiries")
-        .update({ status: "cancelled" })
-        .eq("lead_id", lead.id)
-        .eq("venue_id", venue.id)
-        .eq("status", "booked");
-    }
+    leadId = lead?.id ?? null;
+  }
+  if (leadId) {
+    await admin.from("lead_inquiries")
+      .update({ status: "cancelled" })
+      .eq("lead_id", leadId)
+      .eq("venue_id", venue.id)
+      .eq("status", "booked");
   }
 
   // Handle waitlist notifications. notified counts actual successful sends -

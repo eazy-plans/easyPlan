@@ -26,9 +26,15 @@ import {
 } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { logAudit } from "@/lib/audit";
 import { VenueEditModal } from "./VenueEditModal";
 import type { VenueRow, UserRow } from "@/types/database";
 import { Building2, ArrowUpDown, ParkingCircle, Accessibility, Bus, ChevronLeft } from "lucide-react";
+
+const APPROVAL_BADGE: Record<string, { label: string; variant: "warning-soft" | "destructive" }> = {
+  pending: { label: "ממתין לאישור", variant: "warning-soft" },
+  rejected: { label: "נדחה", variant: "destructive" },
+};
 
 function AmenityChips({ venue }: { venue: VenueRow }) {
   const amenities = [
@@ -114,6 +120,8 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
       }
       return;
     }
+    const { data: { user: actor } } = await supabase.auth.getUser();
+    logAudit(supabase, actor?.id ?? null, "venue.delete", "venue", venue.id, { name: venue.name });
     toast.success(`האולם "${venue.name}" נמחק`);
     router.refresh();
   }
@@ -161,9 +169,16 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
                 <TableCell>{venue.max_capacity} אורחים</TableCell>
                 <TableCell><AmenityChips venue={venue} /></TableCell>
                 <TableCell>
-                  <Badge variant={venue.is_active ? "default" : "secondary"}>
-                    {venue.is_active ? "פעיל" : "לא פעיל"}
-                  </Badge>
+                  <div className="flex flex-col items-start gap-1">
+                    <Badge variant={venue.is_active ? "default" : "secondary"}>
+                      {venue.is_active ? "פעיל" : "לא פעיל"}
+                    </Badge>
+                    {APPROVAL_BADGE[venue.approval_status] && (
+                      <Badge variant={APPROVAL_BADGE[venue.approval_status].variant}>
+                        {APPROVAL_BADGE[venue.approval_status].label}
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 {canEdit && (
                   <TableCell onClick={(e) => e.stopPropagation()}>
@@ -213,9 +228,16 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
                   {venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}
                 </p>
               </div>
-              <Badge variant={venue.is_active ? "default" : "secondary"} className="shrink-0">
-                {venue.is_active ? "פעיל" : "לא פעיל"}
-              </Badge>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <Badge variant={venue.is_active ? "default" : "secondary"}>
+                  {venue.is_active ? "פעיל" : "לא פעיל"}
+                </Badge>
+                {APPROVAL_BADGE[venue.approval_status] && (
+                  <Badge variant={APPROVAL_BADGE[venue.approval_status].variant}>
+                    {APPROVAL_BADGE[venue.approval_status].label}
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">{venue.max_capacity} אורחים</span>

@@ -13,7 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { EventFormModal } from "./EventFormModal";
 import { CancellationDialog } from "@/components/events/CancellationDialog";
 import type { EventRow, EventStatus, VenueRow } from "@/types/database";
-import { formatDate, formatDateTime, formatCurrency } from "@/lib/utils";
+import { formatDate, formatDateTime, formatCurrency, toLocalDateStr } from "@/lib/utils";
+import { logAudit } from "@/lib/audit";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS } from "@/types/booking";
 
@@ -53,6 +54,8 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
   const [cancelVenue, setCancelVenue] = useState<VenueRow | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const router = useRouter();
+  // G4: past events can't be edited/cancelled (deletion, admin-only, stays unrestricted by date).
+  const isPastEvent = event.date < toLocalDateStr(new Date());
 
   useEffect(() => {
     if (open) fetchLead();
@@ -107,6 +110,10 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
       .eq("id", event.id);
     setLoading(false);
     if (error) { toast.error("שגיאה בעדכון בקשת הביטול"); return; }
+    logAudit(supabase, userId || null, value ? "event.request_cancellation" : "event.undo_cancellation_request", "event", event.id, {
+      client_name: event.client_name, venue: event.venue?.name ?? event.venue_id,
+      cancellation_requested_at: { from: event.cancellation_requested_at, to: value },
+    });
     toast.success(value ? "האירוע סומן כממתין לביטול" : "סימון הביטול הוסר");
     router.refresh();
     onClose();
@@ -123,17 +130,22 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
       toast.error("שגיאה במחיקת האירוע");
       return;
     }
+    logAudit(supabase, userId || null, "event.delete", "event", event.id, {
+      client_name: event.client_name, date: event.date, venue: event.venue?.name ?? event.venue_id,
+    });
     toast.success("האירוע נמחק");
+    router.refresh();
     onClose();
   }
 
   async function fetchLead() {
     setLeadState("loading");
     const supabase = createClient();
-    const { data } = await supabase.from("leads")
-      .select("id")
-      .eq("client_phone", event.client_phone)
-      .maybeSingle();
+    // events.lead_id (031) is the reliable link - phone matching is only a
+    // fallback for events booked before that column existed.
+    const { data } = event.lead_id
+      ? await supabase.from("leads").select("id").eq("id", event.lead_id).maybeSingle()
+      : await supabase.from("leads").select("id").eq("client_phone", event.client_phone).maybeSingle();
 
     if (data) {
       setLead(data);
@@ -163,9 +175,17 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
       toast.error("שגיאה ביצירת ליד");
       return;
     }
+    logAudit(supabase, userId || null, "lead.create", "lead", data.id, {
+      client_name: event.client_name, client_phone: event.client_phone,
+    });
     // Add venue interest
     await supabase.from("lead_venue_interests")
       .insert({ lead_id: data.id, venue_id: event.venue_id })
+      .then(() => null, () => null);
+    // Link this event directly to the newly created lead.
+    await supabase.from("events")
+      .update({ lead_id: data.id })
+      .eq("id", event.id)
       .then(() => null, () => null);
     setCreatingLead(false);
     // Re-fetch to get venue name in interests
@@ -363,7 +383,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 pt-2">
-          {isAdmin && event.status !== "cancelled" && (
+          {isAdmin && event.status !== "cancelled" && !isPastEvent && (
             <Button
               size="sm"
               onClick={() => setEditOpen(true)}
@@ -371,7 +391,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
               ערוך
             </Button>
           )}
-          {(isAdmin || canCancel) && event.status !== "cancelled" && (
+          {(isAdmin || canCancel) && event.status !== "cancelled" && !isPastEvent && (
             <Button
               size="sm"
               variant="outline"
@@ -381,7 +401,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
               בטל אירוע
             </Button>
           )}
-          {(isAdmin || canCancel) && event.status !== "cancelled" && (
+          {(isAdmin || canCancel) && event.status !== "cancelled" && !isPastEvent && (
             <Button
               size="sm"
               variant="outline"

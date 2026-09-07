@@ -8,7 +8,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatChip } from "@/components/ui/stat-chip";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
-import { Building2, XCircle, History, ChevronLeft, Inbox } from "lucide-react";
+import { Building2, XCircle, History, ChevronLeft, Inbox, Zap } from "lucide-react";
+import { INQUIRY_STATUS_LABELS, INQUIRY_STATUS_VARIANT } from "@/types/leads";
 
 export async function NotificationsContent() {
   const { supabase, profile } = await getUserProfile();
@@ -16,7 +17,7 @@ export async function NotificationsContent() {
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [pendingCancelRes, recentCancelledRes, pendingVenuesCountRes] = await Promise.all([
+  const [pendingCancelRes, recentCancelledRes, pendingVenuesCountRes, quickInquiriesRes] = await Promise.all([
     supabase.from("events")
       .select("id, date, client_name, cancellation_requested_at, venue:venues(id, name)")
       .not("cancellation_requested_at", "is", null)
@@ -30,6 +31,14 @@ export async function NotificationsContent() {
     supabase.from("venues")
       .select("id", { count: "exact", head: true })
       .eq("approval_status", "pending"),
+    // G1: quick inquiries (LeadsManager's "+ פנייה מהירה" dialog) logged
+    // over the last 7 days, source: "quick" (032) distinguishes them from
+    // inquiries added via the regular lead-detail flow.
+    supabase.from("lead_inquiries")
+      .select("id, status, created_at, lead:leads(id, client_name), venue:venues(id, name)")
+      .eq("source", "quick")
+      .gte("created_at", sevenDaysAgo)
+      .order("created_at", { ascending: false }),
   ]);
 
   // 42703 = undefined column: migration 029 (cancellation_requested_at) has
@@ -41,18 +50,25 @@ export async function NotificationsContent() {
   if (recentCancelledRes.error) {
     throw new Error(`Failed to load recent cancellations: ${recentCancelledRes.error.message}`);
   }
+  // Same degrade-to-banner treatment for migration 032 (lead_inquiries.source).
+  const quickInquiriesMigrationMissing = quickInquiriesRes.error?.code === "42703";
+  if (quickInquiriesRes.error && !quickInquiriesMigrationMissing) {
+    throw new Error(`Failed to load quick inquiries: ${quickInquiriesRes.error.message}`);
+  }
 
   const pendingCancellations = pendingCancelRes.data ?? [];
   const recentCancelled = recentCancelledRes.data ?? [];
   const pendingVenuesCount = pendingVenuesCountRes.count ?? 0;
+  const quickInquiries = quickInquiriesRes.data ?? [];
 
   return (
     <div className="space-y-5">
       {/* Stat strip */}
-      <div className="grid grid-cols-3 gap-3 max-w-2xl">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl">
         <StatChip label="אולמות ממתינים" value={pendingVenuesCount} icon={Building2} tone="primary" />
         <StatChip label="בקשות ביטול" value={migrationMissing ? "—" : pendingCancellations.length} icon={XCircle} tone="warning" />
         <StatChip label="ביטולים השבוע" value={recentCancelled.length} icon={History} tone="muted" />
+        <StatChip label="פניות מהירות השבוע" value={quickInquiriesMigrationMissing ? "—" : quickInquiries.length} icon={Zap} tone="violet" />
       </div>
 
       <Tabs defaultValue="venues">
@@ -60,6 +76,7 @@ export async function NotificationsContent() {
           <TabsTrigger value="venues">אולמות ממתינים לאישור ({pendingVenuesCount})</TabsTrigger>
           <TabsTrigger value="cancellations">בקשות ביטול ({migrationMissing ? "—" : pendingCancellations.length})</TabsTrigger>
           <TabsTrigger value="recent">ביטולים מהשבוע האחרון ({recentCancelled.length})</TabsTrigger>
+          <TabsTrigger value="quick">פניות מהירות ({quickInquiriesMigrationMissing ? "—" : quickInquiries.length})</TabsTrigger>
         </TabsList>
 
         {/* New venues awaiting approval - the panel includes approve/reject */}
@@ -152,6 +169,50 @@ export async function NotificationsContent() {
                             </p>
                           )}
                         </div>
+                        <ChevronLeft size={15} className="text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Quick inquiries logged this week (G1) */}
+        <TabsContent value="quick" className="pt-4">
+          <Card variant="elevated">
+            <CardContent className="px-4 pt-4 pb-4">
+              {quickInquiriesMigrationMissing ? (
+                <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded-md px-3 py-2">
+                  כדי להפעיל את מעקב הפניות המהירות יש להריץ את מיגרציה 032
+                  (supabase/migrations/032_lead_inquiries_chronological.sql) בעורך ה-SQL של Supabase.
+                </p>
+              ) : quickInquiries.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-1.5 py-8 text-center">
+                  <Inbox size={28} strokeWidth={1.5} className="text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">לא נרשמו פניות מהירות בשבוע האחרון</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border/60">
+                  {quickInquiries.map((inquiry) => (
+                    <Link
+                      key={inquiry.id}
+                      href={inquiry.lead?.id ? `/leads/${inquiry.lead.id}` : "/leads"}
+                      className="group flex items-center justify-between gap-4 px-2 py-2.5 rounded-lg hover:bg-muted/60 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm">
+                          {inquiry.lead?.client_name ?? "-"} · {inquiry.venue?.name ?? "-"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5" dir="ltr">
+                          {formatDateTime(inquiry.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant={INQUIRY_STATUS_VARIANT[inquiry.status]}>
+                          {INQUIRY_STATUS_LABELS[inquiry.status]}
+                        </Badge>
                         <ChevronLeft size={15} className="text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
                       </div>
                     </Link>

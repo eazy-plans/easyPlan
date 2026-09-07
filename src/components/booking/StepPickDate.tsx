@@ -27,6 +27,7 @@ export function StepPickDate({ venue, userId, initialDate, initialEventType, onN
   const [eventType, setEventType] = useState<EventType | null>(initialEventType ?? null);
   const [date, setDate] = useState<Date | null>(initialDate ?? null);
   const [blockedSet, setBlockedSet] = useState<Set<string>>(new Set());
+  const [pendingSet, setPendingSet] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(true);
 
   const fetchAvailability = useCallback(async () => {
@@ -40,7 +41,7 @@ export function StepPickDate({ venue, userId, initialDate, initialEventType, onN
 
     const [{ data: bookedEvents }, { data: locks }] = await Promise.all([
       supabase.from("events")
-        .select("date, event_type")
+        .select("date, event_type, cancellation_requested_at")
         .eq("venue_id", venue.id)
         .gte("date", today)
         .lte("date", endDate)
@@ -54,8 +55,12 @@ export function StepPickDate({ venue, userId, initialDate, initialEventType, onN
     ]);
 
     const blocked = new Set<string>();
-    for (const ev of [...(bookedEvents ?? []), ...(locks ?? [])]) {
-      blocked.add(`${ev.date}:${ev.event_type}`);
+    const pending = new Set<string>();
+    // Cross-blocks always hard-block - see the matching comment in
+    // StepSearch.tsx's fetchAvailability.
+    for (const ev of bookedEvents ?? []) {
+      const key = `${ev.date}:${ev.event_type}`;
+      if (ev.cancellation_requested_at) pending.add(key); else blocked.add(key);
       if (ev.event_type === "full_day") {
         blocked.add(`${ev.date}:morning`);
         blocked.add(`${ev.date}:evening`);
@@ -78,8 +83,35 @@ export function StepPickDate({ venue, userId, initialDate, initialEventType, onN
         }
       }
     }
+    for (const lock of locks ?? []) {
+      const key = `${lock.date}:${lock.event_type}`;
+      blocked.add(key);
+      if (lock.event_type === "full_day") {
+        blocked.add(`${lock.date}:morning`);
+        blocked.add(`${lock.date}:evening`);
+      }
+      if (lock.event_type === "morning" || lock.event_type === "evening") {
+        blocked.add(`${lock.date}:full_day`);
+      }
+      if (lock.event_type === "shabbat") {
+        const [y, m, d] = lock.date.split("-").map(Number);
+        const fri = new Date(y, m - 1, d);
+        fri.setDate(fri.getDate() - 1);
+        blocked.add(`${toLocalDateStr(fri)}:evening`);
+      }
+      if (lock.event_type === "evening") {
+        const [y, m, d] = lock.date.split("-").map(Number);
+        const dt = new Date(y, m - 1, d);
+        if (dt.getDay() === 5) {
+          dt.setDate(dt.getDate() + 1);
+          blocked.add(`${toLocalDateStr(dt)}:shabbat`);
+        }
+      }
+    }
+    for (const key of blocked) pending.delete(key);
 
     setBlockedSet(blocked);
+    setPendingSet(pending);
     setLoadingAvailability(false);
   }, [venue.id, userId]);
 
@@ -101,6 +133,11 @@ export function StepPickDate({ venue, userId, initialDate, initialEventType, onN
   // days which stay gray
   const isBooked = (d: Date) =>
     !!eventType && d >= today && blockedSet.has(`${toLocalDateStr(d)}:${eventType}`);
+
+  // Flagged cancellation_requested_at (029) - still selectable, shown with a
+  // warning badge instead of the red "תפוס" one.
+  const isPendingCancellation = (d: Date) =>
+    !!eventType && d >= today && pendingSet.has(`${toLocalDateStr(d)}:${eventType}`);
 
   const isTypeDisabled = (type: EventType) => {
     if (!date) return false;
@@ -192,10 +229,16 @@ export function StepPickDate({ venue, userId, initialDate, initialEventType, onN
                 selected={date ?? undefined}
                 onSelect={handleDateSelect}
                 disabled={calendarDisabled}
-                dayClassName={(d) => (isBooked(d) ? "bg-destructive/10 opacity-100" : undefined)}
+                dayClassName={(d) =>
+                  isBooked(d) ? "bg-destructive/10 opacity-100"
+                  : isPendingCancellation(d) ? "bg-warning/10 opacity-100"
+                  : undefined
+                }
                 renderDay={(d) =>
                   isBooked(d) ? (
                     <span className="inline-block rounded bg-destructive/15 px-1 text-[10px] font-semibold text-destructive">תפוס</span>
+                  ) : isPendingCancellation(d) ? (
+                    <span className="inline-block rounded bg-warning/15 px-1 text-[10px] font-semibold text-warning">ממתין לביטול</span>
                   ) : null
                 }
                 className="w-full"
@@ -203,6 +246,9 @@ export function StepPickDate({ venue, userId, initialDate, initialEventType, onN
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <span className="h-3 w-3 rounded-sm border border-destructive/30 bg-destructive/10" /> תפוס
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-sm border border-warning/30 bg-warning/10" /> ממתין לביטול · ניתן להזמין
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="h-3 w-3 rounded-sm border border-border bg-muted" /> לא זמין

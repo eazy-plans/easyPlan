@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency } from "@/lib/utils";
@@ -32,13 +33,15 @@ interface VenueDetailPreviewProps {
   images: VenueImageRow[];
   /** Highlights the matching price/hours row - only meaningful mid-booking. */
   eventType?: EventType;
+  /** Shows a link to the venue's management page - only meaningful when viewed from the booking wizard, and only admins can reach that page. */
+  isAdmin?: boolean;
 }
 
 // Gallery + description + pricing + hours + access info for a venue, with no
 // dependency on booking-wizard state (date/eventType are optional). Shared
 // between Step4VenueDetail (mid-booking), the pre-date "details" modal in
 // StepSearch, and the read-only "פרטים ותמונות" tab on the venue page.
-export function VenueDetailPreview({ venue, images, eventType }: VenueDetailPreviewProps) {
+export function VenueDetailPreview({ venue, images, eventType, isAdmin }: VenueDetailPreviewProps) {
   const [imgIdx, setImgIdx] = useState(0);
 
   return (
@@ -86,6 +89,14 @@ export function VenueDetailPreview({ venue, images, eventType }: VenueDetailPrev
             <p className="text-sm text-muted-foreground">
               {venue.address} · {venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}
             </p>
+            {isAdmin && (
+              <Link
+                href={`/venues/${venue.id}`}
+                className="inline-flex items-center gap-1 text-sm text-primary hover:underline mt-1"
+              >
+                לעמוד האולם
+              </Link>
+            )}
           </div>
           <Badge variant="outline" className="shrink-0">{venue.max_capacity} אורחים</Badge>
         </div>

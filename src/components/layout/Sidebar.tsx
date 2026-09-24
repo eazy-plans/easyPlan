@@ -59,7 +59,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "אולמות",
     href: "/venues",
     icon: <Building2 size={18} />,
-    roles: ["admin", "venue_owner"],
+    roles: ["admin", "venue_owner", "secretary"],
   },
   {
     label: "לידים",
@@ -77,13 +77,13 @@ const NAV_ITEMS: NavItem[] = [
     label: "התראות",
     href: "/notifications",
     icon: <Bell size={18} />,
-    roles: ["admin"],
+    roles: ["admin", "secretary"],
   },
   {
     label: "הגדרות",
     href: "/settings",
     icon: <Settings size={18} />,
-    roles: ["admin", "secretary", "venue_owner"],
+    roles: ["admin"],
   },
 ];
 

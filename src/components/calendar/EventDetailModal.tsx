@@ -250,8 +250,6 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
               <span className="text-muted-foreground w-24 shrink-0">מיקום</span>
               <a
                 href={`https://maps.google.com/?q=${encodeURIComponent(`${venueAddress || ""} ${venueCity || ""}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="text-primary hover:underline flex items-center gap-1"
               >
                 📍 פתח במפה

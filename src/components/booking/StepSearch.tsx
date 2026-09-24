@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
-import { Building2, CalendarDays, X, ChevronDown, ChevronLeft, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus, Info } from "lucide-react";
+import { ManualDateInput } from "@/components/ui/manual-date-input";
+import { Building2, CalendarDays, X, ChevronDown, ChevronLeft, Clock, Sliders, Users, DollarSign, Accessibility, ParkingCircle, Zap, Bus, Info, Search } from "lucide-react";
 import Image from "next/image";
 import { formatDate, formatCurrency, toLocalDateStr } from "@/lib/utils";
 import type { EventType, VenueRow, VenueImageRow } from "@/types/database";
@@ -26,13 +27,15 @@ function getImageUrl(path: string) {
 
 interface StepSearchProps {
   userId: string;
+  isAdmin?: boolean;
   /** Server-fetched venue list - fetching here after hydration cost a visible spinner round trip. */
   venues: VenueWithImages[];
   onSelect: (venue: VenueWithImages, date: Date | null, eventType: EventType | null) => void;
 }
 
-export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchProps) {
+export function StepSearch({ userId, isAdmin, venues: allVenues, onSelect }: StepSearchProps) {
   const [detailVenue, setDetailVenue]     = useState<VenueWithImages | null>(null);
+  const [query, setQuery]                 = useState("");
   const [selectedVenueId, setSelectedVenueId] = useState("");
   const [selectedCity, setSelectedCity]   = useState("");
   const [eventType, setEventType]         = useState<EventType | null>(null);
@@ -183,6 +186,17 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
     if (selectedVenueId && v.id !== selectedVenueId) return false;
     if (selectedCity && v.city !== selectedCity) return false;
 
+    // Combined free-text search - matches hall name or city/neighborhood at
+    // once, alongside (not instead of) the separate dropdowns above.
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      const matchesQuery =
+        v.name.toLowerCase().includes(q) ||
+        v.city.toLowerCase().includes(q) ||
+        (v.neighborhood ?? "").toLowerCase().includes(q);
+      if (!matchesQuery) return false;
+    }
+
     // Hall parameter filters
     if (minCapacity && v.max_capacity < parseInt(minCapacity)) return false;
 
@@ -206,10 +220,11 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
 
   const hasDateFilter = !!date && !!eventType;
   const anyAmenityFilter = amenities.hasElevator || amenities.hasParking || amenities.isAccessible || amenities.hasPublicTransport;
-  const anyFilter = !!selectedVenueId || !!selectedCity || !!eventType || !!date || !!minCapacity || !!maxPrice || anyAmenityFilter;
+  const anyFilter = !!query || !!selectedVenueId || !!selectedCity || !!eventType || !!date || !!minCapacity || !!maxPrice || anyAmenityFilter;
   const allTakenOnDate = hasDateFilter && filtered.length === 0 && filteredWithoutDate.length > 0;
 
   const clearAllFilters = () => {
+    setQuery("");
     clearVenue();
     setSelectedCity("");
     setEventType(null);
@@ -242,6 +257,30 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
 
     {/* Filters column - fixed width, own scroll so it never pushes the results list off screen */}
     <div className="lg:w-80 shrink-0 flex flex-col gap-4 lg:overflow-y-auto lg:scroll-area lg:pl-1">
+
+      {/* Combined search bar - free text over hall name + city, in addition to the separate dropdowns below */}
+      <div className="bg-card rounded-lg p-4 border border-border" dir="rtl">
+        <div className="relative">
+          <Search size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="חיפוש לפי שם אולם או עיר"
+            className="h-11 text-base pr-10 pl-9"
+            dir="rtl"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="נקה חיפוש"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Venue and City Selection */}
       <div className="space-y-3 bg-card rounded-lg p-4 border border-border" dir="rtl">
@@ -484,11 +523,14 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
                 <CalendarDays size={16} />
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-[660px]" dir="rtl">
-              <DialogHeader>
-                <DialogTitle>בחר תאריך</DialogTitle>
+            <DialogContent className="max-w-[660px] h-[min(720px,92vh)]" dir="rtl">
+              <DialogHeader className="pt-4 pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <DialogTitle>בחר תאריך</DialogTitle>
+                  <ManualDateInput onSubmit={handleDateSelect} disabled={calDisabled} />
+                </div>
               </DialogHeader>
-              <DialogBody>
+              <DialogBody className="py-3">
                 <HebrewCalendar
                   compact
                   selected={date ?? undefined}
@@ -624,7 +666,7 @@ export function StepSearch({ userId, venues: allVenues, onSelect }: StepSearchPr
         </DialogHeader>
         <DialogBody>
           {detailVenue && (
-            <VenueDetailPreview venue={detailVenue} images={detailVenue.images} eventType={eventType ?? undefined} />
+            <VenueDetailPreview venue={detailVenue} images={detailVenue.images} eventType={eventType ?? undefined} isAdmin={isAdmin} />
           )}
         </DialogBody>
       </DialogContent>

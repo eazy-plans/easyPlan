@@ -258,11 +258,11 @@ export function EventsTable({ events: initialEvents, role, userId }: EventsTable
                 <CalendarDays size={16} className="text-muted-foreground" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-[660px]" dir="rtl">
-              <DialogHeader>
+            <DialogContent className="max-w-[660px] h-[min(720px,92vh)]" dir="rtl">
+              <DialogHeader className="pt-4 pb-3">
                 <DialogTitle>סינון לפי תאריך</DialogTitle>
               </DialogHeader>
-              <DialogBody>
+              <DialogBody className="py-3">
                 <HebrewCalendar
                   compact
                   selected={dateFilter ? new Date(dateFilter + "T12:00:00") : undefined}

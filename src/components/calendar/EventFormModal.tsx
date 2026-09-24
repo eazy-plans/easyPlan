@@ -268,11 +268,11 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
                   <CalendarIcon className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-[660px]" dir="rtl">
-                <DialogHeader>
+              <DialogContent className="max-w-[660px] h-[min(720px,92vh)]" dir="rtl">
+                <DialogHeader className="pt-4 pb-3">
                   <DialogTitle>בחירת תאריך אירוע</DialogTitle>
                 </DialogHeader>
-                <DialogBody>
+                <DialogBody className="py-3">
                   <HebrewCalendar
                     compact
                     selected={selectedDate}

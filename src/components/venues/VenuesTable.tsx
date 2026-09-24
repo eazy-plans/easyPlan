@@ -24,12 +24,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { logAudit } from "@/lib/audit";
 import { VenueEditModal } from "./VenueEditModal";
-import type { VenueRow, UserRow } from "@/types/database";
+import { VenueDetailPreview } from "./VenueDetailPreview";
+import type { VenueRow, VenueImageRow, UserRow } from "@/types/database";
 import { Building2, ArrowUpDown, ParkingCircle, Accessibility, Bus, ChevronLeft } from "lucide-react";
+
+type VenueWithImages = VenueRow & { images: VenueImageRow[] };
 
 const APPROVAL_BADGE: Record<string, { label: string; variant: "warning-soft" | "destructive" }> = {
   pending: { label: "ממתין לאישור", variant: "warning-soft" },
@@ -56,10 +60,12 @@ function AmenityChips({ venue }: { venue: VenueRow }) {
 }
 
 interface VenuesTableProps {
-  venues: VenueRow[];
+  venues: VenueWithImages[];
   owners: Pick<UserRow, "id" | "full_name" | "email">[];
   isAdmin?: boolean;
   isVenueOwner?: boolean;
+  /** Secretaries can't reach the admin-only /venues/[id] page, so rows open a read-only preview instead of navigating. */
+  isSecretary?: boolean;
 }
 
 function DeleteVenueDialog({
@@ -68,7 +74,7 @@ function DeleteVenueDialog({
   onConfirm,
   className,
 }: {
-  venue: VenueRow;
+  venue: VenueWithImages;
   disabled: boolean;
   onConfirm: () => void;
   className?: string;
@@ -101,11 +107,19 @@ function DeleteVenueDialog({
   );
 }
 
-export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = false }: VenuesTableProps) {
+export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = false, isSecretary = false }: VenuesTableProps) {
   const canEdit = isAdmin || isVenueOwner;
   const [editVenue, setEditVenue] = useState<VenueRow | null>(null);
+  const [previewVenue, setPreviewVenue] = useState<VenueWithImages | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const router = useRouter();
+
+  // Secretaries are redirected away from /venues/[id] (admin/owner-only management page),
+  // so their click opens a read-only preview instead of navigating there.
+  function openVenue(venue: VenueWithImages) {
+    if (isSecretary) setPreviewVenue(venue);
+    else router.push(`/venues/${venue.id}`);
+  }
 
   async function deleteVenue(venue: VenueRow) {
     setDeleting(venue.id);
@@ -146,23 +160,27 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
               <TableRow
                 key={venue.id}
                 className="group cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
-                onClick={() => router.push(`/venues/${venue.id}`)}
+                onClick={() => openVenue(venue)}
                 tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter") router.push(`/venues/${venue.id}`); }}
+                onKeyDown={(e) => { if (e.key === "Enter") openVenue(venue); }}
               >
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-3">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Building2 size={16} />
                     </span>
-                    {/* Real link so the detail page gets prefetched on hover */}
-                    <Link
-                      href={`/venues/${venue.id}`}
-                      className="hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {venue.name}
-                    </Link>
+                    {isSecretary ? (
+                      <span className="hover:underline">{venue.name}</span>
+                    ) : (
+                      // Real link so the detail page gets prefetched on hover
+                      <Link
+                        href={`/venues/${venue.id}`}
+                        className="hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {venue.name}
+                      </Link>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{venue.city}{venue.neighborhood ? ` · ${venue.neighborhood}` : ""}</TableCell>
@@ -215,8 +233,8 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
             role="button"
             tabIndex={0}
             className="border rounded-xl bg-card p-4 space-y-3 shadow-card cursor-pointer hover:border-primary/40 transition-all focus-visible:bg-muted/40 focus-visible:outline-none"
-            onClick={() => router.push(`/venues/${venue.id}`)}
-            onKeyDown={(e) => { if (e.key === "Enter") router.push(`/venues/${venue.id}`); }}
+            onClick={() => openVenue(venue)}
+            onKeyDown={(e) => { if (e.key === "Enter") openVenue(venue); }}
           >
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -271,6 +289,19 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
           isAdmin={isAdmin}
         />
       )}
+
+      <Dialog open={!!previewVenue} onOpenChange={(open) => !open && setPreviewVenue(null)}>
+        <DialogContent className="max-w-3xl" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>{previewVenue?.name}</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            {previewVenue && (
+              <VenueDetailPreview venue={previewVenue} images={previewVenue.images} />
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -23,6 +23,29 @@ function leadInitials(name: string) {
   return name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "?";
 }
 
+// Dropdown of matching registered leads, shown under the quick-inquiry name/phone
+// inputs. onMouseDown (not onClick) prevents default so the input never blurs -
+// blurring first would unmount this list before the click could register.
+function LeadSuggestions({ matches, visible, onPick }: { matches: LeadRow[]; visible: boolean; onPick: (lead: LeadRow) => void }) {
+  if (!visible || matches.length === 0) return null;
+  return (
+    <div className="absolute z-10 top-full inset-x-0 mt-1 rounded-md border border-border bg-popover shadow-md max-h-48 overflow-y-auto" dir="rtl">
+      {matches.map((lead) => (
+        <button
+          key={lead.id}
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onPick(lead)}
+          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm text-right hover:bg-accent hover:text-accent-foreground"
+        >
+          <span className="text-muted-foreground text-xs shrink-0" dir="ltr">{lead.client_phone ?? ""}</span>
+          <span className="truncate">{lead.client_name}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 type LeadRow = {
   id: string;
   client_name: string;
@@ -77,6 +100,7 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
   const [quickPhoneError, setQuickPhoneError] = useState("");
   const [quickDoneLeadId, setQuickDoneLeadId] = useState<string | null>(null);
   const [quickReusedLead, setQuickReusedLead] = useState(false);
+  const [quickActiveField, setQuickActiveField] = useState<"name" | "phone" | null>(null);
   const [venues, setVenues] = useState<{ id: string; name: string }[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(false);
 
@@ -178,11 +202,16 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
     let leadId: string | null = null;
     let reused = false;
 
+    // No venue picked means no inquiry row will be written below - the note
+    // would otherwise vanish with nowhere to land, so it goes on the lead itself.
+    const noteOnlySave = !quickForm.venue_id && quickForm.note.trim();
+
     const { data: created, error } = await supabase.from("leads")
       .insert({
         client_name: quickForm.client_name,
         client_phone: quickForm.client_phone || null,
         status: "new",
+        notes: noteOnlySave ? quickForm.note.trim() : null,
       })
       .select("*")
       .single();
@@ -190,10 +219,17 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
     if (error) {
       if (error.code === "23505") {
         const { data: existing } = await supabase.from("leads")
-          .select("id")
+          .select("id, notes")
           .eq("client_phone", quickForm.client_phone)
           .maybeSingle();
-        if (existing) { leadId = existing.id; reused = true; }
+        if (existing) {
+          leadId = existing.id;
+          reused = true;
+          if (noteOnlySave) {
+            const mergedNotes = existing.notes ? `${existing.notes}\n${quickForm.note.trim()}` : quickForm.note.trim();
+            await supabase.from("leads").update({ notes: mergedNotes }).eq("id", existing.id);
+          }
+        }
       }
       if (!leadId) {
         setQuickSaving(false);
@@ -256,7 +292,21 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
     setQuickPhoneError("");
     setQuickDoneLeadId(null);
     setQuickReusedLead(false);
+    setQuickActiveField(null);
   }
+
+  function pickExistingClient(lead: LeadRow) {
+    setQuickForm((f) => ({ ...f, client_name: lead.client_name, client_phone: lead.client_phone ?? f.client_phone }));
+    setQuickPhoneError("");
+    setQuickActiveField(null);
+  }
+
+  const quickNameMatches = quickForm.client_name.trim().length >= 2
+    ? leads.filter((l) => l.client_name.toLowerCase().includes(quickForm.client_name.trim().toLowerCase())).slice(0, 5)
+    : [];
+  const quickPhoneMatches = quickForm.client_phone.trim().length >= 2
+    ? leads.filter((l) => (l.client_phone ?? "").includes(quickForm.client_phone.trim())).slice(0, 5)
+    : [];
 
   const stats = useMemo(() => {
     const isPending = (s: LeadStatus) => s === "new" || s === "considering" || s === "waiting_for_date" || s === "date_taken";
@@ -439,15 +489,21 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
               </div>
             ) : (
               <form onSubmit={handleQuickAdd} className="space-y-4">
-                <div className="space-y-1">
+                <div className="space-y-1 relative">
                   <Label>שם לקוח *</Label>
                   <Input
                     value={quickForm.client_name}
-                    onChange={(e) => setQuickForm((f) => ({ ...f, client_name: e.target.value }))}
+                    onChange={(e) => {
+                      setQuickForm((f) => ({ ...f, client_name: e.target.value }));
+                      setQuickActiveField("name");
+                    }}
+                    onFocus={() => setQuickActiveField("name")}
+                    onBlur={() => setQuickActiveField(null)}
                     required
                   />
+                  <LeadSuggestions matches={quickNameMatches} visible={quickActiveField === "name"} onPick={pickExistingClient} />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 relative">
                   <Label>טלפון</Label>
                   <Input
                     type="tel"
@@ -457,10 +513,14 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
                       const v = e.target.value;
                       setQuickForm((f) => ({ ...f, client_phone: v }));
                       setQuickPhoneError("");
+                      setQuickActiveField("phone");
                     }}
+                    onFocus={() => setQuickActiveField("phone")}
+                    onBlur={() => setQuickActiveField(null)}
                     className={quickPhoneError ? "border-destructive" : ""}
                     placeholder="052-1234567"
                   />
+                  <LeadSuggestions matches={quickPhoneMatches} visible={quickActiveField === "phone"} onPick={pickExistingClient} />
                   {quickPhoneError && <p className="text-xs text-destructive">{quickPhoneError}</p>}
                 </div>
                 <div className="space-y-1">

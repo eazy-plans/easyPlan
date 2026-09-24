@@ -40,17 +40,20 @@ interface Step5Props {
   eventType: EventType;
   isAdmin: boolean;
   userId: string;
+  /** Pre-fills the email field so a booking always has one on file even if
+      staff forgets to ask - still just a starting value, fully editable/clearable. */
+  defaultClientEmail?: string;
   onBack: () => void;
   onSuccess: (eventId: string) => void;
 }
 
-export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, onBack, onSuccess }: Step5Props) {
+export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, defaultClientEmail, onBack, onSuccess }: Step5Props) {
   const listedPrice = Number(venue[PRICE_KEY[eventType]] ?? 0);
   const [phoneError, setPhoneError] = useState("");
   const [form, setForm] = useState({
     client_name: "",
     client_phone: "",
-    client_email: "",
+    client_email: defaultClientEmail ?? "",
     event_purpose: "" as EventPurpose | "",
     discount_amount: "0",
     notes: "",

@@ -24,9 +24,12 @@ interface BookingWizardProps {
   isAdmin: boolean;
   userId: string;
   venues: VenueWithImages[];
+  /** Pre-fills Step5's client-email field so a booking always has an email
+      on file even if the staff member forgets to ask - editable/clearable. */
+  defaultClientEmail?: string;
 }
 
-export function BookingWizard({ isAdmin, userId, venues }: BookingWizardProps) {
+export function BookingWizard({ isAdmin, userId, venues, defaultClientEmail }: BookingWizardProps) {
   const [screen, setScreen]               = useState<Screen>("search");
   const [selectedVenue, setSelectedVenue] = useState<VenueWithImages | null>(null);
   const [date, setDate]                   = useState<Date | null>(null);
@@ -102,7 +105,7 @@ export function BookingWizard({ isAdmin, userId, venues }: BookingWizardProps) {
       >
 
         {screen === "search" && (
-          <StepSearch userId={userId} venues={venues} onSelect={handleVenueSelect} />
+          <StepSearch userId={userId} isAdmin={isAdmin} venues={venues} onSelect={handleVenueSelect} />
         )}
 
         {screen === "pick-date" && selectedVenue && (
@@ -120,6 +123,7 @@ export function BookingWizard({ isAdmin, userId, venues }: BookingWizardProps) {
           <Step4VenueDetail
             venue={selectedVenue}
             eventType={eventType}
+            isAdmin={isAdmin}
             onBook={() => setScreen("booking")}
             // date is always set by this screen, so it can't decide where
             // "back" leads - usedPickDate tracks whether this flow actually
@@ -135,6 +139,7 @@ export function BookingWizard({ isAdmin, userId, venues }: BookingWizardProps) {
             eventType={eventType}
             isAdmin={isAdmin}
             userId={userId}
+            defaultClientEmail={defaultClientEmail}
             onBack={() => setScreen("venue-detail")}
             onSuccess={(id) => { setConfirmedEventId(id); setScreen("confirm"); }}
           />

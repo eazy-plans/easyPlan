@@ -13,7 +13,8 @@ import { INQUIRY_STATUS_LABELS, INQUIRY_STATUS_VARIANT } from "@/types/leads";
 
 export async function NotificationsContent() {
   const { supabase, profile } = await getUserProfile();
-  if (profile.role !== "admin") redirect("/");
+  if (profile.role !== "admin" && profile.role !== "secretary") redirect("/");
+  const isAdmin = profile.role === "admin";
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -28,9 +29,13 @@ export async function NotificationsContent() {
       .eq("status", "cancelled")
       .gte("cancelled_at", sevenDaysAgo)
       .order("cancelled_at", { ascending: false }),
-    supabase.from("venues")
-      .select("id", { count: "exact", head: true })
-      .eq("approval_status", "pending"),
+    // Venue approvals are admin-only - RLS hides pending venues from
+    // secretaries entirely, so skip the query rather than run it for nothing.
+    isAdmin
+      ? supabase.from("venues")
+          .select("id", { count: "exact", head: true })
+          .eq("approval_status", "pending")
+      : Promise.resolve({ count: 0, error: null }),
     // G1: quick inquiries (LeadsManager's "+ פנייה מהירה" dialog) logged
     // over the last 7 days, source: "quick" (032) distinguishes them from
     // inquiries added via the regular lead-detail flow.
@@ -64,25 +69,31 @@ export async function NotificationsContent() {
   return (
     <div className="space-y-5">
       {/* Stat strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl">
-        <StatChip label="אולמות ממתינים" value={pendingVenuesCount} icon={Building2} tone="primary" />
+      <div className={`grid grid-cols-2 gap-3 max-w-3xl ${isAdmin ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+        {isAdmin && (
+          <StatChip label="אולמות ממתינים" value={pendingVenuesCount} icon={Building2} tone="primary" />
+        )}
         <StatChip label="בקשות ביטול" value={migrationMissing ? "—" : pendingCancellations.length} icon={XCircle} tone="warning" />
         <StatChip label="ביטולים השבוע" value={recentCancelled.length} icon={History} tone="muted" />
         <StatChip label="פניות מהירות השבוע" value={quickInquiriesMigrationMissing ? "—" : quickInquiries.length} icon={Zap} tone="violet" />
       </div>
 
-      <Tabs defaultValue="venues">
+      <Tabs defaultValue={isAdmin ? "venues" : "cancellations"}>
         <TabsList>
-          <TabsTrigger value="venues">אולמות ממתינים לאישור ({pendingVenuesCount})</TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="venues">אולמות ממתינים לאישור ({pendingVenuesCount})</TabsTrigger>
+          )}
           <TabsTrigger value="cancellations">בקשות ביטול ({migrationMissing ? "—" : pendingCancellations.length})</TabsTrigger>
           <TabsTrigger value="recent">ביטולים מהשבוע האחרון ({recentCancelled.length})</TabsTrigger>
           <TabsTrigger value="quick">פניות מהירות ({quickInquiriesMigrationMissing ? "—" : quickInquiries.length})</TabsTrigger>
         </TabsList>
 
-        {/* New venues awaiting approval - the panel includes approve/reject */}
-        <TabsContent value="venues" className="pt-4">
-          <PendingVenuesPanel />
-        </TabsContent>
+        {/* New venues awaiting approval - the panel includes approve/reject, admin only */}
+        {isAdmin && (
+          <TabsContent value="venues" className="pt-4">
+            <PendingVenuesPanel />
+          </TabsContent>
+        )}
 
         {/* Events awaiting cancellation */}
         <TabsContent value="cancellations" className="pt-4">

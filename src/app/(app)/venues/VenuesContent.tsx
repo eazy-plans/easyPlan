@@ -1,14 +1,22 @@
 import { Building2 } from "lucide-react";
-import type { VenueRow, UserRow } from "@/types/database";
+import type { VenueRow, VenueImageRow, UserRow } from "@/types/database";
 import { AddVenueModal } from "@/components/venues/AddVenueModal";
 import { VenuesViewToggle } from "@/components/venues/VenuesViewToggle";
 import { getUserProfile } from "@/lib/supabase/queries";
 
+type VenueWithImages = VenueRow & { images: VenueImageRow[] };
+
 export async function VenuesContent() {
   const { supabase, user, profile } = await getUserProfile();
   const isAdmin = profile.role === "admin";
+  const isSecretary = profile.role === "secretary";
 
-  let venueQuery = supabase.from("venues").select("*").order("name", { ascending: true });
+  // Secretaries can't reach the admin-only /venues/[id] management page, so
+  // they need images up front for the read-only preview modal (see VenuesTable).
+  let venueQuery = supabase
+    .from("venues")
+    .select("*, images:venue_images(*)")
+    .order("name", { ascending: true });
 
   if (profile.role === "venue_owner") {
     venueQuery = venueQuery.eq("owner_user_id", user.id) as typeof venueQuery;
@@ -17,7 +25,7 @@ export async function VenuesContent() {
     venueQuery = venueQuery.eq("approval_status", "approved") as typeof venueQuery;
   }
 
-  const { data: venues, error: venuesError } = (await venueQuery) as { data: VenueRow[] | null; error: { message: string } | null };
+  const { data: venues, error: venuesError } = (await venueQuery) as { data: VenueWithImages[] | null; error: { message: string } | null };
   if (venuesError) throw new Error(`Failed to load venues: ${venuesError.message}`);
 
   const { data: owners, error: ownersError } = isAdmin
@@ -54,6 +62,7 @@ export async function VenuesContent() {
           owners={owners ?? []}
           isAdmin={isAdmin}
           isVenueOwner={profile.role === "venue_owner"}
+          isSecretary={isSecretary}
           actions={isAdmin ? <AddVenueModal key="add-venue" owners={owners ?? []} /> : undefined}
         />
       )}

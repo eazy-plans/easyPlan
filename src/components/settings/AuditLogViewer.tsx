@@ -53,6 +53,7 @@ const ACTION_LABELS: Record<string, string> = {
   "user.block": "חסימת משתמש",
   "user.unblock": "שחזור גישת משתמש",
   "user.password_change": "שינוי סיסמה",
+  "user.reset_password": "איפוס סיסמה ע\"י מנהל",
   "lead.create": "יצירת ליד",
   "lead.update": "עדכון ליד",
   "lead.phone_add": "הוספת טלפון לליד",
@@ -206,11 +207,11 @@ function DatePickerField({ label, value, onChange }: DatePickerFieldProps) {
           <CalendarDays size={16} className="text-muted-foreground shrink-0" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-[660px]" dir="rtl">
-        <DialogHeader>
+      <DialogContent className="max-w-[660px] h-[min(720px,92vh)]" dir="rtl">
+        <DialogHeader className="pt-4 pb-3">
           <DialogTitle>{label}</DialogTitle>
         </DialogHeader>
-        <DialogBody>
+        <DialogBody className="py-3">
           <HebrewCalendar
             compact
             selected={value ? new Date(value + "T12:00:00") : undefined}

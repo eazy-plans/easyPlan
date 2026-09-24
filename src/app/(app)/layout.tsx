@@ -4,15 +4,18 @@ import { Sidebar } from "@/components/layout/Sidebar";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { supabase, profile } = await getUserProfile();
 
-  // Badge on the admin notifications item: venues awaiting approval plus
-  // events awaiting cancellation. Head-count queries only; errors degrade to
-  // a missing badge instead of breaking every page in the segment.
+  // Badge on the notifications item: venues awaiting approval (admin only -
+  // secretaries can't see or act on those, RLS hides the rows anyway) plus
+  // events awaiting cancellation (both roles). Head-count queries only;
+  // errors degrade to a missing badge instead of breaking every page in the segment.
   let notificationCount = 0;
-  if (profile.role === "admin") {
+  if (profile.role === "admin" || profile.role === "secretary") {
     const [pendingVenues, pendingCancellations] = await Promise.all([
-      supabase.from("venues")
-        .select("id", { count: "exact", head: true })
-        .eq("approval_status", "pending"),
+      profile.role === "admin"
+        ? supabase.from("venues")
+            .select("id", { count: "exact", head: true })
+            .eq("approval_status", "pending")
+        : Promise.resolve({ count: 0 }),
       supabase.from("events")
         .select("id", { count: "exact", head: true })
         .not("cancellation_requested_at", "is", null)

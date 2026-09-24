@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { inviteUser } from "@/app/actions/invite-user";
 import { setUserAccess } from "@/app/actions/user-access";
+import { resetUserPassword } from "@/app/actions/reset-password";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,8 +96,12 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [editForm, setEditForm] = useState({ full_name: "", role: "secretary" as UserRole });
   const [editLoading, setEditLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  // Visible by default: this form is already admin-only, and the hint below
+  // tells the admin to relay the password manually - masking it just adds a click.
+  const [showPassword, setShowPassword] = useState(true);
   const [accessLoading, setAccessLoading] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(true);
 
   const stats = useMemo(() => ({
     admins: users.filter((u) => u.role === "admin").length,
@@ -118,6 +123,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
 
   function openEdit(u: UserRow) {
     setEditForm({ full_name: u.full_name, role: u.role });
+    setNewPassword("");
     setEditUser(u);
   }
 
@@ -130,19 +136,31 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
     const { error } = await supabase.from("users")
       .update({ full_name: editForm.full_name, role: editForm.role })
       .eq("id", editUser.id);
-    setEditLoading(false);
 
-    if (error) { toast.error("שגיאה בשמירת הפרטים"); return; }
+    if (error) {
+      setEditLoading(false);
+      toast.error("שגיאה בשמירת הפרטים");
+      return;
+    }
 
     logAudit(supabase, currentUserId, "user.update", "user", editUser.id, {
       full_name: { from: editUser.full_name, to: editForm.full_name },
       role: { from: editUser.role, to: editForm.role },
     });
 
+    if (newPassword.trim()) {
+      const result = await resetUserPassword(editUser.id, newPassword.trim());
+      setEditLoading(false);
+      if (result.error) { toast.error("הפרטים נשמרו, אך איפוס הסיסמה נכשל: " + result.error); return; }
+    } else {
+      setEditLoading(false);
+    }
+
     setUsers((prev) => prev.map((u) =>
       u.id === editUser.id ? { ...u, full_name: editForm.full_name, role: editForm.role } : u
     ));
     toast.success("הפרטים עודכנו");
+    setNewPassword("");
     setEditUser(null);
     router.refresh();
   }
@@ -209,6 +227,28 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                 <p className="text-xs text-muted-foreground">לא ניתן לשנות את התפקיד שלך</p>
               )}
             </div>
+            <div className="space-y-1">
+              <Label>סיסמה חדשה</Label>
+              <div className="relative">
+                <Input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={8}
+                  placeholder="לפחות 8 תווים"
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">העבר/י את הסיסמה למשתמש באופן ידני.</p>
+            </div>
             <div className="flex gap-3 pt-2">
               <Button type="submit" disabled={editLoading} className="flex-1">
                 {editLoading ? "שומר..." : "שמור שינויים"}
@@ -242,14 +282,14 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                 />
               </div>
               <div className="space-y-1">
-                <Label>אימייל</Label>
+                <Label>אימייל *</Label>
                 <Input
                   type="email"
                   dir="ltr"
                   value={inviteForm.email}
                   onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+                  required
                 />
-                <p className="text-xs text-muted-foreground">אפשר להשאיר ריק — תיווצר כתובת ברירת מחדל להתחברות.</p>
               </div>
               <div className="space-y-1">
                 <Label>תפקיד *</Label>

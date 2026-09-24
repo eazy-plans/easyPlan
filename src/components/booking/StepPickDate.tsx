@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { HebrewCalendar } from "@/components/ui/hebrew-calendar";
+import { ManualDateInput } from "@/components/ui/manual-date-input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toHebrewDateShort } from "@/lib/hebrew-calendar";
@@ -219,7 +220,10 @@ export function StepPickDate({ venue, userId, initialDate, initialEventType, onN
 
         {/* Calendar column */}
         <div className="flex-1 min-w-0">
-          <Label className="text-base font-semibold">בחר תאריך פנוי</Label>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <Label className="text-base font-semibold">בחר תאריך פנוי</Label>
+            <ManualDateInput onSubmit={handleDateSelect} disabled={calendarDisabled} />
+          </div>
           {loadingAvailability ? (
             <p className="text-sm text-muted-foreground mt-4">טוען זמינות...</p>
           ) : (

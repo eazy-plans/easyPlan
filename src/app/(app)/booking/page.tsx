@@ -20,7 +20,12 @@ export default async function BookingPage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 p-4 sm:p-6">
-      <BookingWizard isAdmin={isAdmin} userId={user.id} venues={venues ?? []} />
+      <BookingWizard
+        isAdmin={isAdmin}
+        userId={user.id}
+        venues={venues ?? []}
+        defaultClientEmail={process.env.RESEND_REPLY_TO ?? ""}
+      />
     </div>
   );
 }

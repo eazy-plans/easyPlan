@@ -58,3 +58,16 @@ export function isValidPhone(phone: string): boolean {
   const digits = phone.replace(/[\s\-]/g, "");
   return /^0\d{8,9}$/.test(digits);
 }
+
+/**
+ * Parses "DD/MM/YYYY", rejecting overflow dates like 31/02/2026 that
+ * `new Date()` would otherwise silently roll into March.
+ */
+export function parseManualDate(value: string): Date | null {
+  const m = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const day = Number(m[1]), month = Number(m[2]), year = Number(m[3]);
+  const d = new Date(year, month - 1, day);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+  return d;
+}

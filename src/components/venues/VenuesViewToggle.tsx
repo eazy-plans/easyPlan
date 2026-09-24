@@ -25,7 +25,9 @@ import { Combobox } from "@/components/ui/combobox";
 import { StatChip } from "@/components/ui/stat-chip";
 import { VenuesTable } from "./VenuesTable";
 import { cn } from "@/lib/utils";
-import type { VenueRow, UserRow } from "@/types/database";
+import type { VenueRow, VenueImageRow, UserRow } from "@/types/database";
+
+type VenueWithImages = VenueRow & { images: VenueImageRow[] };
 
 const AMENITY_FILTERS = [
   { key: "hasElevator", label: "מעלית", icon: ArrowUpDown },
@@ -90,10 +92,11 @@ const VenueMap = dynamic(() => import("./VenueMap").then((m) => m.VenueMap), {
 });
 
 interface VenuesViewToggleProps {
-  venues: VenueRow[];
+  venues: VenueWithImages[];
   owners: Pick<UserRow, "id" | "full_name" | "email">[];
   isAdmin: boolean;
   isVenueOwner: boolean;
+  isSecretary?: boolean;
   /** Extra header controls (e.g. the add-venue button), rendered next to the toggle. */
   actions?: React.ReactNode;
 }
@@ -103,6 +106,7 @@ export function VenuesViewToggle({
   owners,
   isAdmin,
   isVenueOwner,
+  isSecretary,
   actions,
 }: VenuesViewToggleProps) {
   const [viewMode, setViewMode] = useState<"table" | "map">("table");
@@ -292,7 +296,7 @@ export function VenuesViewToggle({
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         {viewMode === "table" ? (
           <div className="flex-1 overflow-y-auto min-h-0">
-            <VenuesTable venues={filteredVenues} owners={owners} isAdmin={isAdmin} isVenueOwner={isVenueOwner} />
+            <VenuesTable venues={filteredVenues} owners={owners} isAdmin={isAdmin} isVenueOwner={isVenueOwner} isSecretary={isSecretary} />
           </div>
         ) : (
           <VenueMap venues={filteredVenues} canEditPins={isAdmin} />

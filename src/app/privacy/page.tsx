@@ -177,8 +177,8 @@ export default function PrivacyPolicyPage() {
 
           <Section id="contact" title="11. יצירת קשר בנושאי פרטיות">
             <p>
-              פניות בנושא מדיניות זו, לרבות בקשות לעיון, תיקון או מחיקת מידע אישי, ניתן להפנות אל:{" "}
-              <TodoFill>פרטי התקשרות לפניות פרטיות — כתובת דואר אלקטרוני ייעודית ו/או מספר טלפון ו/או כתובת למשלוח דואר</TodoFill>.
+              פניות בנושא מדיניות זו, לרבות בקשות לעיון, תיקון או מחיקת מידע אישי, ניתן להפנות אל כתובת הדואר האלקטרוני{" "}
+              <a href="mailto:ezpl2026@gmail.com" dir="ltr" className="text-primary hover:underline">ezpl2026@gmail.com</a>.
             </p>
           </Section>
 

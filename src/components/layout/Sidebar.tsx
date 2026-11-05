@@ -208,7 +208,6 @@ export function Sidebar({ role, fullName, notificationCount = 0 }: SidebarProps)
 
         <Link
           href="/privacy"
-          target="_blank"
           className="px-2 pt-2 text-xs text-white/50 hover:text-white/80 hover:underline"
           onClick={() => setMobileOpen(false)}
         >
@@ -246,7 +245,6 @@ export function Sidebar({ role, fullName, notificationCount = 0 }: SidebarProps)
 
         <Link
           href="/privacy"
-          target="_blank"
           className="px-2 pt-2 text-xs text-white/50 hover:text-white/80 hover:underline"
         >
           מדיניות פרטיות

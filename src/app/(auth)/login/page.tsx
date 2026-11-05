@@ -118,7 +118,7 @@ export default function LoginPage() {
               </Button>
             </form>
             <p className="text-center mt-4">
-              <Link href="/privacy" target="_blank" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+              <Link href="/privacy" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
                 מדיניות פרטיות
               </Link>
             </p>

@@ -19,7 +19,7 @@ export function PrivacyNotice({ text, className }: PrivacyNoticeProps) {
       <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
       <p>
         {text}{" "}
-        <Link href="/privacy" target="_blank" className="text-primary font-medium underline underline-offset-2 hover:no-underline">
+        <Link href="/privacy" className="text-primary font-medium underline underline-offset-2 hover:no-underline">
           למדיניות הפרטיות המלאה
         </Link>
       </p>

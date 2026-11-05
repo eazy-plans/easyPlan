@@ -21,6 +21,7 @@ import {
   updateVenueImagePrimary,
 } from "@/app/actions/venue-images";
 import { logAudit } from "@/lib/audit";
+import { PrivacyNotice } from "@/components/ui/privacy-notice";
 
 interface PendingFile {
   id: string;
@@ -419,6 +420,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
               {errors.contact_phone && <p className="text-xs text-destructive">{errors.contact_phone}</p>}
             </div>
           </div>
+          <PrivacyNotice text='שם וטלפון איש הקשר נשמרים לצורך תיאום מול האולם ומוצגים לצוות המערכת. הפרטים מאוחסנים בשירותי התשתית של המערכת.' />
         </div>
 
         <div className="space-y-4">

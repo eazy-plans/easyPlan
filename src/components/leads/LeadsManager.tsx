@@ -18,6 +18,10 @@ import { StatChip } from "@/components/ui/stat-chip";
 import { exportToExcel, type ExcelColumn } from "@/lib/export/excel";
 import { formatDate } from "@/lib/utils";
 import { logAudit } from "@/lib/audit";
+import { PrivacyNotice } from "@/components/ui/privacy-notice";
+
+const LEAD_PRIVACY_NOTICE_TEXT =
+  "הפרטים נשמרים כדי לתעד את הפנייה ולאפשר יצירת קשר בנוגע לאירוע. הפרטים עשויים להיות משותפים עם בעל/ת האולם הרלוונטי ועם ספקי התשתית והדוא\"ל של המערכת.";
 
 function leadInitials(name: string) {
   return name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "?";
@@ -406,6 +410,7 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
                   <Label>מייל</Label>
                   <Input type="email" dir="ltr" value={form.client_email} onChange={(e) => setF("client_email", e.target.value)} />
                 </div>
+                <PrivacyNotice text={LEAD_PRIVACY_NOTICE_TEXT} />
                 <div className="flex gap-3">
                   <Button type="submit" disabled={saving} className="flex-1">{saving ? "שומר..." : "שמור"}</Button>
                   <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>ביטול</Button>
@@ -552,6 +557,7 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
                     placeholder={REJECTION_STATUSES.includes(quickForm.status) ? "הסבר את סיבת הדחייה" : "הערות"}
                   />
                 </div>
+                <PrivacyNotice text={LEAD_PRIVACY_NOTICE_TEXT} />
                 <div className="flex gap-3">
                   <Button type="submit" disabled={quickSaving} className="flex-1">
                     {quickSaving ? "שומר..." : "שמור"}

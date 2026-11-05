@@ -36,7 +36,11 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { isValidPhone } from "@/lib/utils";
 import { logAudit } from "@/lib/audit";
+import { PrivacyNotice } from "@/components/ui/privacy-notice";
 import type { LeadRow, LeadInquiryStatus, EventRow, VenueRow, LeadPhoneRow } from "@/types/database";
+
+const LEAD_PRIVACY_NOTICE_TEXT =
+  "הפרטים נשמרים כדי לתעד את הפנייה ולאפשר יצירת קשר בנוגע לאירוע. הפרטים עשויים להיות משותפים עם בעל/ת האולם הרלוונטי ועם ספקי התשתית והדוא\"ל של המערכת.";
 import { EVENT_PURPOSE_LABELS } from "@/types/booking";
 import { INQUIRY_STATUS_LABELS, INQUIRY_STATUSES, INQUIRY_STATUS_VARIANT, REJECTION_STATUSES } from "@/types/leads";
 import { Phone, X } from "lucide-react";
@@ -387,6 +391,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
                         placeholder="לדוגמה: בן/בת זוג"
                       />
                     </div>
+                    <PrivacyNotice text={LEAD_PRIVACY_NOTICE_TEXT} />
                     <div className="flex gap-3">
                       <Button type="submit" disabled={savingPhone} className="flex-1">
                         {savingPhone ? "שומר..." : "שמור"}
@@ -763,6 +768,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
                   onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                 />
               </div>
+              <PrivacyNotice text={LEAD_PRIVACY_NOTICE_TEXT} />
               <div className="flex gap-3">
                 <Button type="submit" disabled={saving} className="flex-1">
                   {saving ? "שומר..." : "שמור"}

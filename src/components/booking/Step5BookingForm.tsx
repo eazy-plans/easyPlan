@@ -13,6 +13,7 @@ import { toHebrewDateShort } from "@/lib/hebrew-calendar";
 import { EVENT_TYPE_LABELS, EVENT_PURPOSE_LABELS, PRICE_KEY } from "@/types/booking";
 import type { EventType, EventPurpose, VenueRow } from "@/types/database";
 import { logAudit } from "@/lib/audit";
+import { PrivacyNotice } from "@/components/ui/privacy-notice";
 
 type ClientSuggestion = { client_name: string; client_phone: string | null; client_email: string | null };
 
@@ -447,6 +448,8 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, defa
                 )}
               </div>
             </div>
+
+            <PrivacyNotice text='הפרטים נשמרים לצורך תיאום ההזמנה ושליחת אישורים/תזכורות. הפרטים עשויים להיות משותפים עם בעל/ת האולם הנבחר ועם ספקי התשתית והדוא"ל של המערכת.' />
 
             <div className="space-y-1" dir="rtl">
               <Label>הערות</Label>

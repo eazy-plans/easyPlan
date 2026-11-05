@@ -41,7 +41,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes - always accessible
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/cron")) {
+  if (pathname.startsWith("/login") || pathname.startsWith("/api/cron") || pathname.startsWith("/privacy")) {
     // If user is already logged in and hits /login, redirect to their home
     if (user && pathname === "/login") {
       const { data: profile } = await supabase

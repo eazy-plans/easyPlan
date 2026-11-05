@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -116,6 +117,11 @@ export default function LoginPage() {
                 {loading ? "מתחבר..." : "התחבר"}
               </Button>
             </form>
+            <p className="text-center mt-4">
+              <Link href="/privacy" target="_blank" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+                מדיניות פרטיות
+              </Link>
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -30,6 +30,10 @@ import type { UserRole } from "@/types/database";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Users, ShieldCheck, Building2 } from "lucide-react";
 import { StatChip } from "@/components/ui/stat-chip";
+import { PrivacyNotice } from "@/components/ui/privacy-notice";
+
+const STAFF_PRIVACY_NOTICE_TEXT =
+  "השם והאימייל נשמרים לצורך ניהול הגישה למערכת ותיעוד פעולות (יומן ביקורת). הפרטים מאוחסנים בשירותי התשתית של המערכת ואינם משותפים לצדדים שלישיים מעבר לכך.";
 
 function userInitials(name: string) {
   return name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "?";
@@ -325,6 +329,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                 </div>
                 <p className="text-xs text-muted-foreground">העבר/י את הסיסמה למשתמש באופן ידני.</p>
               </div>
+              <PrivacyNotice text={STAFF_PRIVACY_NOTICE_TEXT} />
               <div className="flex gap-3 pt-2">
                 <Button type="submit" disabled={inviteLoading} className="flex-1">
                   {inviteLoading ? "יוצר..." : "צור משתמש"}

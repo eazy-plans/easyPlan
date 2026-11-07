@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getVenueImageSignedUrls } from "@/lib/supabase/venue-images";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,11 +21,6 @@ import { VenueDetailPreview } from "@/components/venues/VenueDetailPreview";
 
 type VenueWithImages = VenueRow & { images: VenueImageRow[] };
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-function getImageUrl(path: string) {
-  return `${SUPABASE_URL}/storage/v1/object/public/venue-images/${path}`;
-}
-
 interface StepSearchProps {
   userId: string;
   isAdmin?: boolean;
@@ -41,6 +37,7 @@ export function StepSearch({ userId, isAdmin, venues: allVenues, onSelect }: Ste
   const [eventType, setEventType]         = useState<EventType | null>(null);
   const [date, setDate]                   = useState<Date | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [signedUrls, setSignedUrls]       = useState<Record<string, string>>({});
 
   const [bookedSet, setBookedSet]         = useState<Set<string>>(new Set());
   const [pendingSet, setPendingSet]       = useState<Set<string>>(new Set());
@@ -58,6 +55,16 @@ export function StepSearch({ userId, isAdmin, venues: allVenues, onSelect }: Ste
     isAccessible: false,
     hasPublicTransport: false,
   });
+
+  useEffect(() => {
+    const paths = allVenues
+      .map((v) => v.images.find((i) => i.is_primary) ?? v.images[0])
+      .filter((img): img is VenueImageRow => !!img)
+      .map((img) => img.storage_path);
+    if (paths.length === 0) return;
+    getVenueImageSignedUrls(paths).then(setSignedUrls);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allVenues]);
 
   const fetchLocks = useCallback(async () => {
     const supabase = createClient();
@@ -618,8 +625,8 @@ export function StepSearch({ userId, isAdmin, venues: allVenues, onSelect }: Ste
                   onClick={() => onSelect(venue, date, eventType)}
                 >
                   <div className="w-20 h-20 rounded-lg bg-muted shrink-0 overflow-hidden flex items-center justify-center">
-                    {primaryImage ? (
-                      <Image src={getImageUrl(primaryImage.storage_path)} alt={venue.name} width={80} height={80} className="w-full h-full object-cover" />
+                    {primaryImage && signedUrls[primaryImage.storage_path] ? (
+                      <Image src={signedUrls[primaryImage.storage_path]} alt={venue.name} width={80} height={80} className="w-full h-full object-cover" />
                     ) : (
                       <Building2 size={28} className="text-muted-foreground" />
                     )}

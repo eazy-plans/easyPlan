@@ -1,18 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency } from "@/lib/utils";
+import { getVenueImageSignedUrls } from "@/lib/supabase/venue-images";
 import { Building2, ChevronLeft, ChevronRight } from "lucide-react";
 import type { VenueRow, VenueImageRow, EventType } from "@/types/database";
 import { EVENT_TYPE_LABELS } from "@/types/booking";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-function getImageUrl(path: string) {
-  return `${SUPABASE_URL}/storage/v1/object/public/venue-images/${path}`;
-}
 
 const PRICE_KEYS: { key: keyof VenueRow; label: string }[] = [
   { key: "price_morning", label: "בוקר" },
@@ -43,15 +39,25 @@ interface VenueDetailPreviewProps {
 // StepSearch, and the read-only "פרטים ותמונות" tab on the venue page.
 export function VenueDetailPreview({ venue, images, eventType, isAdmin }: VenueDetailPreviewProps) {
   const [imgIdx, setImgIdx] = useState(0);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const paths = images.map((i) => i.storage_path);
+    if (paths.length === 0) return;
+    getVenueImageSignedUrls(paths).then(setSignedUrls);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images]);
+
+  const currentUrl = signedUrls[images[imgIdx]?.storage_path ?? ""];
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Right column: gallery + header + description */}
       <div className="lg:w-[380px] shrink-0 space-y-4">
-        {images.length > 0 ? (
+        {images.length > 0 && currentUrl ? (
           <div className="relative rounded-xl overflow-hidden h-52 bg-muted">
             <img
-              src={getImageUrl(images[imgIdx].storage_path)}
+              src={currentUrl}
               alt={venue.name}
               className="w-full h-full object-cover"
             />

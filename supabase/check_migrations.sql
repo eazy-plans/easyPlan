@@ -95,6 +95,10 @@ from (values
   ('032_lead_inquiries_chronological',
     exists (select 1 from col where table_name = 'lead_inquiries' and column_name = 'source')),
   ('033_audit_log',
-    to_regclass('public.audit_log') is not null)
+    to_regclass('public.audit_log') is not null),
+  ('034_private_venue_images',
+    coalesce((select public = false from storage.buckets where id = 'venue-images'), false)
+    and exists (select 1 from pg_policies where schemaname = 'storage'
+                and tablename = 'objects' and policyname = 'venue_images_storage_select'))
 ) as m(migration, applied)
 order by migration;

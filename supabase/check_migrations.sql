@@ -29,7 +29,7 @@ from (values
   ('005_lead_status_extra_values',
     exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
             where t.typname = 'lead_status' and e.enumlabel = 'too_expensive')),
-  ('006_secure_signup_role',
+  ('006_secure_signup_role (see 035 - "exists" alone can't tell the body apart from 001''s)',
     exists (select 1 from pg_proc where proname = 'handle_new_user')),
   ('007_enforce_event_pricing',
     exists (select 1 from pg_trigger where tgname = 'events_pricing_check')),
@@ -95,6 +95,8 @@ from (values
   ('032_lead_inquiries_chronological',
     exists (select 1 from col where table_name = 'lead_inquiries' and column_name = 'source')),
   ('033_audit_log',
-    to_regclass('public.audit_log') is not null)
+    to_regclass('public.audit_log') is not null),
+  ('035_reapply_signup_role_from_app_metadata',
+    pg_get_functiondef('handle_new_user'::regproc) like '%raw_app_meta_data%')
 ) as m(migration, applied)
 order by migration;

@@ -107,6 +107,10 @@ from (values
   ('034_private_venue_images',
     coalesce((select public = false from storage.buckets where id = 'venue-images'), false)
     and exists (select 1 from pg_policies where schemaname = 'storage'
-                and tablename = 'objects' and policyname = 'venue_images_storage_select'))
+                and tablename = 'objects' and policyname = 'venue_images_storage_select')),
+  ('035_fix_current_user_role_overload',
+    not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where p.proname = 'current_user_role' and n.nspname = 'public'
+                and p.pronargs <> 0))
 ) as m(migration, applied)
 order by migration;

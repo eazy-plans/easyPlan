@@ -7,6 +7,12 @@
 -- cancellation_policy_type enum). 013 counts as applied if either the old
 -- enum still exists (023 not yet run) or the new free-text column exists
 -- (023 ran, which requires 013 to have run first).
+--
+-- Note on 003 vs 034: 034 makes the venue-images bucket private and drops
+-- 003's "public read venue images" policy, replacing it with scoped ones.
+-- 003 counts as applied if either the old public-read policy still exists
+-- (034 not yet run) or the new scoped select policy exists (034 ran, which
+-- requires 003 to have run first).
 
 with col as (
   select table_name, column_name, is_nullable
@@ -20,9 +26,11 @@ from (values
     to_regclass('public.events') is not null),
   ('002_grants',
     has_table_privilege('authenticated', 'public.users', 'SELECT')),
-  ('003_storage_venue_images',
+  ('003_storage_venue_images (superseded by 034)',
     exists (select 1 from pg_policies where schemaname = 'storage'
-            and policyname = 'public read venue images')),
+            and policyname = 'public read venue images')
+    or exists (select 1 from pg_policies where schemaname = 'storage'
+               and policyname = 'venue_images_storage_select')),
   ('004_leads_secretary_access',
     exists (select 1 from pg_policies where schemaname = 'public'
             and tablename = 'leads' and policyname = 'leads_admin_secretary')),
@@ -96,7 +104,15 @@ from (values
     exists (select 1 from col where table_name = 'lead_inquiries' and column_name = 'source')),
   ('033_audit_log',
     to_regclass('public.audit_log') is not null),
+  ('034_private_venue_images',
+    coalesce((select public = false from storage.buckets where id = 'venue-images'), false)
+    and exists (select 1 from pg_policies where schemaname = 'storage'
+                and tablename = 'objects' and policyname = 'venue_images_storage_select')),
   ('035_reapply_signup_role_from_app_metadata',
-    pg_get_functiondef('handle_new_user'::regproc) like '%raw_app_meta_data%')
+    pg_get_functiondef('handle_new_user'::regproc) like '%raw_app_meta_data%'),
+  ('036_fix_current_user_role_overload',
+    not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where p.proname = 'current_user_role' and n.nspname = 'public'
+                and p.pronargs <> 0))
 ) as m(migration, applied)
 order by migration;

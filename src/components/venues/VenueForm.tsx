@@ -20,6 +20,7 @@ import {
   deleteVenueImage,
   updateVenueImagePrimary,
 } from "@/app/actions/venue-images";
+import { getVenueImageSignedUrls } from "@/lib/supabase/venue-images";
 import { logAudit } from "@/lib/audit";
 import { PrivacyNotice } from "@/components/ui/privacy-notice";
 
@@ -85,6 +86,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Snapshot of the primary image id as loaded, so submit only calls the
   // sync-primary action when the user actually changed it - not on every
@@ -115,9 +117,13 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
     originalPrimaryIdRef.current = data?.find((i) => i.is_primary)?.id ?? null;
   }
 
-  function getUrl(path: string) {
-    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/venue-images/${path}`;
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const paths = existingImages.filter((i) => !deletedIds.has(i.id)).map((i) => i.storage_path);
+    if (paths.length === 0) return;
+    getVenueImageSignedUrls(paths).then((urls) => setSignedUrls((prev) => ({ ...prev, ...urls })));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingImages, deletedIds]);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -334,7 +340,7 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
   const visibleExisting = existingImages.filter((i) => !deletedIds.has(i.id));
 
   const allLightboxUrls = [
-    ...visibleExisting.map(img => getUrl(img.storage_path)),
+    ...visibleExisting.map(img => signedUrls[img.storage_path] ?? ""),
     ...pendingFiles.map(p => p.previewUrl),
   ];
 
@@ -649,12 +655,14 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
                 onClick={() => { setLightboxIdx(idx); setZoom(1); }}
               >
                 <div className="aspect-video relative">
-                  <Image
-                    src={getUrl(img.storage_path)}
-                    alt="תמונת אולם"
-                    fill
-                    className="object-cover"
-                  />
+                  {signedUrls[img.storage_path] && (
+                    <Image
+                      src={signedUrls[img.storage_path]}
+                      alt="תמונת אולם"
+                      fill
+                      className="object-cover"
+                    />
+                  )}
                 </div>
                 {img.is_primary && (
                   <span className="absolute top-1 right-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-sm">

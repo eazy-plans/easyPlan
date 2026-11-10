@@ -19,13 +19,10 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
+        // Matches any Supabase project's storage host so dev/preview/production
+        // can each point at their own project without a code change.
         protocol: "https",
-        hostname: "vepsvgwidjbnohzecwso.supabase.co",
-        pathname: "/storage/v1/object/**",
-      },
-      {
-        protocol: "https",
-        hostname: "jqgxstijmpiaddwwlfgx.supabase.co",
+        hostname: "*.supabase.co",
         pathname: "/storage/v1/object/**",
       },
     ],

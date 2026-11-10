@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { logAudit } from "@/lib/audit";
+import { recordLoginFailure } from "@/app/actions/auth-security";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,10 +32,13 @@ export default function LoginPage() {
     });
 
     if (authError) {
+      recordLoginFailure(email);
       setError("מייל או סיסמה שגויים");
       setLoading(false);
       return;
     }
+
+    logAudit(supabase, data.user.id, "auth.login_success", "user", data.user.id);
 
     // Fetch role to redirect correctly
     const { data: profile } = await supabase

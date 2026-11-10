@@ -60,6 +60,8 @@ const ACTION_LABELS: Record<string, string> = {
   "lead.phone_delete": "מחיקת טלפון מליד",
   "lead_inquiry.create": "יצירת פנייה",
   "lead_inquiry.delete": "מחיקת פנייה",
+  "auth.login_success": "התחברות למערכת",
+  "auth.login_failed": "כשל התחברות",
 };
 
 function actionLabel(action: string) {

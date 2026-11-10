@@ -1,13 +1,16 @@
 "use server";
 
+import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 
 const BUCKET = "venue-images";
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8MB
-const ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "webp", "gif", "avif"]);
+const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5MB
+const ALLOWED_FORMATS = new Set(["jpeg", "png", "webp"]);
+const REJECTED_FILE_MESSAGE =
+  "הקובץ שנבחר אינו תמונה תקינה. ניתן להעלות קבצי JPEG, PNG או WEBP בלבד, עד 5MB";
 
 /**
  * Ensures the caller is signed in and may manage images for `venueId`
@@ -51,18 +54,31 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
   const actorId = await authorizeVenueAccess(venueId);
 
   if (!(file instanceof File)) throw new Error("לא נבחר קובץ");
-  if (file.size === 0 || file.size > MAX_FILE_BYTES) throw new Error("הקובץ גדול מדי (מקסימום 8MB)");
-  if (!file.type.startsWith("image/")) throw new Error("ניתן להעלות קבצי תמונה בלבד");
+  if (file.size === 0 || file.size > MAX_FILE_BYTES) throw new Error("הקובץ גדול מדי (מקסימום 5MB)");
 
-  const rawExt = (file.name.split(".").pop() ?? "").toLowerCase();
-  const ext = ALLOWED_EXT.has(rawExt) ? rawExt : "jpg";
-  const path = `${venueId}/${crypto.randomUUID()}.${ext}`;
+  // Never trust the extension or the browser-supplied content type: decode
+  // the actual bytes and re-encode to one fixed format. This is what rejects
+  // disguised/mislabeled files (e.g. an .svg or .html renamed to .jpg), and
+  // re-encoding drops all EXIF/GPS metadata from the original.
+  const inputBuffer = Buffer.from(await file.arrayBuffer());
+  let outputBuffer: Buffer;
+  try {
+    const detected = await sharp(inputBuffer).metadata();
+    if (!detected.format || !ALLOWED_FORMATS.has(detected.format)) {
+      throw new Error(REJECTED_FILE_MESSAGE);
+    }
+    outputBuffer = await sharp(inputBuffer).rotate().webp({ quality: 82 }).toBuffer();
+  } catch {
+    throw new Error(REJECTED_FILE_MESSAGE);
+  }
+
+  const path = `${venueId}/${crypto.randomUUID()}.webp`;
 
   const supabase = createAdminClient();
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { contentType: file.type });
+    .upload(path, outputBuffer, { contentType: "image/webp" });
 
   if (uploadError) throw new Error(uploadError.message);
 

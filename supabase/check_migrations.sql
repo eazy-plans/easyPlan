@@ -113,6 +113,10 @@ from (values
   ('036_fix_current_user_role_overload',
     not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                 where p.proname = 'current_user_role' and n.nspname = 'public'
-                and p.pronargs <> 0))
+                and p.pronargs <> 0)),
+  ('037_venue_images_bucket_restrictions',
+    coalesce((select file_size_limit = 5 * 1024 * 1024
+              and allowed_mime_types = array['image/webp']
+              from storage.buckets where id = 'venue-images'), false))
 ) as m(migration, applied)
 order by migration;

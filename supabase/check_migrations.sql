@@ -37,7 +37,7 @@ from (values
   ('005_lead_status_extra_values',
     exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
             where t.typname = 'lead_status' and e.enumlabel = 'too_expensive')),
-  ('006_secure_signup_role (see 035 - "exists" alone can't tell the body apart from 001''s)',
+  ('006_secure_signup_role (see 035 - "exists" alone can''t tell the body apart from 001''s)',
     exists (select 1 from pg_proc where proname = 'handle_new_user')),
   ('007_enforce_event_pricing',
     exists (select 1 from pg_trigger where tgname = 'events_pricing_check')),

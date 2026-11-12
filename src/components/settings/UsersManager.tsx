@@ -100,12 +100,10 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [editForm, setEditForm] = useState({ full_name: "", role: "secretary" as UserRole });
   const [editLoading, setEditLoading] = useState(false);
-  // Visible by default: this form is already admin-only, and the hint below
-  // tells the admin to relay the password manually - masking it just adds a click.
-  const [showPassword, setShowPassword] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [accessLoading, setAccessLoading] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(true);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const stats = useMemo(() => ({
     admins: users.filter((u) => u.role === "admin").length,
@@ -128,7 +126,13 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
   function openEdit(u: UserRow) {
     setEditForm({ full_name: u.full_name, role: u.role });
     setNewPassword("");
+    setShowNewPassword(false);
     setEditUser(u);
+  }
+
+  function closeEdit() {
+    setEditUser(null);
+    setNewPassword("");
   }
 
   async function handleEdit(e: React.FormEvent) {
@@ -201,7 +205,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
       </div>
 
       {/* Edit dialog */}
-      <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
+      <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) closeEdit(); }}>
         <DialogContent dir="rtl">
           <DialogHeader>
             <DialogTitle>עריכת משתמש</DialogTitle>
@@ -244,6 +248,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                   onChange={(e) => setNewPassword(e.target.value)}
                   minLength={8}
                   placeholder="לפחות 8 תווים"
+                  autoComplete="new-password"
                   className="pr-9"
                 />
                 <button
@@ -251,6 +256,8 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   onClick={() => setShowNewPassword((v) => !v)}
                   tabIndex={-1}
+                  aria-label={showNewPassword ? "הסתר סיסמה" : "הצג סיסמה"}
+                  aria-pressed={showNewPassword}
                 >
                   {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -261,7 +268,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
               <Button type="submit" disabled={editLoading} className="flex-1">
                 {editLoading ? "שומר..." : "שמור שינויים"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => setEditUser(null)}>ביטול</Button>
+              <Button type="button" variant="outline" onClick={closeEdit}>ביטול</Button>
             </div>
           </form>
           </DialogBody>
@@ -271,7 +278,17 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
       {/* Toolbar */}
       <div className="flex justify-between items-center">
         <p className="text-sm text-muted-foreground">{users.length} משתמשים</p>
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <Dialog
+          open={inviteOpen}
+          onOpenChange={(open) => {
+            setInviteOpen(open);
+            if (open) {
+              setShowPassword(false);
+            } else {
+              setInviteForm((f) => ({ ...f, password: "" }));
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button>הוסף משתמש</Button>
           </DialogTrigger>
@@ -320,6 +337,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                     required
                     minLength={8}
                     placeholder="לפחות 8 תווים"
+                    autoComplete="new-password"
                     className="pl-9"
                   />
                   <button
@@ -327,6 +345,8 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                     className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowPassword((v) => !v)}
                     tabIndex={-1}
+                    aria-label={showPassword ? "הסתר סיסמה" : "הצג סיסמה"}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -338,7 +358,16 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                 <Button type="submit" disabled={inviteLoading} className="flex-1">
                   {inviteLoading ? "יוצר..." : "צור משתמש"}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>ביטול</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setInviteOpen(false);
+                    setInviteForm((f) => ({ ...f, password: "" }));
+                  }}
+                >
+                  ביטול
+                </Button>
               </div>
             </form>
             </DialogBody>

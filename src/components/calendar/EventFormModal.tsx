@@ -160,7 +160,8 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
       if (error.message.includes("events_slot_unique") || error.message.includes("full_day")) {
         toast.error("התאריך והחלון הזמן כבר תפוסים");
       } else {
-        toast.error("שגיאה בשמירת האירוע: " + error.message);
+        console.error("EventFormModal: save failed:", error);
+        toast.error("שגיאה בשמירת האירוע, נסו שוב");
       }
       return;
     }

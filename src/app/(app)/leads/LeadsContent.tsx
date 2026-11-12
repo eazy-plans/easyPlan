@@ -30,7 +30,10 @@ export async function LeadsContent({ initialSearch }: { initialSearch?: string }
   const [{ data: leads, error }, { data: inquiries }, { data: orders }] = await Promise.all([
     leadsPromise, inquiriesPromise, ordersPromise,
   ]);
-  if (error) throw new Error(`Failed to load leads: ${error.message}`);
+  if (error) {
+    console.error("Failed to load leads:", error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
+  }
 
   const timelineEntries: TimelineEntry[] = [
     ...(inquiries ?? []).map((i) => ({

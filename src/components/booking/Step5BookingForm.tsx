@@ -211,7 +211,8 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, defa
       if (error.message.includes("events_slot_unique") || error.message.includes("full_day")) {
         toast.error("התאריך כבר נתפס בינתיים");
       } else {
-        toast.error("שגיאה בשמירת האירוע: " + error.message);
+        console.error("Step5BookingForm: save failed:", error);
+        toast.error("שגיאה בשמירת האירוע, נסו שוב");
       }
       return;
     }

@@ -190,7 +190,8 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
         try {
           await uploadVenueImage(fd);
         } catch (err: unknown) {
-          toast.error("שגיאה בהעלאת תמונה: " + (err instanceof Error ? err.message : String(err)));
+          console.error("VenueForm: image upload failed:", err);
+          toast.error("שגיאה בהעלאת תמונה, נסו שוב");
         }
       })
     );
@@ -302,7 +303,8 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
         .single();
       if (insertError || !inserted) {
         setLoading(false);
-        toast.error("שגיאה בשמירת האולם: " + (insertError?.message ?? ""));
+        console.error("VenueForm: insert failed:", insertError);
+        toast.error("שגיאה בשמירת האולם, נסו שוב");
         return;
       }
       venueId = inserted.id;
@@ -310,7 +312,8 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
 
     if (error) {
       setLoading(false);
-      toast.error("שגיאה בשמירת האולם: " + error.message);
+      console.error("VenueForm: update failed:", error);
+      toast.error("שגיאה בשמירת האולם, נסו שוב");
       return;
     }
 

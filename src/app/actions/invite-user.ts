@@ -37,7 +37,10 @@ export async function inviteUser(email: string, full_name: string, role: UserRol
     app_metadata: { role },
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("inviteUser: createUser failed:", error);
+    return { error: "יצירת המשתמש נכשלה, נסו שוב" };
+  }
 
   logAudit(adminClient, user.id, "user.create", "user", data.user.id, { email: finalEmail, full_name, role });
 

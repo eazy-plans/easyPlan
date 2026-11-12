@@ -17,7 +17,10 @@ export async function EventsContent() {
     const { data: myVenues, error: venuesError } = await supabase.from("venues")
       .select("id")
       .eq("owner_user_id", user.id);
-    if (venuesError) throw new Error(`Failed to load venues: ${venuesError.message}`);
+    if (venuesError) {
+      console.error("Failed to load venues:", venuesError);
+      throw new Error("לא ניתן לטעון את הנתונים כרגע");
+    }
     const ids = (myVenues ?? []).map((v: { id: string }) => v.id);
     if (ids.length === 0) {
       return <p className="text-muted-foreground">אין אולמות ברשותך.</p>;
@@ -26,7 +29,10 @@ export async function EventsContent() {
   }
 
   const { data: events, error } = await query;
-  if (error) throw new Error(`Failed to load events: ${error.message}`);
+  if (error) {
+    console.error("Failed to load events:", error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
+  }
 
   return <EventsTable events={events ?? []} role={role} userId={user.id} />;
 }

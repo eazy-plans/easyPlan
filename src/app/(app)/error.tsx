@@ -14,7 +14,12 @@ export default function AppError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    // Full error details (including any message that slipped through from a
+    // server throw) stay in the dev console only - production users and the
+    // browser's prod console only ever see the generic text below plus digest.
+    if (process.env.NODE_ENV !== "production") {
+      console.error(error);
+    }
   }, [error]);
 
   return (
@@ -25,6 +30,9 @@ export default function AppError({
         <p className="text-sm text-muted-foreground mt-1">
           אירעה שגיאה בטעינת הנתונים. נסו שוב, ואם הבעיה חוזרת פנו למנהל המערכת.
         </p>
+        {error.digest && (
+          <p className="text-xs text-muted-foreground mt-2">קוד שגיאה: {error.digest}</p>
+        )}
       </div>
       <Button onClick={reset}>נסה שוב</Button>
     </div>

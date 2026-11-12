@@ -23,7 +23,10 @@ export async function resetUserPassword(userId: string, password: string) {
   );
 
   const { error } = await adminClient.auth.admin.updateUserById(userId, { password });
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("resetUserPassword: updateUserById failed:", error);
+    return { error: "איפוס הסיסמה נכשל, נסו שוב" };
+  }
 
   const { data: targetUser } = await adminClient.from("users").select("full_name").eq("id", userId).maybeSingle();
   logAudit(adminClient, user.id, "user.reset_password", "user", userId, {

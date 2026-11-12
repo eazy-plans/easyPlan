@@ -80,7 +80,10 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
     .from(BUCKET)
     .upload(path, outputBuffer, { contentType: "image/webp" });
 
-  if (uploadError) throw new Error(uploadError.message);
+  if (uploadError) {
+    console.error("uploadVenueImage: storage upload failed:", uploadError);
+    throw new Error("העלאת התמונה נכשלה, נסו שוב");
+  }
 
   const { error: dbError } = await supabase.from("venue_images").insert({
     venue_id: venueId,
@@ -88,7 +91,10 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
     is_primary: isPrimary,
   });
 
-  if (dbError) throw new Error(dbError.message);
+  if (dbError) {
+    console.error("uploadVenueImage: insert failed:", dbError);
+    throw new Error("העלאת התמונה נכשלה, נסו שוב");
+  }
 
   logAudit(supabase, actorId, "venue.image_upload", "venue", venueId, { venue: await getVenueName(supabase, venueId), path });
 

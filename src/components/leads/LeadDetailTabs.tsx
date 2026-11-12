@@ -244,7 +244,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
 
       if (error) {
         console.error("Insert error:", error);
-        toast.error(`שגיאה בהוספת פנייה: ${error.message}`);
+        toast.error("שגיאה בהוספת פנייה, נסו שוב");
         setSavingInquiry(false);
         return;
       }

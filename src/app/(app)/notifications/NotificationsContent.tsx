@@ -50,15 +50,18 @@ export async function NotificationsContent() {
   // not been applied yet. Degrade to a banner so venue approvals stay usable.
   const migrationMissing = pendingCancelRes.error?.code === "42703";
   if (pendingCancelRes.error && !migrationMissing) {
-    throw new Error(`Failed to load cancellation requests: ${pendingCancelRes.error.message}`);
+    console.error("Failed to load cancellation requests:", pendingCancelRes.error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
   }
   if (recentCancelledRes.error) {
-    throw new Error(`Failed to load recent cancellations: ${recentCancelledRes.error.message}`);
+    console.error("Failed to load recent cancellations:", recentCancelledRes.error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
   }
   // Same degrade-to-banner treatment for migration 032 (lead_inquiries.source).
   const quickInquiriesMigrationMissing = quickInquiriesRes.error?.code === "42703";
   if (quickInquiriesRes.error && !quickInquiriesMigrationMissing) {
-    throw new Error(`Failed to load quick inquiries: ${quickInquiriesRes.error.message}`);
+    console.error("Failed to load quick inquiries:", quickInquiriesRes.error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
   }
 
   const pendingCancellations = pendingCancelRes.data ?? [];

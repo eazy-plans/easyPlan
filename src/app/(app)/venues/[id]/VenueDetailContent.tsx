@@ -31,13 +31,26 @@ export async function VenueDetailContent({ id }: { id: string }) {
   // maybeSingle: zero rows is a genuine 404 (null data), anything else
   // (RLS, network) is an error and must not masquerade as "venue not found".
   if (venueRes.error) {
-    throw new Error(`Failed to load venue: ${venueRes.error.message}`);
+    console.error("Failed to load venue:", venueRes.error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
   }
   if (!venueRes.data) notFound();
-  if (ownersRes.error) throw new Error(`Failed to load owners: ${ownersRes.error.message}`);
-  if (imagesRes.error) throw new Error(`Failed to load images: ${imagesRes.error.message}`);
-  if (eventsRes.error) throw new Error(`Failed to load events: ${eventsRes.error.message}`);
-  if (allTimeRes.error) throw new Error(`Failed to count events: ${allTimeRes.error.message}`);
+  if (ownersRes.error) {
+    console.error("Failed to load owners:", ownersRes.error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
+  }
+  if (imagesRes.error) {
+    console.error("Failed to load images:", imagesRes.error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
+  }
+  if (eventsRes.error) {
+    console.error("Failed to load events:", eventsRes.error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
+  }
+  if (allTimeRes.error) {
+    console.error("Failed to count events:", allTimeRes.error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
+  }
 
   return (
     <VenueDetailTabs

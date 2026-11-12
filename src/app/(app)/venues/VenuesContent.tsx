@@ -6,6 +6,35 @@ import { getUserProfile } from "@/lib/supabase/queries";
 
 type VenueWithImages = VenueRow & { images: VenueImageRow[] };
 
+// Secretaries only ever see approved venues belonging to other owners (read-only),
+// so rejection_reason, approved_by/at and contact_phone are left off - they're
+// never displayed and secretaries have no business reason to see them.
+const SECRETARY_VENUE_COLUMNS =
+  "id, name, address, city, neighborhood, max_capacity, price_morning, price_evening, " +
+  "price_full_day, price_shabbat, description_short, description_long, parking_info, " +
+  "public_transport_info, hours_morning_start, hours_morning_end, hours_evening_start, " +
+  "hours_evening_end, hours_full_start, hours_full_end, hours_shabbat_start, hours_shabbat_end, " +
+  "has_elevator, has_parking, is_accessible, has_public_transport, is_active, contact_name, " +
+  "cancellation_policy, approval_status, lat, lng, coords_approximate";
+
+// Venue owners only ever see their own venues (query below filters by owner_user_id),
+// so rejection_reason and contact_phone are fine to include. This list excludes only
+// approved_by/approved_at/created_at, which are admin-internal audit fields the owner's
+// screens never read. NOTE: VenueForm does a full-row overwrite on save, so every column
+// it reads into form state must stay in this list - trimming further will silently wipe
+// those fields the next time an owner saves an edit.
+const VENUE_OWNER_VENUE_COLUMNS =
+  "id, name, address, city, neighborhood, max_capacity, owner_user_id, contact_name, " +
+  "contact_phone, description_short, description_long, parking_info, public_transport_info, " +
+  "has_elevator, has_parking, is_accessible, has_public_transport, price_morning, price_evening, " +
+  "price_full_day, price_shabbat, hours_morning_start, hours_morning_end, hours_evening_start, " +
+  "hours_evening_end, hours_full_start, hours_full_end, hours_shabbat_start, hours_shabbat_end, " +
+  "is_active, cancellation_policy, approval_status, rejection_reason, lat, lng, coords_approximate";
+
+// venue_images has no sensitive columns, but venue_id/created_at aren't used by the
+// preview gallery - keep the non-admin select as narrow as the venues one above.
+const RESTRICTED_VENUE_IMAGE_COLUMNS = "id, storage_path, is_primary";
+
 export async function VenuesContent() {
   const { supabase, user, profile } = await getUserProfile();
   const isAdmin = profile.role === "admin";
@@ -13,9 +42,22 @@ export async function VenuesContent() {
 
   // Secretaries can't reach the admin-only /venues/[id] management page, so
   // they need images up front for the read-only preview modal (see VenuesTable).
+  //
+  // Column list is scoped per role - admins get the full row, secretary/venue_owner
+  // get only the columns their screens actually read (see constants above). This is
+  // a UI-layer reduction, not enforcement: RLS on `venues` is row-level only, so a
+  // direct query from the browser can still request any column RLS lets the row
+  // through for. Real enforcement would need a column-scoped view or RPC.
+  const venueColumns = isAdmin
+    ? "*"
+    : profile.role === "venue_owner"
+      ? VENUE_OWNER_VENUE_COLUMNS
+      : SECRETARY_VENUE_COLUMNS;
+  const imageColumns = isAdmin ? "*" : RESTRICTED_VENUE_IMAGE_COLUMNS;
+
   let venueQuery = supabase
     .from("venues")
-    .select("*, images:venue_images(*)")
+    .select(`${venueColumns}, images:venue_images(${imageColumns})`)
     .order("name", { ascending: true });
 
   if (profile.role === "venue_owner") {

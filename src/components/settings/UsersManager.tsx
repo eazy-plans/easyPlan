@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { inviteUser } from "@/app/actions/invite-user";
-import { setUserAccess } from "@/app/actions/user-access";
+import { setUserAccess, notifyRoleChange } from "@/app/actions/user-access";
 import { resetUserPassword } from "@/app/actions/reset-password";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -151,6 +151,10 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
       full_name: { from: editUser.full_name, to: editForm.full_name },
       role: { from: editUser.role, to: editForm.role },
     });
+
+    if (editForm.role !== editUser.role) {
+      notifyRoleChange(editUser.id, editUser.role, editForm.role);
+    }
 
     if (newPassword.trim()) {
       const result = await resetUserPassword(editUser.id, newPassword.trim());

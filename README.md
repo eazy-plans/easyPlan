@@ -43,6 +43,7 @@ own Resend key.
 | `RESEND_API_KEY` | Resend dashboard | No - separate key or sandbox mode per env |
 | `RESEND_FROM_EMAIL` / `RESEND_REPLY_TO` | Your domain / inbox | Can differ per env |
 | `CRON_SECRET` | Generate yourself (e.g. `openssl rand -hex 32`) | No - separate per env |
+| `SECURITY_ALERT_EMAIL` | Mailbox that should receive security alerts | Can differ per env - point dev/preview at a test inbox |
 
 ### Setting up a dev/test environment
 

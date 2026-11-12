@@ -151,7 +151,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
       return;
     }
 
-    logAudit(supabase, currentUserId, "user.update", "user", editUser.id, {
+    logAudit(supabase, "user.update", "user", editUser.id, {
       full_name: { from: editUser.full_name, to: editForm.full_name },
       role: { from: editUser.role, to: editForm.role },
     });

@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   // Use admin client for email logs and other admin-only operations
   const admin = createAdminClient();
 
-  logAudit(admin, user.id, "event.cancel", "event", eventId, {
+  logAudit(supabase, "event.cancel", "event", eventId, {
     client_name: event.client_name, venue: venue.name,
     reason: cancellationReason ?? null,
   });

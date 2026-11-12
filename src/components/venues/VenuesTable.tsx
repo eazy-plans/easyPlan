@@ -134,8 +134,7 @@ export function VenuesTable({ venues, owners, isAdmin = false, isVenueOwner = fa
       }
       return;
     }
-    const { data: { user: actor } } = await supabase.auth.getUser();
-    logAudit(supabase, actor?.id ?? null, "venue.delete", "venue", venue.id, { name: venue.name });
+    logAudit(supabase, "venue.delete", "venue", venue.id, { name: venue.name });
     toast.success(`האולם "${venue.name}" נמחק`);
     router.refresh();
   }

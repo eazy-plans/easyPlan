@@ -209,6 +209,7 @@ export type LeadPhoneRow = {
 export type AuditLogRow = {
   id: string;
   actor_id: string | null;
+  actor_type: "user" | "system";
   action: string;
   entity_type: string;
   entity_id: string | null;
@@ -485,6 +486,7 @@ export type Database = {
         Insert: {
           id?: string;
           actor_id?: string | null;
+          actor_type?: "user" | "system";
           action: string;
           entity_type: string;
           entity_id?: string | null;

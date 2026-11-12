@@ -58,8 +58,7 @@ export function PendingVenuesPanel() {
         .eq("id", venueId);
 
       if (error) throw error;
-      const { data: { user } } = await supabase.auth.getUser();
-      logAudit(supabase, user?.id ?? null, "venue.approve", "venue", venueId, {
+      logAudit(supabase, "venue.approve", "venue", venueId, {
         name: venues.find((v) => v.id === venueId)?.name ?? venueId,
         approval_status: { from: "pending", to: "approved" },
       });
@@ -84,8 +83,7 @@ export function PendingVenuesPanel() {
         .eq("id", venueId);
 
       if (error) throw error;
-      const { data: { user } } = await supabase.auth.getUser();
-      logAudit(supabase, user?.id ?? null, "venue.reject", "venue", venueId, {
+      logAudit(supabase, "venue.reject", "venue", venueId, {
         name: venues.find((v) => v.id === venueId)?.name ?? venueId,
         approval_status: { from: "pending", to: "rejected" },
       });

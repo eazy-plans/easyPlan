@@ -117,6 +117,11 @@ from (values
   ('037_venue_images_bucket_restrictions',
     coalesce((select file_size_limit = 5 * 1024 * 1024
               and allowed_mime_types = array['image/webp']
-              from storage.buckets where id = 'venue-images'), false))
+              from storage.buckets where id = 'venue-images'), false)),
+  ('038_log_audit_event_function',
+    exists (select 1 from pg_proc where proname = 'log_audit_event')
+    and not exists (select 1 from information_schema.role_table_grants
+                    where table_schema = 'public' and table_name = 'audit_log'
+                    and grantee = 'authenticated' and privilege_type = 'INSERT'))
 ) as m(migration, applied)
 order by migration;

@@ -153,7 +153,6 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
 
     setSaving(false);
     if (error) { toast.error("שגיאה בשמירת שינויים"); return; }
-    const { data: { user: savedByUser } } = await supabase.auth.getUser();
     const newPhone = editForm.client_phone || null;
     const newEmail = editForm.client_email || null;
     const newNotes = editForm.notes || null;
@@ -163,7 +162,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     if ((lead.client_phone ?? null) !== newPhone) changes.client_phone = { from: lead.client_phone, to: newPhone };
     if ((lead.client_email ?? null) !== newEmail) changes.client_email = { from: lead.client_email, to: newEmail };
     if ((lead.notes ?? null) !== newNotes) changes.notes = { from: lead.notes, to: newNotes };
-    logAudit(supabase, savedByUser?.id ?? null, "lead.update", "lead", lead.id, changes);
+    logAudit(supabase, "lead.update", "lead", lead.id, changes);
     setLead({
       ...lead,
       client_name: editForm.client_name,
@@ -193,8 +192,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
       toast.error(error.code === "23505" ? "מספר זה כבר קיים עבור הליד" : "שגיאה בהוספת טלפון");
       return;
     }
-    const { data: { user: addedByUser } } = await supabase.auth.getUser();
-    logAudit(supabase, addedByUser?.id ?? null, "lead.phone_add", "lead", lead.id, { lead: lead.client_name, phone: data.phone });
+    logAudit(supabase, "lead.phone_add", "lead", lead.id, { lead: lead.client_name, phone: data.phone });
     setPhones((prev) => [...prev, data]);
     setPhoneForm({ phone: "", label: "" });
     setPhoneFormError("");
@@ -209,8 +207,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     const { error } = await supabase.from("lead_phones").delete().eq("id", phoneId);
     setDeletingPhoneId(null);
     if (error) { toast.error("שגיאה במחיקת הטלפון"); return; }
-    const { data: { user } } = await supabase.auth.getUser();
-    logAudit(supabase, user?.id ?? null, "lead.phone_delete", "lead", lead.id, { lead: lead.client_name, phone: phone?.phone ?? null });
+    logAudit(supabase, "lead.phone_delete", "lead", lead.id, { lead: lead.client_name, phone: phone?.phone ?? null });
     setPhones((prev) => prev.filter((p) => p.id !== phoneId));
   }
 
@@ -256,8 +253,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
           venue: venue ? { id: venue.id, name: venue.name } : null,
         };
         setInquiries((prev) => [inquiryWithVenue, ...prev]);
-        const { data: { user } } = await supabase.auth.getUser();
-        logAudit(supabase, user?.id ?? null, "lead_inquiry.create", "lead_inquiry", newData.id, {
+        logAudit(supabase, "lead_inquiry.create", "lead_inquiry", newData.id, {
           lead: lead.client_name, venue: venue?.name ?? newData.venue_id,
         });
       }
@@ -280,8 +276,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     const { error } = await supabase.from("lead_inquiries").delete().eq("id", inquiryId);
     setDeletingId(null);
     if (error) { toast.error("שגיאה במחיקת הפנייה"); return; }
-    const { data: { user } } = await supabase.auth.getUser();
-    logAudit(supabase, user?.id ?? null, "lead_inquiry.delete", "lead_inquiry", inquiryId, { lead: lead.client_name });
+    logAudit(supabase, "lead_inquiry.delete", "lead_inquiry", inquiryId, { lead: lead.client_name });
     setInquiries((prev) => prev.filter((i) => i.id !== inquiryId));
     toast.success("הפנייה נמחקה");
     router.refresh();
@@ -293,8 +288,7 @@ export function LeadDetailTabs({ lead: initialLead, inquiries: initialInquiries,
     const { error } = await supabase.from("events").delete().eq("id", eventId);
     setDeletingId(null);
     if (error) { toast.error("שגיאה במחיקת ההזמנה"); return; }
-    const { data: { user } } = await supabase.auth.getUser();
-    logAudit(supabase, user?.id ?? null, "event.delete", "event", eventId, { lead: lead.client_name });
+    logAudit(supabase, "event.delete", "event", eventId, { lead: lead.client_name });
     setEvents((prev) => prev.filter((e) => e.id !== eventId));
     toast.success("ההזמנה נמחקה");
     router.refresh();

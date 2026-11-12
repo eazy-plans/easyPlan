@@ -110,7 +110,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
       .eq("id", event.id);
     setLoading(false);
     if (error) { toast.error("שגיאה בעדכון בקשת הביטול"); return; }
-    logAudit(supabase, userId || null, value ? "event.request_cancellation" : "event.undo_cancellation_request", "event", event.id, {
+    logAudit(supabase, value ? "event.request_cancellation" : "event.undo_cancellation_request", "event", event.id, {
       client_name: event.client_name, venue: event.venue?.name ?? event.venue_id,
       cancellation_requested_at: { from: event.cancellation_requested_at, to: value },
     });
@@ -130,7 +130,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
       toast.error("שגיאה במחיקת האירוע");
       return;
     }
-    logAudit(supabase, userId || null, "event.delete", "event", event.id, {
+    logAudit(supabase, "event.delete", "event", event.id, {
       client_name: event.client_name, date: event.date, venue: event.venue?.name ?? event.venue_id,
     });
     toast.success("האירוע נמחק");
@@ -175,7 +175,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin, canCancel, use
       toast.error("שגיאה ביצירת ליד");
       return;
     }
-    logAudit(supabase, userId || null, "lead.create", "lead", data.id, {
+    logAudit(supabase, "lead.create", "lead", data.id, {
       client_name: event.client_name, client_phone: event.client_phone,
     });
     // Add venue interest

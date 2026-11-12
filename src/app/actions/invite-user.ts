@@ -42,7 +42,7 @@ export async function inviteUser(email: string, full_name: string, role: UserRol
     return { error: "יצירת המשתמש נכשלה, נסו שוב" };
   }
 
-  logAudit(adminClient, user.id, "user.create", "user", data.user.id, { email: finalEmail, full_name, role });
+  logAudit(supabase, "user.create", "user", data.user.id, { email: finalEmail, full_name, role });
 
   return { ok: true, email: finalEmail };
 }

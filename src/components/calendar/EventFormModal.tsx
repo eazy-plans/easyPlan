@@ -177,17 +177,17 @@ export function EventFormModal({ open, onClose, date, venueId, userId, isAdmin, 
       if (event.date !== newDate) changes.date = { from: event.date, to: newDate };
       if (Number(event.price_final) !== payload.price_final) changes.price_final = { from: event.price_final, to: payload.price_final };
       if ((event.notes ?? null) !== payload.notes) changes.notes = { from: event.notes, to: payload.notes };
-      logAudit(supabase, userId || null, "event.update", "event", event.id, changes);
+      logAudit(supabase, "event.update", "event", event.id, changes);
     } else if (newEventId) {
       const { data } = await supabase.from("venues").select("name").eq("id", venueId).maybeSingle();
       venueRow = data;
-      logAudit(supabase, userId || null, "event.create", "event", newEventId, {
+      logAudit(supabase, "event.create", "event", newEventId, {
         client_name: payload.client_name, date: toLocalDateStr(selectedDate), venue: venueRow?.name ?? venueId,
       });
     }
 
     if (replacedEventId) {
-      logAudit(supabase, userId || null, "event.replace", "event", replacedEventId, {
+      logAudit(supabase, "event.replace", "event", replacedEventId, {
         venue: venueRow?.name ?? venueId, replaced_by_client: payload.client_name,
       });
       fetch("/api/events/notify", {

@@ -178,7 +178,7 @@ export async function setVenueCoords(venueId: string, lat: number, lng: number):
   // RLS silently updates zero rows when the caller may not edit this venue.
   if (!data?.length) throw new Error("Not allowed to move this venue's pin");
 
-  logAudit(supabase, user.id, "venue.update_coords", "venue", venueId, {
+  logAudit(supabase, "venue.update_coords", "venue", venueId, {
     venue: previous?.name ?? venueId,
     lat: { from: previous?.lat ?? null, to: lat },
     lng: { from: previous?.lng ?? null, to: lng },

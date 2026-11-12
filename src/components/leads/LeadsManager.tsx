@@ -168,8 +168,7 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
       toast.error("שגיאה בשמירת ליד");
       return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
-    logAudit(supabase, user?.id ?? null, "lead.create", "lead", data.id, {
+    logAudit(supabase, "lead.create", "lead", data.id, {
       client_name: data.client_name, client_phone: data.client_phone,
     });
     setLeads((prev) => [data, ...prev]);
@@ -245,9 +244,8 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
       setLeads((prev) => [created, ...prev]);
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
     if (!reused) {
-      logAudit(supabase, user?.id ?? null, "lead.create", "lead", leadId, {
+      logAudit(supabase, "lead.create", "lead", leadId, {
         client_name: quickForm.client_name, client_phone: quickForm.client_phone || null,
       });
     }
@@ -280,7 +278,7 @@ export function LeadsManager({ leads: initialLeads, initialSearch = "" }: LeadsM
       toast.error("הליד נשמר אך הוספת הפנייה נכשלה");
       return;
     }
-    logAudit(supabase, user?.id ?? null, "lead_inquiry.create", "lead_inquiry", inquiryData?.id ?? null, {
+    logAudit(supabase, "lead_inquiry.create", "lead_inquiry", inquiryData?.id ?? null, {
       lead: quickForm.client_name,
       venue: venues.find((v) => v.id === quickForm.venue_id)?.name ?? quickForm.venue_id,
       source: "quick",

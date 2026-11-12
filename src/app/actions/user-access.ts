@@ -50,7 +50,7 @@ export async function setUserAccess(userId: string, blocked: boolean) {
   }
 
   const { data: targetUser } = await adminClient.from("users").select("full_name, email").eq("id", userId).maybeSingle();
-  logAudit(adminClient, user.id, blocked ? "user.block" : "user.unblock", "user", userId, {
+  logAudit(supabase, blocked ? "user.block" : "user.unblock", "user", userId, {
     full_name: targetUser?.full_name ?? userId,
   });
 

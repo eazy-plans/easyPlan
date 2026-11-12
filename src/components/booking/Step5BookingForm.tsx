@@ -225,11 +225,11 @@ export function Step5BookingForm({ venue, date, eventType, isAdmin, userId, defa
     const eventId = result.event_id;
     const replacedEventId = result.replaced_event_id;
 
-    logAudit(supabase, userId || null, "event.create", "event", eventId, {
+    logAudit(supabase, "event.create", "event", eventId, {
       client_name: form.client_name, date: toLocalDateStr(date), venue: venue.name,
     });
     if (replacedEventId) {
-      logAudit(supabase, userId || null, "event.replace", "event", replacedEventId, {
+      logAudit(supabase, "event.replace", "event", replacedEventId, {
         venue: venue.name, replaced_by_client: form.client_name,
       });
     }

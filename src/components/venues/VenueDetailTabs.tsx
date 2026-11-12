@@ -66,8 +66,7 @@ export function VenueDetailTabs({ venue, owners, images, events, allTimeCount, u
       }
       return;
     }
-    const { data: { user: actor } } = await supabase.auth.getUser();
-    logAudit(supabase, actor?.id ?? null, "venue.delete", "venue", venue.id, { name: venue.name });
+    logAudit(supabase, "venue.delete", "venue", venue.id, { name: venue.name });
     toast.success(`האולם "${venue.name}" נמחק`);
     router.push("/venues");
     router.refresh();

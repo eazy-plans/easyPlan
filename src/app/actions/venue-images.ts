@@ -23,7 +23,11 @@ async function getVenueName(supabase: ReturnType<typeof createAdminClient>, venu
   return data?.name ?? venueId;
 }
 
-async function authorizeVenueAccess(venueId: string): Promise<string> {
+// Returns the caller's own session-bound client (not just their id) so audit
+// log calls downstream can run as that user - log_audit_event() (038) reads
+// the actor from auth.uid(), which only resolves on this client, not on the
+// service-role client used for the storage/DB writes below.
+async function authorizeVenueAccess(venueId: string): Promise<Awaited<ReturnType<typeof createServerClient>>> {
   if (!venueId) throw new Error("חסר מזהה אולם");
 
   const supabase = await createServerClient();
@@ -35,7 +39,7 @@ async function authorizeVenueAccess(venueId: string): Promise<string> {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role === "admin") return user.id;
+  if (profile?.role === "admin") return supabase;
 
   const { data: venue } = await supabase.from("venues")
     .select("owner_user_id")
@@ -43,7 +47,7 @@ async function authorizeVenueAccess(venueId: string): Promise<string> {
     .single();
 
   if (!venue || venue.owner_user_id !== user.id) throw new Error("אין הרשאה לבצע פעולה זו");
-  return user.id;
+  return supabase;
 }
 
 export async function uploadVenueImage(formData: FormData): Promise<string> {
@@ -51,7 +55,7 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
   const venueId = formData.get("venueId") as string;
   const isPrimary = formData.get("isPrimary") === "true";
 
-  const actorId = await authorizeVenueAccess(venueId);
+  const sessionClient = await authorizeVenueAccess(venueId);
 
   if (!(file instanceof File)) throw new Error("לא נבחר קובץ");
   if (file.size === 0 || file.size > MAX_FILE_BYTES) throw new Error("הקובץ גדול מדי (מקסימום 5MB)");
@@ -96,7 +100,7 @@ export async function uploadVenueImage(formData: FormData): Promise<string> {
     throw new Error("העלאת התמונה נכשלה, נסו שוב");
   }
 
-  logAudit(supabase, actorId, "venue.image_upload", "venue", venueId, { venue: await getVenueName(supabase, venueId), path });
+  logAudit(sessionClient, "venue.image_upload", "venue", venueId, { venue: await getVenueName(supabase, venueId), path });
 
   return path;
 }
@@ -106,7 +110,7 @@ export async function deleteVenueImage(
   wasprimary: boolean,
   venueId: string
 ): Promise<void> {
-  const actorId = await authorizeVenueAccess(venueId);
+  const sessionClient = await authorizeVenueAccess(venueId);
 
   const supabase = createAdminClient();
 
@@ -122,7 +126,7 @@ export async function deleteVenueImage(
   await supabase.storage.from(BUCKET).remove([image.storage_path]);
   await supabase.from("venue_images").delete().eq("id", imageId);
 
-  logAudit(supabase, actorId, "venue.image_delete", "venue", venueId, { venue: await getVenueName(supabase, venueId), path: image.storage_path });
+  logAudit(sessionClient, "venue.image_delete", "venue", venueId, { venue: await getVenueName(supabase, venueId), path: image.storage_path });
 
   if (wasprimary) {
     const { data } = await supabase.from("venue_images")
@@ -143,7 +147,7 @@ export async function updateVenueImagePrimary(
   venueId: string,
   primaryId: string
 ): Promise<void> {
-  const actorId = await authorizeVenueAccess(venueId);
+  const sessionClient = await authorizeVenueAccess(venueId);
 
   const supabase = createAdminClient();
   const { data: previousPrimary } = await supabase.from("venue_images")
@@ -160,7 +164,7 @@ export async function updateVenueImagePrimary(
     .eq("id", primaryId)
     .eq("venue_id", venueId);
 
-  logAudit(supabase, actorId, "venue.image_set_primary", "venue", venueId, {
+  logAudit(sessionClient, "venue.image_set_primary", "venue", venueId, {
     venue: await getVenueName(supabase, venueId),
     image_id: { from: previousPrimary?.id ?? null, to: primaryId },
   });

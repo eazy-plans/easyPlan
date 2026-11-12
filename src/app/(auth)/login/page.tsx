@@ -38,7 +38,7 @@ export default function LoginPage() {
       return;
     }
 
-    logAudit(supabase, data.user.id, "auth.login_success", "user", data.user.id);
+    logAudit(supabase, "auth.login_success", "user", data.user.id);
 
     // Fetch role to redirect correctly
     const { data: profile } = await supabase

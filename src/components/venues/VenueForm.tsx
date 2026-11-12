@@ -319,14 +319,10 @@ export function VenueForm({ venue, owners, onSuccess, isAdmin = false, initialIm
 
     await processImages(venueId);
 
-    // Audit logging is best-effort and must never block the save - resolve
-    // the actor id in the background instead of awaiting it here.
-    supabase.auth.getUser().then(({ data: { user: actor } }) => {
-      const nameDiff = isEdit && venue.name !== form.name
-        ? { name: { from: venue.name, to: form.name } }
-        : { name: form.name };
-      logAudit(supabase, actor?.id ?? null, isEdit ? "venue.update" : "venue.create", "venue", venueId, nameDiff);
-    });
+    const nameDiff = isEdit && venue.name !== form.name
+      ? { name: { from: venue.name, to: form.name } }
+      : { name: form.name };
+    logAudit(supabase, isEdit ? "venue.update" : "venue.create", "venue", venueId, nameDiff);
 
     setLoading(false);
     toast.success(isEdit ? "האולם עודכן בהצלחה" : "האולם נוסף בהצלחה");

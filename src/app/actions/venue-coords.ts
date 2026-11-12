@@ -171,7 +171,10 @@ export async function setVenueCoords(venueId: string, lat: number, lng: number):
     .update({ lat, lng, coords_approximate: false })
     .eq("id", venueId)
     .select("id");
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("setVenueCoords: update failed:", error);
+    throw new Error("שמירת מיקום האולם נכשלה");
+  }
   // RLS silently updates zero rows when the caller may not edit this venue.
   if (!data?.length) throw new Error("Not allowed to move this venue's pin");
 

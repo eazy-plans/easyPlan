@@ -21,7 +21,10 @@ export async function DashboardContent({
       .select("id")
       .eq("owner_user_id", userId)
       .eq("is_active", true);
-    if (ownerVenuesError) throw new Error(`Failed to load venues: ${ownerVenuesError.message}`);
+    if (ownerVenuesError) {
+      console.error("Failed to load venues:", ownerVenuesError);
+      throw new Error("לא ניתן לטעון את הנתונים כרגע");
+    }
     ownerVenueIds = (ownerVenues ?? []).map((v: { id: string }) => v.id);
   }
 
@@ -52,7 +55,10 @@ export async function DashboardContent({
   ]);
 
   for (const [label, res] of [["events", eventsRes], ["leads", leadsRes], ["venues", venuesRes], ["inquiries", inquiriesRes]] as const) {
-    if (res.error) throw new Error(`Failed to load ${label}: ${res.error.message}`);
+    if (res.error) {
+      console.error(`Failed to load ${label}:`, res.error);
+      throw new Error("לא ניתן לטעון את הנתונים כרגע");
+    }
   }
   const { data: events } = eventsRes;
   const { data: leads } = leadsRes;

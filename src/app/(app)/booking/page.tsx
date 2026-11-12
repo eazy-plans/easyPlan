@@ -16,7 +16,10 @@ export default async function BookingPage() {
     .select("*, images:venue_images(*)")
     .eq("is_active", true)
     .order("name") as { data: (VenueRow & { images: VenueImageRow[] })[] | null; error: { message: string } | null };
-  if (error) throw new Error(`Failed to load venues: ${error.message}`);
+  if (error) {
+    console.error("Failed to load venues:", error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
+  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0 p-4 sm:p-6">

@@ -68,7 +68,10 @@ export async function POST(request: Request) {
     })
     .eq("id", eventId);
 
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  if (updateErr) {
+    console.error(`Cancel: event update failed for ${eventId}:`, updateErr);
+    return NextResponse.json({ error: "ביטול האירוע נכשל, נסו שוב" }, { status: 500 });
+  }
 
   // Use admin client for email logs and other admin-only operations
   const admin = createAdminClient();

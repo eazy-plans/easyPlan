@@ -13,7 +13,8 @@ export async function AuditLogContent() {
   // yet. Degrade to a banner rather than a hard error.
   const migrationMissing = error?.code === "42P01";
   if (error && !migrationMissing) {
-    throw new Error(`Failed to load audit log: ${error.message}`);
+    console.error("Failed to load audit log:", error);
+    throw new Error("לא ניתן לטעון את הנתונים כרגע");
   }
 
   return <AuditLogViewer entries={data ?? []} migrationMissing={migrationMissing} />;

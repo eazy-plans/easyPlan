@@ -40,10 +40,8 @@ export function PendingVenuesPanel() {
       if (error) throw error;
       setVenues(data ?? []);
     } catch (err) {
-      const message = err instanceof Error ? err.message :
-                      (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
-                      'שגיאה לא ידועה';
-      toast.error("שגיאה בטעינת אולמות: " + message);
+      console.error("PendingVenuesPanel: load failed:", err);
+      toast.error("שגיאה בטעינת אולמות, נסו שוב");
     } finally {
       setLoading(false);
     }
@@ -69,10 +67,8 @@ export function PendingVenuesPanel() {
       setSelectedVenue(null);
       await loadPendingVenues();
     } catch (err) {
-      const message = err instanceof Error ? err.message :
-                      (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
-                      'שגיאה לא ידועה';
-      toast.error("שגיאה באישור האולם: " + message);
+      console.error("PendingVenuesPanel: approve failed:", err);
+      toast.error("שגיאה באישור האולם, נסו שוב");
     } finally {
       setActionLoading(false);
     }
@@ -97,10 +93,8 @@ export function PendingVenuesPanel() {
       setSelectedVenue(null);
       await loadPendingVenues();
     } catch (err) {
-      const message = err instanceof Error ? err.message :
-                      (typeof err === 'object' && err !== null && 'message' in err) ? String((err as { message: unknown }).message) :
-                      'שגיאה לא ידועה';
-      toast.error("שגיאה בדחיית האולם: " + message);
+      console.error("PendingVenuesPanel: reject failed:", err);
+      toast.error("שגיאה בדחיית האולם, נסו שוב");
     } finally {
       setActionLoading(false);
     }

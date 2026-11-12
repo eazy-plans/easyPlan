@@ -44,7 +44,10 @@ export async function setUserAccess(userId: string, blocked: boolean) {
     ban_duration: blocked ? BLOCK_DURATION : "none",
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("setUserAccess: updateUserById failed:", error);
+    return { error: "פעולת החסימה נכשלה, נסו שוב" };
+  }
 
   const { data: targetUser } = await adminClient.from("users").select("full_name, email").eq("id", userId).maybeSingle();
   logAudit(adminClient, user.id, blocked ? "user.block" : "user.unblock", "user", userId, {

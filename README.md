@@ -70,6 +70,43 @@ own Resend key.
    variables separately - Preview should point at the dev Supabase project,
    Production at the production one. Never let the same key pair serve both.
 
+## Install scripts are disabled
+
+This repo sets `ignore-scripts=true` in `.npmrc`. `npm install` / `npm ci` will
+not run any package's `preinstall`, `install`, or `postinstall` script, for
+the developer or in the hosting platform's build. This blocks the class of
+supply-chain attack where a compromised dependency runs arbitrary code at
+install time with access to local/CI environment variables and secrets (as
+seen in the 2025 "Shai-Hulud" npm worm incidents).
+
+Two dependencies in this project are affected, and neither needs a script:
+
+- **`sharp`** - as of the version pinned here, `sharp` itself ships no
+  install script. Its native image-processing binary comes from a
+  platform-specific `optionalDependency` (e.g. `@img/sharp-win32-x64`,
+  `@img/sharp-linux-x64`), which npm installs normally - `optionalDependencies`
+  are unaffected by `ignore-scripts`. Verified working after a clean
+  `npm ci`: `sharp` loads, and the rotate+webp conversion used by venue image
+  upload (`src/app/actions/venue-images.ts`) succeeds.
+- **`fsevents`** - an optional, macOS-only transitive dependency (native file
+  watcher) with `os: ["darwin"]`. It is never installed on Windows/Linux (including
+  this project's Vercel build, which runs on Linux), so its install script
+  never runs here regardless of this setting.
+
+**If a future dependency requires an install script to function**, do not
+remove or weaken `ignore-scripts`. Instead:
+
+1. Read the script itself (check the package's `package.json` `scripts.install`
+   / `scripts.postinstall` and the referenced file) to see exactly what it does.
+2. If it's legitimate (e.g. compiling a native binary from a well-known,
+   reputable package) and there's no script-free alternative, run it manually
+   and scoped to that one package: `npm rebuild <package-name>`.
+3. Document what you approved and why, the same way this section documents
+   `sharp` and `fsevents`.
+
+Never run a bare `npm install` without reviewing a new dependency's install
+script first just because a build is failing.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

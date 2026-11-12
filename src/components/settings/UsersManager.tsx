@@ -331,18 +331,17 @@ export function UsersManager({ users: initialUsers, currentUserId }: UsersManage
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
-                    dir="ltr"
                     value={inviteForm.password}
                     onChange={(e) => setInviteForm((f) => ({ ...f, password: e.target.value }))}
                     required
                     minLength={8}
                     placeholder="לפחות 8 תווים"
                     autoComplete="new-password"
-                    className="pl-9"
+                    className="pr-9"
                   />
                   <button
                     type="button"
-                    className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowPassword((v) => !v)}
                     tabIndex={-1}
                     aria-label={showPassword ? "הסתר סיסמה" : "הצג סיסמה"}
